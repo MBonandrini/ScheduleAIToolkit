@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="pc-core-version" content="3.0.0">
+<meta name="combined-suite-tool" content="drawing">
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantity & Schedule Intelligence</title>
+
+<script src="../../assets/js/theme.js?v=20260820-1632"></script>
+<link rel="stylesheet" href="../../assets/css/shared.css?v=20260820-1632">
+<link rel="stylesheet" href="./style.css?v=20260820-1632">
+<link rel="stylesheet" href="../../assets/css/theme.css?v=20260820-1632">
+</head>
+
+<body>
+
+<div class="app">
+
+<header class="topbar">
+
+    <div class="brand">
+
+        <div class="brand-icon"><svg class="arc-reactor-mark" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20"></circle><path d="M11.5 16.5h25L24 37z"></path><path d="M18 21h12l-6 10z"></path></svg></div>
+
+        <div class="brand-title">
+            Quantity & Schedule Intelligence
+        </div>
+
+        <div class="brand-subtitle">
+            Take-off · BOQ · Schedule Allocation
+        </div>
+
+    </div>
+
+    <div class="header-actions">
+
+        <span id="saveStatus" class="save-status">
+            Not saved
+        </span>
+
+        <div class="engine-status">
+
+            <span
+                id="engineDot"
+                class="engine-dot loading"
+            ></span>
+
+            <span id="engineStatus">
+                Checking your device...
+            </span>
+
+        </div>
+
+    </div>
+
+</header>
+
+<aside class="sidebar">
+
+    <div class="sidebar-top">
+
+        <button
+            class="project-button"
+            onclick="newProject()"
+        >
+            ＋ New project
+        </button>
+
+        <div class="project-name-box">
+
+            <div class="project-name-label">
+                Project
+            </div>
+
+            <input
+                id="projectNameInput"
+                class="project-name-input"
+                value="Untitled project"
+                placeholder="Project name"
+                onchange="setProjectName(this.value)"
+            >
+
+        </div>
+
+    </div>
+
+    <div class="sidebar-scroll">
+
+        <div class="sidebar-heading">
+
+            <span>Project documents</span>
+
+            <span id="sourceCount">
+                0
+            </span>
+
+        </div>
+
+        <div
+            id="folderList"
+            class="folder-list"
+        >
+        </div>
+
+        <div class="weekly-section" style="display:none">
+
+            <div class="weekly-header">
+
+                <div class="sidebar-heading" style="margin:0">
+                    <span>Weekly reports</span>
+                </div>
+
+                <button
+                    onclick="addWeeklyFolder()"
+                    title="Add weekly report folder"
+                >
+                    ＋ Week
+                </button>
+
+            </div>
+
+            <div id="weeklyFolders"></div>
+
+        </div>
+
+        <div
+            id="uploadZone"
+            class="upload-zone"
+            ondragover="handleDragOver(event)"
+            ondragleave="handleDragLeave(event)"
+            ondrop="handleDrop(event)"
+        >
+
+            <div class="upload-icon">
+                ↑
+            </div>
+
+            <div class="upload-title">
+                Add project files
+            </div>
+
+            <div class="upload-description">
+                Upload contract, scope, schedule, BOQ, drawings and cable schedules. Files remain local in this browser.
+            </div>
+
+            <label class="upload-button">
+
+                + Upload files
+
+                <input
+                    id="fileInput"
+                    type="file"
+                    multiple
+                    accept=".txt,.md,.csv,.json,.html,.pdf,.docx,.xlsx,.xls,.xml,.xer"
+                    onchange="handleFiles(this.files)"
+                >
+
+            </label>
+
+        </div>
+
+    </div>
+
+    <div class="sidebar-footer">
+
+        <strong>
+            Local-first contract management
+        </strong>
+
+        Documents, project information and conversations
+        are stored locally in this browser.
+
+        <br><br>
+
+        The AI analyses the information you provide and
+        helps identify contractual actions, risks, notices,
+        entitlement questions and evidence gaps.
+
+    </div>
+
+</aside>
+
+<main class="main">
+
+    <div class="workspace-header">
+
+        <div>
+
+            <div
+                id="projectTitle"
+                class="notebook-title"
+            >
+                Untitled project
+            </div>
+
+            <div
+                id="projectMeta"
+                class="notebook-meta"
+            >
+                Select a contract information folder or upload documents
+            </div>
+
+        </div>
+
+        <div class="workspace-controls">
+
+            <select id="measurementMode" class="model-select" title="Choose allocation method" onchange="scheduleAutoSave()" style="min-width:155px">
+                <option value="norm">Norm per discipline</option>
+                <option value="specific">Specific measurement</option>
+            </select>
+            <select id="aiAssistMode" class="model-select" title="AI take-off assistance" style="min-width:115px">
+                <option value="assist" selected>AI Assist</option>
+                <option value="off">AI Off</option>
+                <option value="auto">AI Auto</option>
+            </select>
+
+            <select id="modelSelect" class="model-select ai-model-select" title="Choose the AI route used by the assistant" data-ai-model-select="true"></select>
+
+            <button
+                class="workspace-button"
+                onclick="analyseContract()"
+            >
+                ✦ Analyse take-off
+            </button>
+
+            <button class="workspace-button" onclick="openTakeoffWorkspace()">▦ Take-off</button>
+            <button class="workspace-button" onclick="exportExcelXML()">↓ Export XML</button>
+            <button class="workspace-button primary" onclick="saveCurrentProject()">Save</button>
+
+        </div>
+
+    </div>
+
+    <div id="chat" class="chat">
+
+        <div id="welcome" class="welcome">
+
+            <div class="welcome-logo"><svg class="arc-reactor-mark" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20"></circle><path d="M11.5 16.5h25L24 37z"></path><path d="M18 21h12l-6 10z"></path></svg></div>
+
+            <h1>
+                Quantity take-off intelligence
+            </h1>
+
+            <p>
+                Upload any available project documents. The assistant helps classify measured quantities, compare them with the BOQ, map quantities to schedule activities and review labour norms. AI suggestions never replace auditable measurements.
+            </p>
+
+            <div class="suggestions">
+
+                <button
+                    class="suggestion"
+                    onclick="useSuggestion(this)"
+                >
+                    Review the current project information and
+                    identify the most important contractual issues.
+                </button>
+
+                <button
+                    class="suggestion"
+                    onclick="useSuggestion(this)"
+                >
+                    Identify potential contractual notices that
+                    should be considered based on the evidence.
+                </button>
+
+                <button
+                    class="suggestion"
+                    onclick="useSuggestion(this)"
+                >
+                    Review programme and correspondence information
+                    for delay, disruption and extension-of-time issues.
+                </button>
+
+                <button
+                    class="suggestion"
+                    onclick="useSuggestion(this)"
+                >
+                    What should we do now to protect the contractual
+                    position and preserve our entitlement?
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="composer-wrapper">
+
+        <div class="composer">
+
+            <textarea
+                id="messageInput"
+                rows="1"
+                placeholder="Ask about quantities, drawings, BOQ variances, norms or schedule allocation..."
+                oninput="autoResize(this);updateSendButton()"
+                onkeydown="handleKeyDown(event)"
+            ></textarea>
+
+            <div class="composer-actions">
+
+                <div class="composer-left">
+
+                    <button
+                        class="composer-tool"
+                        onclick="document.getElementById('fileInput').click()"
+                    >
+                        ＋ Source
+                    </button>
+
+                    <button
+                        class="composer-tool"
+                        onclick="analyseContract()"
+                    >
+                        ✦ Analyse
+                    </button>
+
+                    <button
+                        class="composer-tool"
+                        onclick="clearChat()"
+                    >
+                        Clear
+                    </button>
+
+                </div>
+
+                <button
+                    id="sendButton"
+                    class="send"
+                    onclick="sendMessage()"
+                    disabled
+                >
+                    ↑
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</main>
+
+<aside class="right-panel">
+
+    <div class="right-header">
+
+        <div class="right-title">
+            Take-off recommendations
+        </div>
+
+        <div class="right-subtitle">
+            AI-assisted checks based on the uploaded project information and current take-off register.
+        </div>
+
+    </div>
+
+    <div
+        id="recommendationList"
+        class="recommendation-list"
+    >
+
+        <div class="empty-right">
+
+            Upload project information and run an analysis.
+
+            <br><br>
+
+            Recommended notices, issues, risks, schedule
+            analysis and delay reviews will appear here.
+
+        </div>
+
+    </div>
+
+</aside>
+
+</div>
+
+<div
+    id="documentModal"
+    class="modal-backdrop"
+>
+
+    <div class="modal">
+
+        <div class="modal-header">
+
+            <div class="modal-title">
+
+                <h2 id="modalTitle">
+                    Recommended document
+                </h2>
+
+                <p id="modalSubtitle">
+                    AI-generated contractual document
+                </p>
+
+            </div>
+
+            <button
+                class="modal-close"
+                onclick="closeDocumentModal()"
+            >
+                ×
+            </button>
+
+        </div>
+
+        <div
+            id="modalContent"
+            class="modal-content"
+        >
+        </div>
+
+        <div class="modal-footer">
+
+            <button
+                class="modal-button"
+                onclick="closeDocumentModal()"
+            >
+                Close
+            </button>
+
+            <button
+                class="modal-button"
+                onclick="downloadCurrentDocument()"
+            >
+                ↓ Download
+            </button>
+
+            <button
+                class="modal-button primary"
+                onclick="saveCurrentDocument()"
+            >
+                Save to project
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div id="takeoffModal" class="modal-backdrop">
+ <div class="modal" style="width:min(1200px,98vw)">
+  <div class="modal-header"><div class="modal-title"><h2>Take-off & Schedule Allocation</h2><p>Auditable measurement register · BOQ comparison · activity allocation</p></div><button class="modal-close" onclick="closeTakeoffWorkspace()">×</button></div>
+  <div class="modal-content">
+   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <button class="workspace-button primary" onclick="addMeasurementRow()">+ Measurement</button>
+    <button class="workspace-button" onclick="aiAssistTakeoff()">✦ AI assist</button>
+    <button class="workspace-button" onclick="addNormRow()">+ Norm</button>
+    <button class="workspace-button" onclick="exportExcelXML()">↓ Excel XML</button>
+   </div>
+   <div style="overflow:auto;max-height:52vh"><table id="takeoffTable" style="width:100%;border-collapse:collapse;font-size:9px"></table></div>
+   <h3 style="margin-top:18px">Norm library</h3>
+   <div style="overflow:auto;max-height:20vh"><table id="normTable" style="width:100%;border-collapse:collapse;font-size:9px"></table></div>
+  </div>
+  <div class="modal-footer"><button class="modal-button" onclick="closeTakeoffWorkspace()">Close</button><button class="modal-button primary" onclick="saveCurrentProject();closeTakeoffWorkspace()">Save</button></div>
+ </div>
+</div>
+
+<script src="../../assets/js/ai-options.js?v=20260820-1632"></script>
+<script type="module" src="./app.js?v=20260820-1632"></script>
+<script src="./cleanup.js?v=20260820-1632"></script>
+</body>
+</html>

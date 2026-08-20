@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Project Controls AI Suite — Shared Core</title>
+
+<script src="./assets/js/theme.js?v=20260820-1632"></script>
+<link rel="stylesheet" href="./assets/css/shell.css?v=20260820-1632">
+</head>
+<body data-build-version="20260820-1611">
+<nav class="suite-nav" role="tablist">
+  <div class="brand"><span class="logo"><svg class="arc-reactor-mark" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20"></circle><path d="M11.5 16.5h25L24 37z"></path><path d="M18 21h12l-6 10z"></path></svg></span><span>Project Controls AI Suite</span></div>
+  <button class="suite-tab active" data-tool="contracts" role="tab" aria-selected="true"><span class="tab-icon">▤</span>Contract Manager</button>
+<button class="suite-tab" data-tool="drawing" role="tab" aria-selected="false"><span class="tab-icon">⌁</span>Drawing Measurement</button>
+<button class="suite-tab" data-tool="assessment" role="tab" aria-selected="false"><span class="tab-icon">◇</span>Schedule Assessment</button>
+<button class="suite-tab" data-tool="risk" role="tab" aria-selected="false"><span class="tab-icon">△</span>Risk Analysis</button>
+<button class="suite-tab" data-tool="claims" role="tab" aria-selected="false"><span class="tab-icon">⌕</span>Claims &amp; Forensics</button>
+<button class="suite-tab" data-tool="builder" role="tab" aria-selected="false"><span class="tab-icon">⌘</span>Schedule Builder</button>
+  <button class="theme-shell-toggle" id="shellThemeToggle" data-theme-toggle type="button" aria-label="Switch to dark mode"></button>
+  <button class="ai-settings-button" id="aiSettingsButton" type="button">AI Settings</button>
+  <div class="status" id="status">OmniRoute Auto · low-RAM</div>
+</nav>
+<div id="workspaceShell" class="workspace-shell">
+<aside id="sharedPane" class="shared-pane">
+  <div class="shared-pane-head">
+    <div class="shared-pane-title"><span>Shared Project Repository</span><span id="sharedCount" class="shared-pane-count">0</span></div>
+    <button id="sharedNewProject" class="shared-new" type="button">＋ New shared project</button>
+    <label class="shared-project-label" for="sharedProjectName">Project</label>
+    <input id="sharedProjectName" class="shared-project-input" value="Untitled project" autocomplete="off">
+  </div>
+  <div id="sharedRepoList" class="shared-pane-scroll"></div>
+  <div class="shared-upload">
+    <label class="shared-upload-label">＋ Add files to shared repository
+      <input id="sharedFileInput" type="file" multiple accept=".xer,.xml,.pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json,.html">
+    </label>
+  </div>
+  <div class="shared-pane-foot">One repository for Contract Manager, Drawing Measurement, Schedule Assessment, Risk Analysis and Claims &amp; Forensics. Use a file in the active tool when you want that tool to parse or analyse it.</div>
+</aside>
+<main id="host"><div id="loading" class="loading">Opening Contract Manager…</div></main>
+</div>
+<div class="ai-modal-backdrop" id="aiModal" hidden>
+  <section class="ai-modal" role="dialog" aria-modal="true" aria-labelledby="aiModalTitle">
+    <div class="ai-modal-header"><strong id="aiModalTitle">OmniRoute AI Settings</strong><button type="button" id="aiModalClose">×</button></div>
+    <label>OmniRoute API base URL<input id="omniBaseUrl" type="url" autocomplete="off" spellcheck="false"></label>
+<div class="ai-modal-note">Default local endpoint: http://localhost:20128/v1. Provider authentication is managed inside OmniRoute. For GitHub Pages, use an HTTPS OmniRoute endpoint if your browser blocks HTTP localhost from an HTTPS page.</div>
+    <div class="ai-modal-status" id="aiModalStatus"></div>
+    <div class="ai-modal-actions"><button type="button" id="aiTestButton">Test OmniRoute</button><button type="button" class="primary" id="aiSaveButton">Save</button></div>
+  </section>
+</div>
+
+<script src="./assets/js/core.js?v=20260820-1632"></script>
+<script src="./assets/js/shell.js?v=20260820-1632"></script>
+</body>
+</html>
