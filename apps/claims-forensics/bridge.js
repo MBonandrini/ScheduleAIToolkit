@@ -1,0 +1,1 @@
+(function(){let t="light";try{t=localStorage.getItem("projectControlsTheme")||"light"}catch(_){}const d=t==="dark";document.documentElement.classList.toggle("dark-mode",d);document.documentElement.dataset.theme=d?"dark":"light"})();
