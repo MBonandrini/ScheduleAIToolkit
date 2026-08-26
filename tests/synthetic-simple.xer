@@ -1,0 +1,18 @@
+%T	PROJECT
+%F	proj_id	proj_short_name	data_date	plan_start_date	plan_end_date
+%R	1	Synthetic Project	2026-08-25	2026-08-01	2026-09-30
+%T	PROJWBS
+%F	wbs_id	proj_id	wbs_short_name	wbs_name
+%R	10	1	ENG	Engineering
+%T	CALENDAR
+%F	clndr_id	clndr_name	day_hr_cnt	week_hr_cnt
+%R	1	5 Day Week	8	40
+%T	TASK
+%F	task_id	proj_id	task_code	task_name	wbs_id	clndr_id	target_drtn_hr_cnt	remain_drtn_hr_cnt	early_start_date	early_end_date	total_float_hr_cnt	free_float_hr_cnt	phys_complete_pct
+%R	100	1	A100	Design Start	10	1	0	0	2026-08-01	2026-08-01	0	0	100
+%R	101	1	A110	Design Package	10	1	80	40	2026-08-01	2026-08-15	0	0	50
+%R	102	1	A120	Design Complete	10	1	0	0	2026-08-15	2026-08-15	0	0	0
+%T	TASKPRED
+%F	task_id	pred_task_id	pred_type	lag_hr_cnt
+%R	101	100	PR_FS	0
+%R	102	101	PR_FS	0

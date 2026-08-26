@@ -1,0 +1,35 @@
+const fs=require('fs');
+const vm=require('vm');
+const crypto=require('crypto');
+global.window=global;
+global.crypto=crypto.webcrypto;
+global.localStorage={getItem(){return null},setItem(){},removeItem(){}};
+global.sessionStorage={getItem(){return null},setItem(){},removeItem(){}};
+global.location={protocol:'http:',href:'http://localhost/'};
+const corePath=require('path').join(__dirname,'../assets/js/core.js');
+vm.runInThisContext(fs.readFileSync(corePath,'utf8')+'\nglobalThis.ProjectControlsCore=ProjectControlsCore;');
+function ok(name,condition,detail=''){if(!condition){console.error('FAIL',name,detail);process.exitCode=1}else console.log('PASS',name)}
+const simple=fs.readFileSync(require('path').join(__dirname,'synthetic-simple.xer'),'utf8');
+const parsed=ProjectControlsCore.schedule.parse({name:'synthetic-simple.xer'},simple);
+const s=parsed.schedules[0];
+ok('simple XER schedule count',parsed.schedules.length===1);
+ok('simple XER activity count',s.activities.length===3);
+ok('simple XER relationship count',s.relationships.length===2);
+ok('dynamic XER table summary',s.rawTableSummary.TASK===3&&s.rawTableSummary.TASKPRED===2);
+ok('raw TASK preservation',s.activities[0].raw.task_code==='A100');
+ok('no false import warnings',s.importDiagnostics.warnings.length===0);
+const malformed=`%T\tPROJECT\n%F\tproj_id\tproj_short_name\n%R\t1\tBad\n%T\tTASK\n%F\ttask_id\tproj_id\ttask_code\ttask_name\n%R\t1\t1\tA1\tOne\textra\n%R\t1\t1\tA1\tDuplicate\n%T\tTASKPRED\n%F\ttask_id\tpred_task_id\tpred_type\tlag_hr_cnt\n%R\t999\t1\tPR_FS\t0\n`;
+const bad=ProjectControlsCore.schedule.parse({name:'bad.xer'},malformed).schedules[0];
+ok('malformed field-count warning',bad.importDiagnostics.malformedRows>=1);
+ok('duplicate activity detection',bad.importDiagnostics.duplicateActivityIds.length>=1);
+ok('orphan relationship detection',bad.importDiagnostics.orphanRelationships>=1);
+function largeXer(n=10000,r=50000){let out='%T\tPROJECT\n%F\tproj_id\tproj_short_name\tdata_date\n%R\t1\tPerf\t2026-08-25\n%T\tPROJWBS\n%F\twbs_id\tproj_id\twbs_short_name\twbs_name\n%R\t10\t1\tWBS\tWBS\n%T\tCALENDAR\n%F\tclndr_id\tclndr_name\tday_hr_cnt\tweek_hr_cnt\n%R\t1\t5D\t8\t40\n%T\tTASK\n%F\ttask_id\tproj_id\ttask_code\ttask_name\twbs_id\tclndr_id\ttarget_drtn_hr_cnt\tremain_drtn_hr_cnt\tearly_start_date\tearly_end_date\ttotal_float_hr_cnt\tphys_complete_pct\n';for(let i=1;i<=n;i++)out+=`%R\t${i}\t1\tA${i}\tActivity ${i}\t10\t1\t8\t8\t2026-08-25\t2026-08-26\t80\t0\n`;out+='%T\tTASKPRED\n%F\ttask_id\tpred_task_id\tpred_type\tlag_hr_cnt\n';for(let i=0;i<r;i++){const succ=(i%(n-1))+2;const pred=Math.max(1,succ-1);out+=`%R\t${succ}\t${pred}\tPR_FS\t0\n`}return out}
+const perfText=largeXer();
+const before=process.memoryUsage().heapUsed;
+const t0=performance.now();
+const perf=ProjectControlsCore.schedule.parse({name:'perf.xer'},perfText).schedules[0];
+const elapsed=performance.now()-t0;
+const heap=(process.memoryUsage().heapUsed-before)/1024/1024;
+ok('10k activity parse',perf.activities.length===10000);
+ok('50k relationship parse',perf.relationships.length===50000);
+console.log(`PERF parse_ms=${elapsed.toFixed(1)} heap_delta_mb=${heap.toFixed(1)}`);
