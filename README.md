@@ -52,41 +52,23 @@ Light/dark mode is controlled only from the main suite navigation. All applicati
 Schedule Assessment now includes a searchable Schedule Viewer/Activity Inspector, What Changed dashboard, Critical Path Intelligence, Why Did My Date Move?, dedicated Float/Logic/Progress analysis, Time Machine, Milestone Trends, Forecast Stability, Resources/EVM/Productivity, Calendar/Constraint/Baseline analysis, Lookahead, evidence-based Narrative, Executive Dashboard, Import Diagnostics, configurable thresholds, Excel export and portable project backup/restore. See `MASTER_FEATURE_MATRIX.md` and `SOFTWARE_VALIDATION_REPORT.md`.
 
 
-## Tutorial / AI Setup
+## Settings, AI Setup and Tutorial
 
-The suite now includes a top-level **Tutorial / AI Setup** workspace.
+The suite now has one top-level **Settings** workspace. It contains three internal sections:
 
-It provides guided setup and connection testing for:
+- **General Settings** — theme, AI runtime status and reset controls.
+- **Unified AI Configuration** — select one AI engine/route for the entire suite and configure/test OmniRoute or Ollama.
+- **Setup Tutorial** — guided setup and troubleshooting for OmniRoute, Ollama and browser-local AI.
 
-- OmniRoute
-- Ollama
-- CPU/WASM browser AI
-- WebGPU browser AI
+The selected AI option is global. Contract Manager, Drawing Measurement, Schedule Assessment, Risk Analysis, Claims & Forensics, Schedule Builder and NotebookLM+ all read the same selection. Individual modules do not persist their own AI provider choice.
 
-Ollama is now a working shared AI provider. The toolkit discovers installed Ollama models using `/api/tags` and uses `/api/chat` for completions.
-
-See `AI_SETUP_GUIDE.md` for deployment details.
+Ollama model discovery uses `/api/tags` and chat uses `/api/chat`. See `AI_SETUP_GUIDE.md` for deployment details.
 
 
 ## NotebookLM+
 
-The suite includes NotebookLM+ as a separate top-level workspace for document/notebook research. It retains its notebook/source/indexing architecture while sharing the suite shell and global theme.
+NotebookLM+ remains a separate top-level research workspace, but its AI provider is now controlled by the suite-wide **Settings → Unified AI Configuration** selection. Its visible application tabs are Workspace and Studio; its former local AI configuration/tutorial/settings tabs have been consolidated into the main suite Settings workspace.
 
-NotebookLM+ AI options include:
+When Ollama is the global engine, NotebookLM+ uses the globally selected Ollama chat model and can use the optional global Ollama embedding model for semantic retrieval. With OmniRoute it uses the globally selected route. Browser-local CPU/WebGPU selections use the shared suite AI runtime for answer generation and NotebookLM+ falls back to keyword retrieval where embeddings are unavailable.
 
-- Ollama local or remote
-- OmniRoute Auto / routed AI
-- Generic OpenAI-compatible hosted AI
-
-See `NOTEBOOKLM_INTEGRATION.md` and the NotebookLM+ in-app tutorial for configuration.
-
-
-## Restored configuration workspaces — 1 September 2026
-
-The combined suite includes three dedicated utility workspaces in the top navigation:
-
-- **AI / Ollama Configuration** — configure/test OmniRoute and Ollama.
-- **Setup Tutorial** — guided connection and troubleshooting instructions for OmniRoute, Ollama and browser-local AI.
-- **Settings** — global theme, shared AI status, browser AI release and connection-reset controls.
-
-The compact **AI Settings** button in the shell is retained as a quick OmniRoute diagnostic shortcut.
+See `NOTEBOOKLM_INTEGRATION.md`.

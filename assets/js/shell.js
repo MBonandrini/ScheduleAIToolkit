@@ -6,8 +6,6 @@ const TOOL_CONFIG = {
     assessment: { name: "Schedule Assessment", url: "./apps/schedule-assessment/index.html?sharedPane=1" },
     risk: { name: "Risk Analysis", url: "./apps/risk-analysis/index.html?sharedPane=1" },
     claims: { name: "Claims & Forensics", url: "./apps/claims-forensics/index.html?sharedPane=1" },
-    aiconfig: { name: "AI / Ollama Configuration", url: "./apps/ai-configuration/index.html" },
-    tutorial: { name: "Setup Tutorial", url: "./apps/tutorial/index.html" },
     notebook: { name: "NotebookLM+", url: "./apps/notebooklmplus/index.html" },
     settings: { name: "Settings", url: "./apps/settings/index.html" },
     builder: { name: "Schedule Builder", url: "./apps/schedule-builder/index.html" }
@@ -48,10 +46,10 @@ async function activateTool(key) {
     const run = ++token;
     activeTool = key;
     setTabs(key);
-    document.getElementById("workspaceShell")?.classList.toggle("builder-mode",key==="builder" || key==="tutorial" || key==="notebook" || key==="aiconfig" || key==="settings");
+    document.getElementById("workspaceShell")?.classList.toggle("builder-mode",key==="builder" || key==="notebook" || key==="settings");
     loading.hidden = false;
     loading.textContent = `Opening ${config.name}…`;
-    statusNode.textContent = "OmniRoute Auto · switching tool";
+    statusNode.textContent = `${ProjectControlsCore.ai.preferredLabel()} · switching tool`;
     destroyCurrent();
     if (run !== token) return;
 
@@ -64,7 +62,7 @@ async function activateTool(key) {
         if (run !== token) return;
         loaded = true;
         loading.hidden = true;
-        statusNode.textContent = ProjectControlsCore.ai.status().label === "AI idle" ? "OmniRoute Auto · AI on demand" : ProjectControlsCore.ai.status().label;
+        statusNode.textContent = ProjectControlsCore.ai.status().label === "AI idle" ? `${ProjectControlsCore.ai.preferredLabel()} · AI on demand` : ProjectControlsCore.ai.status().label;
         try{next.contentWindow.postMessage({type:"pc-theme",theme:document.documentElement.dataset.theme||"light"},"*")}catch(_){}
     }, { once: true });
     next.addEventListener("error", () => {
@@ -208,91 +206,15 @@ window.ProjectControlsSharedRepository={
 };
 loadSharedRepo();
 
-const aiSettingsButton=document.getElementById("aiSettingsButton");
-const aiModal=document.getElementById("aiModal");
-const aiModalClose=document.getElementById("aiModalClose");
-const omniBaseUrl=document.getElementById("omniBaseUrl");
-const omniEndpointKey=document.getElementById("omniEndpointKey");
-const aiDiagnostics=document.getElementById("aiDiagnostics");
-const omniOriginHint=document.getElementById("omniOriginHint");
-const openOmniButton=document.getElementById("openOmniButton");
-const aiSaveButton=document.getElementById("aiSaveButton");
-const aiTestButton=document.getElementById("aiTestButton");
-const aiModalStatus=document.getElementById("aiModalStatus");
-
-function openAiSettings(){
-    const config=ProjectControlsCore.ai.config();
-    omniBaseUrl.value=config.baseUrl;
-    omniEndpointKey.value="";
-    aiDiagnostics.hidden=true;
-    aiDiagnostics.innerHTML="";
-    aiModalStatus.textContent="";
-    if(omniOriginHint) omniOriginHint.textContent=(location.origin && location.origin!=="null") ? location.origin : "your GitHub Pages origin";
-    aiModal.hidden=false;
-}
-
-function closeAiSettings(){
-    aiModal.hidden=true;
-}
-
-aiSettingsButton.addEventListener("click",openAiSettings);
-aiModalClose.addEventListener("click",closeAiSettings);
-aiModal.addEventListener("click",event=>{if(event.target===aiModal) closeAiSettings()});
-
-openOmniButton?.addEventListener("click",()=>{
-    try{
-        const base=ProjectControlsCore.ai.config().baseUrl.replace(/\/v1\/?$/i,"");
-        window.open(base,"_blank","noopener,noreferrer");
-    }catch(_){
-        window.open("http://localhost:20128","_blank","noopener,noreferrer");
-    }
-});
-aiSaveButton.addEventListener("click",()=>{
-    ProjectControlsCore.ai.configure({
-        baseUrl:omniBaseUrl.value,
-        endpointKey:omniEndpointKey.value
-    });
-    omniEndpointKey.value="";
-    aiModalStatus.textContent="OmniRoute settings saved.";
-    statusNode.textContent="OmniRoute Auto · configured";
-});
-aiTestButton.addEventListener("click",async()=>{
-    ProjectControlsCore.ai.configure({
-        baseUrl:omniBaseUrl.value,
-        endpointKey:omniEndpointKey.value
-    });
-    aiTestButton.disabled=true;
-    aiDiagnostics.hidden=false;
-    aiDiagnostics.innerHTML='<div class="diag-row working">1. Checking OmniRoute /v1/models…</div><div class="diag-row">2. Testing routed chat completion…</div>';
-    aiModalStatus.textContent="Testing OmniRoute…";
-    try{
-        const result=await ProjectControlsCore.ai.testConnection();
-        aiDiagnostics.innerHTML=
-            `<div class="diag-row ok">✓ OmniRoute API reachable</div>`+
-            `<div class="diag-row ok">✓ /v1/models responded${Number.isFinite(result.modelCount)?` · ${result.modelCount} model route(s)`:""}</div>`+
-            `<div class="diag-row ok">✓ Chat routing responded: ${String(result.content||"OK").replace(/[<>&]/g,"")}</div>`+
-            `<div class="diag-row info">Endpoint: ${result.baseUrl}</div>`+
-            `<div class="diag-row info">Test model: ${result.testedModel||"auto"}</div>`+
-            `<div class="diag-row info">Authentication: ${result.endpointKeyConfigured?"endpoint key supplied":"local keyless mode"}</div>`;
-        aiModalStatus.textContent="OmniRoute is connected and ready.";
-        statusNode.textContent="OmniRoute Auto · connected";
-    }catch(error){
-        const message=error?.message || "OmniRoute connection failed.";
-        aiDiagnostics.innerHTML=
-            `<div class="diag-row error">✕ ${message.replace(/[<>&]/g,"")}</div>`+
-            `<div class="diag-row info">Open OmniRoute and verify: service running, at least one provider connected, and ${location.origin} is listed under Settings → Security → CORS Allowed Origins.</div>`;
-        aiModalStatus.textContent="Connection test failed.";
-        statusNode.textContent="OmniRoute · connection required";
-    }finally{
-        omniEndpointKey.value="";
-        aiTestButton.disabled=false;
-    }
-});
-
 document.addEventListener("pc-theme-change",event=>{try{if(frame&&frame.contentWindow)frame.contentWindow.postMessage({type:"pc-theme",theme:event.detail.theme},"*")}catch(_){}});
 window.addEventListener("message",event=>{if(event.data&&event.data.type==="pc-theme"){try{if(frame&&frame.contentWindow&&event.source!==frame.contentWindow)frame.contentWindow.postMessage(event.data,"*")}catch(_){}}});
 
 window.addEventListener("unhandledrejection",event=>{
     const message=event.reason?.message||String(event.reason||"");
-    if(message && /OmniRoute|AI|fetch|network/i.test(message)) statusNode.textContent="AI connection issue · open AI Settings";
+    if(message && /OmniRoute|AI|fetch|network/i.test(message)) statusNode.textContent="AI connection issue · open Settings";
+});
+
+window.addEventListener("message",event=>{
+    if(event.data&&event.data.type==="pc-open-settings") activateTool("settings");
+    if(event.data&&event.data.type==="pc-ai-config-changed") statusNode.textContent=`${ProjectControlsCore.ai.preferredLabel()} · configured`;
 });

@@ -50,11 +50,11 @@ trap 'kill "$PID" 2>/dev/null || true' EXIT
 sleep .5
 python - <<'PY'
 import urllib.request
-paths=['','apps/contract-manager/','apps/drawing-measurement/','apps/schedule-assessment/','apps/risk-analysis/','apps/claims-forensics/','apps/ai-configuration/','apps/tutorial/','apps/notebooklmplus/','apps/settings/','apps/schedule-builder/']
+paths=['','apps/contract-manager/','apps/drawing-measurement/','apps/schedule-assessment/','apps/risk-analysis/','apps/claims-forensics/','apps/notebooklmplus/','apps/settings/','apps/schedule-builder/']
 for p in paths:
  with urllib.request.urlopen('http://127.0.0.1:8899/'+p,timeout=5) as r:
   b=r.read(); assert r.status==200 and len(b)>100,(p,r.status,len(b))
-print('PASS all 11 static routes')
+print('PASS all 9 static routes')
 PY
 kill "$PID" 2>/dev/null || true
 trap - EXIT

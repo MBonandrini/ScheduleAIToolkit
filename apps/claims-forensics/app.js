@@ -1379,7 +1379,6 @@ window.changeModel = async function(value){
         currentModelValue=value;
         engineMode=window.parent.ProjectControlsCore.ai.status().engine;
         aiReady=true;
-        try{localStorage.setItem("projectControlsSharedAIModel",value)}catch(_){}
         setEngineStatus(engineMode,window.parent.ProjectControlsCore.ai.status().label,"ready");
         updateSendButton();
     }finally{

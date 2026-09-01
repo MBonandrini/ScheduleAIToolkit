@@ -3,7 +3,7 @@ import { embedTexts as ollamaEmbedTexts, getVersion as getOllamaVersion, listMod
 let sessionApiKey = '';
 
 export function normalizeProvider(provider) {
-  return ['omniroute','openai-compatible'].includes(provider) ? provider : 'ollama';
+  return ['omniroute','openai-compatible','suite-core'].includes(provider) ? provider : 'ollama';
 }
 
 // Hosted credentials intentionally live only in this ES module's memory. They
@@ -55,6 +55,7 @@ async function fetchHosted(endpoint, path, init={}, timeoutSeconds=120, apiKey=g
 
 export async function testAiConnection({ provider='ollama', endpoint, timeoutSeconds=10, apiKey=getSessionApiKey() }) {
   provider = normalizeProvider(provider);
+  if (provider === 'suite-core') { const core=window.parent?.ProjectControlsCore; if(!core?.ai) throw new Error('Shared suite AI runtime is unavailable.'); const selected=localStorage.getItem('projectControlsSharedAIModel')||'omniroute:auto'; const ready=await core.ai.ensure(selected); return {provider,ok:true,label:ready.label||core.ai.preferredLabel(),detail:ready}; }
   if (provider === 'ollama') {
     const version = await getOllamaVersion(endpoint, timeoutSeconds);
     return { provider, ok: true, label: `Ollama ${version.version || 'online'}`, detail: version };
@@ -70,6 +71,7 @@ export async function testAiConnection({ provider='ollama', endpoint, timeoutSec
 
 export async function listAiModels({ provider='ollama', endpoint, timeoutSeconds=12, apiKey=getSessionApiKey() }) {
   provider = normalizeProvider(provider);
+  if (provider === 'suite-core') { const value=localStorage.getItem('projectControlsSharedAIModel')||''; const entry=window.parent?.ProjectControlsCore?.ai?.catalog?.find?.(x=>x.value===value); return entry?[{name:entry.value,details:entry}]:[]; }
   if (provider === 'ollama') return listOllamaModels(endpoint, timeoutSeconds);
   const res = await fetchHosted(endpoint, 'models', {}, timeoutSeconds, apiKey, provider);
   if (!res.ok) {
@@ -83,6 +85,7 @@ export async function listAiModels({ provider='ollama', endpoint, timeoutSeconds
 
 export async function embedAiTexts({ provider='ollama', endpoint, apiKey=getSessionApiKey(), model, texts, timeoutSeconds=120, keepAlive='5m' }) {
   provider = normalizeProvider(provider);
+  if (provider === 'suite-core') throw new Error('Semantic embeddings are not available for the selected browser AI. NotebookLM+ will use keyword retrieval.');
   if (provider === 'ollama') {
     const vectors = await ollamaEmbedTexts({ endpoint, model, texts, timeoutSeconds, keepAlive });
     return validateEmbeddings(vectors, texts?.length || 0);
@@ -118,6 +121,7 @@ function processSseBuffer(buffer, onEvent) {
 
 export async function streamAiChat({ provider='ollama', endpoint, apiKey=getSessionApiKey(), model, messages, contextTokens=16384, maxAnswerTokens=1280, temperature=0.18, thinkingMode='auto', timeoutSeconds=120, firstResponseTimeoutSeconds=timeoutSeconds, inactivityTimeoutSeconds=timeoutSeconds, keepAlive='5m', signal=null, onToken=()=>{}, onStats=()=>{} }) {
   provider = normalizeProvider(provider);
+  if (provider === 'suite-core') { const core=window.parent?.ProjectControlsCore; if(!core?.ai) throw new Error('Shared suite AI runtime is unavailable.'); const selected=localStorage.getItem('projectControlsSharedAIModel')||model; await core.ai.ensure(selected); const out=await core.ai.run(messages,{temperature,max_tokens:maxAnswerTokens,onToken}); const text=out?.choices?.[0]?.message?.content||''; if(text&&!onToken) onToken(text,text); return text; }
   if (provider === 'ollama') {
     return streamOllamaChat({
       endpoint, model, messages, timeoutSeconds, firstResponseTimeoutSeconds, inactivityTimeoutSeconds, keepAlive, signal,
@@ -198,6 +202,7 @@ export async function streamAiChat({ provider='ollama', endpoint, apiKey=getSess
 
 export function explainAiConnectionError(error, endpoint, provider='ollama') {
   provider = normalizeProvider(provider);
+  if (provider === 'suite-core') return String(error?.message||error||'Shared browser AI failed. Open the suite Settings tab and test the selected AI.');
   if (provider === 'ollama') return explainOllamaError(error, endpoint);
   if (provider === 'omniroute') {
     const msg = String(error?.message || error || 'Unknown error');

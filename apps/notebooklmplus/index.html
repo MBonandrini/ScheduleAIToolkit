@@ -26,17 +26,14 @@
           <span>Mode</span>
           <select id="modeSelect" aria-label="Performance mode"></select>
         </label>
-        <button id="modeConfigBtn" class="btn secondary">Configure</button>
-        <div id="ollamaStatusPill" class="status-pill offline">Ollama offline</div>
+        <button id="modeConfigBtn" class="btn secondary">Suite Settings</button>
+        <div id="ollamaStatusPill" class="status-pill offline">Unified AI</div>
       </div>
     </header>
 
     <nav class="tabs" aria-label="Main navigation">
       <button class="tab active" data-tab="workspace">Workspace</button>
       <button class="tab" data-tab="studio">Studio</button>
-      <button class="tab" data-tab="ollama">AI / Ollama Configuration</button>
-      <button class="tab" data-tab="tutorial">Setup Tutorial</button>
-      <button class="tab" data-tab="settings">Settings</button>
     </nav>
 
     <main>
@@ -157,7 +154,7 @@
         </div>
       </section>
 
-      <section id="tab-ollama" class="tab-panel">
+      <section id="tab-ollama" class="tab-panel" hidden aria-hidden="true">
         <div class="settings-layout">
           <section class="panel settings-card">
             <div class="panel-header">
@@ -294,7 +291,7 @@
         </div>
       </section>
 
-      <section id="tab-tutorial" class="tab-panel">
+      <section id="tab-tutorial" class="tab-panel" hidden aria-hidden="true">
         <div class="tutorial-shell">
           <aside class="tutorial-nav panel">
             <h2>Setup tutorial</h2>
@@ -432,7 +429,7 @@ ollama pull embeddinggemma</code></pre>
         </div>
       </section>
 
-      <section id="tab-settings" class="tab-panel">
+      <section id="tab-settings" class="tab-panel" hidden aria-hidden="true">
         <div class="settings-layout">
           <section class="panel settings-card">
             <div class="panel-header"><div><h2>Browser storage</h2><p>Your notebooks live in IndexedDB on this browser.</p></div></div>

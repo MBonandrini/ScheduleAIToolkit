@@ -534,7 +534,6 @@ async function changeModel(value,initial=false){
         state.aiReady=true;
         state.aiMode="heuristic";
         state.aiModelValue="heuristic";
-        localStorage.setItem("projectControlsSharedAIModel","omniroute:auto");
         setEngine("Deterministic analysis ready","ready");
         return;
     }
@@ -546,7 +545,6 @@ async function changeModel(value,initial=false){
     state.aiReady=true;
     state.aiMode=window.parent.ProjectControlsCore.ai.status().engine;
     state.aiModelValue=model.value;
-    localStorage.setItem("projectControlsSharedAIModel",model.value);
     setEngine(window.parent.ProjectControlsCore.ai.status().label,"ready");
 }
 

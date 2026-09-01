@@ -2071,6 +2071,34 @@ function sleep(ms){
             };
         }
 
+        function preferred(){
+            try{
+                const saved=localStorage.getItem("projectControlsSharedAIModel")||"omniroute:auto";
+                const entry=catalog.find(item=>item.value===saved&&!item.disabled);
+                return entry?entry.value:"omniroute:auto";
+            }catch(_){return "omniroute:auto";}
+        }
+        function preferredLabel(){
+            const value=preferred();
+            return catalog.find(item=>item.value===value)?.label||"OmniRoute — Auto";
+        }
+        function setPreferred(value){
+            const entry=catalog.find(item=>item.value===value&&!item.disabled);
+            if(!entry) throw new Error("Unknown or unavailable AI option.");
+            try{localStorage.setItem("projectControlsSharedAIModel",entry.value)}catch(_){}
+            return entry.value;
+        }
+        function ollamaEmbeddingModel(){
+            try{return localStorage.getItem("projectControlsOllamaEmbeddingModel")||""}catch(_){return ""}
+        }
+        function configureOllamaEmbedding(model){
+            try{
+                if(String(model||"").trim()) localStorage.setItem("projectControlsOllamaEmbeddingModel",String(model).trim());
+                else localStorage.removeItem("projectControlsOllamaEmbeddingModel");
+            }catch(_){}
+            return ollamaEmbeddingModel();
+        }
+
         function configure({baseUrl,endpointKey:nextKey}={}){
             if(typeof baseUrl==="string" && baseUrl.trim()){
                 const clean=normaliseBaseUrl(baseUrl);
@@ -2261,12 +2289,11 @@ function sleep(ms){
             currentValue=entry.value;
             currentEngine=entry.engine;
             currentLabel=entry.label;
-            try{localStorage.setItem("projectControlsSharedAIModel",entry.value)}catch(_){}
             return status();
         }
 
         async function ensure(value){
-            const requested=value || (()=>{try{return localStorage.getItem("projectControlsSharedAIModel")}catch(_){return null}})() || "omniroute:auto";
+            const requested=value || preferred();
             const entry=model(requested);
             if(currentValue===entry.value && runtime) return status();
             if(loadingPromise) return await loadingPromise;
@@ -2443,7 +2470,7 @@ function sleep(ms){
             return {ready:!!runtime,value:currentValue,engine:currentEngine || "shared",label:currentLabel,loading:!!loadingPromise,config:config()};
         }
 
-        return {catalog,ensure,run,release,status,config,configure,testConnection,ollamaConfig,configureOllama,listOllamaModels,testOllamaConnection};
+        return {catalog,ensure,run,release,status,config,configure,testConnection,ollamaConfig,configureOllama,listOllamaModels,testOllamaConnection,preferred,preferredLabel,setPreferred,ollamaEmbeddingModel,configureOllamaEmbedding};
     })();
 
     const risk = (() => {

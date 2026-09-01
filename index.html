@@ -19,14 +19,11 @@
 <button class="suite-tab" data-tool="assessment" role="tab" aria-selected="false"><span class="tab-icon">◇</span>Schedule Assessment</button>
 <button class="suite-tab" data-tool="risk" role="tab" aria-selected="false"><span class="tab-icon">△</span>Risk Analysis</button>
 <button class="suite-tab" data-tool="claims" role="tab" aria-selected="false"><span class="tab-icon">⌕</span>Claims &amp; Forensics</button>
-<button class="suite-tab" data-tool="aiconfig" role="tab" aria-selected="false"><span class="tab-icon">AI</span>AI / Ollama Configuration</button>
-<button class="suite-tab" data-tool="tutorial" role="tab" aria-selected="false"><span class="tab-icon">?</span>Setup Tutorial</button>
 <button class="suite-tab" data-tool="notebook" role="tab" aria-selected="false"><span class="tab-icon">N+</span>NotebookLM+</button>
 <button class="suite-tab" data-tool="settings" role="tab" aria-selected="false"><span class="tab-icon">⚙</span>Settings</button>
 <button class="suite-tab" data-tool="builder" role="tab" aria-selected="false"><span class="tab-icon">⌘</span>Schedule Builder</button>
   <button class="theme-shell-toggle" id="shellThemeToggle" data-theme-toggle type="button" aria-label="Switch to dark mode"></button>
-  <button class="ai-settings-button" id="aiSettingsButton" type="button">AI Settings</button>
-  <div class="status" id="status">OmniRoute Auto · low-RAM</div>
+  <div class="status" id="status">Unified AI · ready</div>
 </nav>
 <div id="workspaceShell" class="workspace-shell">
 <aside id="sharedPane" class="shared-pane">
@@ -46,22 +43,6 @@
 </aside>
 <main id="host"><div id="loading" class="loading">Opening Contract Manager…</div></main>
 </div>
-<div class="ai-modal-backdrop" id="aiModal" hidden>
-  <section class="ai-modal" role="dialog" aria-modal="true" aria-labelledby="aiModalTitle">
-    <div class="ai-modal-header"><strong id="aiModalTitle">OmniRoute AI Settings</strong><button type="button" id="aiModalClose">×</button></div>
-    <label>OmniRoute API base URL<input id="omniBaseUrl" type="url" autocomplete="off" spellcheck="false"></label>
-    <details class="ai-advanced">
-      <summary>Advanced connection settings</summary>
-      <label>Endpoint Key <span class="optional-label">optional</span><input id="omniEndpointKey" type="password" autocomplete="off" spellcheck="false" placeholder="Leave blank for keyless local access"></label>
-      <div class="ai-modal-note">This is an OmniRoute endpoint/client key, not a provider API key. It is kept only for the current browser session.</div>
-    </details>
-    <div class="ai-modal-note"><strong>Local browser setup</strong><br>Default endpoint: <code>http://localhost:20128/v1</code>. In OmniRoute Settings → Security, add <code id="omniOriginHint">this website origin</code> to <b>CORS Allowed Origins</b>. Standard local OmniRoute can remain keyless when <code>REQUIRE_API_KEY=false</code>.</div>
-    <div class="ai-diagnostics" id="aiDiagnostics" hidden></div>
-    <div class="ai-modal-status" id="aiModalStatus"></div>
-    <div class="ai-modal-actions"><button type="button" id="openOmniButton">Open OmniRoute</button><button type="button" id="aiTestButton">Run Connection Test</button><button type="button" class="primary" id="aiSaveButton">Save</button></div>
-  </section>
-</div>
-
 <script src="./assets/js/core.js?v=20260901-1120"></script>
 <script src="./assets/js/shell.js?v=20260901-1120"></script>
 </body>

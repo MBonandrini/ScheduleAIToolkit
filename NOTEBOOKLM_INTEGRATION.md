@@ -1,17 +1,15 @@
 # NotebookLM+ Integration
 
-NotebookLM+ v0.7.0 is integrated as a top-level Project Controls AI Suite tab under `apps/notebooklmplus`.
+NotebookLM+ v0.7.0 is integrated as a top-level Project Controls AI Suite workspace under `apps/notebooklmplus`.
 
-## AI providers
+## Unified AI configuration
 
-NotebookLM+ supports:
+NotebookLM+ no longer owns an independent AI provider selection. The active AI engine is selected once under **Settings → Unified AI Configuration** and is shared by every AI-enabled module in the suite.
 
-- Ollama local/remote
-- OmniRoute Auto / routed AI
-- Generic OpenAI-compatible hosted AI
+Supported shared choices include OmniRoute routes, Ollama, and the browser-local CPU/WebGPU models exposed by the shared AI core.
 
-OmniRoute default endpoint: `http://localhost:20128/v1`. In OmniRoute, allow the toolkit's deployed origin in CORS settings. Endpoint authentication is optional; when enabled the endpoint/client key is kept in page memory only.
+- OmniRoute uses the shared OmniRoute endpoint and selected global route.
+- Ollama uses the shared Ollama host and selected chat model. NotebookLM+ may also use the shared optional Ollama embedding model for semantic retrieval.
+- Browser-local AI uses the shared suite runtime for answer generation; NotebookLM+ uses keyword retrieval when a compatible embedding provider is unavailable.
 
-The recommended OmniRoute chat route is `auto` when available. NotebookLM+ remains responsible for local source parsing, chunking, retrieval and evidence selection; OmniRoute only receives the retrieved context/prompt for AI generation.
-
-Embedding models are optional. If no embedding-capable OmniRoute route/model is selected, NotebookLM+ continues with keyword retrieval.
+NotebookLM+'s visible tabs are now **Workspace** and **Studio**. Its former AI configuration, tutorial and local settings tabs were consolidated into the suite's top-level **Settings** workspace.

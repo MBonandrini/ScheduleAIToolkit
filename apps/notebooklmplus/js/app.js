@@ -98,10 +98,25 @@ async function ensureBuildCompatibility() {
 }
 const currentNotebook = () => state.notebooks.find(n => n.id === state.activeNotebookId) || null;
 const currentMode = () => state.settings.modes[state.settings.currentMode];
-const effectiveProvider = () => currentMode().provider || 'ollama';
-const effectiveEndpoint = () => currentMode().endpoint || (effectiveProvider() === 'ollama' ? state.settings.ollama.endpoint : '');
-const effectiveChatModel = () => currentMode().chatModel || (effectiveProvider() === 'ollama' ? state.settings.ollama.chatModel : '');
-const effectiveEmbeddingModel = () => currentMode().embeddingModel || (effectiveProvider() === 'ollama' ? state.settings.ollama.embeddingModel : '');
+function suiteAiSelection(){
+  try {
+    const value = localStorage.getItem('projectControlsSharedAIModel') || 'omniroute:auto';
+    const core = window.parent?.ProjectControlsCore;
+    const entry = core?.ai?.catalog?.find?.(x => x.value === value && !x.disabled);
+    return entry || core?.ai?.catalog?.find?.(x => x.value === 'omniroute:auto') || { value:'omniroute:auto', engine:'omniroute', id:'auto', label:'OmniRoute — Auto' };
+  } catch { return { value:'omniroute:auto', engine:'omniroute', id:'auto', label:'OmniRoute — Auto' }; }
+}
+function syncSuiteAiToMode(){
+  const selected=suiteAiSelection(), mode=currentMode(), core=window.parent?.ProjectControlsCore;
+  if(selected.engine==='omniroute'){ mode.provider='omniroute'; mode.endpoint=core?.ai?.config?.().baseUrl||'http://localhost:20128/v1'; mode.chatModel=selected.id||'auto'; mode.embeddingModel=''; mode.semanticSearch=false; }
+  else if(selected.engine==='ollama'){ const oc=core?.ai?.ollamaConfig?.()||{}; mode.provider='ollama'; mode.endpoint=oc.baseUrl||'http://localhost:11434'; mode.chatModel=oc.model||''; mode.embeddingModel=core?.ai?.ollamaEmbeddingModel?.()||''; mode.semanticSearch=!!mode.embeddingModel; state.settings.ollama.endpoint=mode.endpoint; state.settings.ollama.chatModel=mode.chatModel; state.settings.ollama.embeddingModel=mode.embeddingModel; }
+  else { mode.provider='suite-core'; mode.endpoint=''; mode.chatModel=selected.value; mode.embeddingModel=''; mode.semanticSearch=false; }
+  return selected;
+}
+const effectiveProvider = () => { syncSuiteAiToMode(); return currentMode().provider || 'omniroute'; };
+const effectiveEndpoint = () => { syncSuiteAiToMode(); return currentMode().endpoint || ''; };
+const effectiveChatModel = () => { syncSuiteAiToMode(); return currentMode().chatModel || ''; };
+const effectiveEmbeddingModel = () => { syncSuiteAiToMode(); return currentMode().embeddingModel || ''; };
 const currentProfile = () => profileFor(currentNotebook()?.profile || 'general');
 const currentArtifact = () => state.artifacts.find(a => a.id === state.activeArtifactId) || null;
 
@@ -120,6 +135,7 @@ function setBusy(value) {
 async function init() {
   if (!await ensureBuildCompatibility()) return;
   state.settings = mergeSettings(await getSetting('appSettings'));
+  syncSuiteAiToMode();
   await persistSettings();
   bindTabs();
   bindTutorial();
@@ -144,6 +160,7 @@ function populateModeSelect() {
 }
 
 function applySettingsToUi() {
+  syncSuiteAiToMode();
   const mode = currentMode();
   $('providerSelect').value = mode.provider || 'ollama';
   $('ollamaEndpointInput').value = mode.endpoint || (mode.provider === 'omniroute' ? 'http://localhost:20128/v1' : mode.provider === 'openai-compatible' ? '' : state.settings.ollama.endpoint);
@@ -281,7 +298,7 @@ function bindEvents() {
     applySettingsToUi();
     refreshAiStatus(false);
   });
-  $('modeConfigBtn').addEventListener('click', () => openTab('ollama'));
+  $('modeConfigBtn').addEventListener('click', () => window.parent.postMessage({type:'pc-open-settings'}, '*'));
   $('providerSelect').addEventListener('change', () => { state.models = []; updateProviderUi(); populateModelSelects(); });
   $('chatModelSelect').addEventListener('change', () => syncCustomModelInput('chatModelSelect', 'chatModelCustomInput'));
   $('embeddingModelSelect').addEventListener('change', () => syncCustomModelInput('embeddingModelSelect', 'embeddingModelCustomInput'));
@@ -734,6 +751,7 @@ async function refreshModels() {
 }
 
 async function saveAiSettings() {
+  syncSuiteAiToMode();
   const mode = currentMode();
   mode.provider = $('providerSelect').value || 'ollama';
   mode.endpoint = $('ollamaEndpointInput').value.trim().replace(/\/+$/,'');
@@ -1298,3 +1316,5 @@ init().catch(err => {
   console.error(err);
   document.body.innerHTML = `<pre style="padding:2rem;color:#fff;background:#111;white-space:pre-wrap">Startup error: ${escapeHtml(err.message)}\n\nBuild: ${escapeHtml(APP_VERSION)}\n\n${escapeHtml(err.stack || '')}\n\nOpen the browser console for details.</pre>`;
 });
+
+window.addEventListener('message', event => { if (event.data?.type === 'pc-ai-config-changed') { syncSuiteAiToMode(); applySettingsToUi(); refreshAiStatus(false); } });

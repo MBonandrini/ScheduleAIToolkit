@@ -18,9 +18,13 @@ def test_no_local_bridge_dependency():
 
 
 def test_required_tabs_present():
-    for tab in ['workspace','ollama','tutorial','settings']:
+    for tab in ['workspace','studio']:
         assert f'data-tab="{tab}"' in html
         assert f'id="tab-{tab}"' in html
+    for tab in ['ollama','tutorial','settings']:
+        assert f'data-tab="{tab}"' not in html
+    assert 'id="modeConfigBtn"' in html
+    assert 'Suite Settings' in html
 
 
 def test_ollama_configuration_controls_present():
