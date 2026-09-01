@@ -6,6 +6,10 @@ const TOOL_CONFIG = {
     assessment: { name: "Schedule Assessment", url: "./apps/schedule-assessment/index.html?sharedPane=1" },
     risk: { name: "Risk Analysis", url: "./apps/risk-analysis/index.html?sharedPane=1" },
     claims: { name: "Claims & Forensics", url: "./apps/claims-forensics/index.html?sharedPane=1" },
+    aiconfig: { name: "AI / Ollama Configuration", url: "./apps/ai-configuration/index.html" },
+    tutorial: { name: "Setup Tutorial", url: "./apps/tutorial/index.html" },
+    notebook: { name: "NotebookLM+", url: "./apps/notebooklmplus/index.html" },
+    settings: { name: "Settings", url: "./apps/settings/index.html" },
     builder: { name: "Schedule Builder", url: "./apps/schedule-builder/index.html" }
 };
 
@@ -44,7 +48,7 @@ async function activateTool(key) {
     const run = ++token;
     activeTool = key;
     setTabs(key);
-    document.getElementById("workspaceShell")?.classList.toggle("builder-mode",key==="builder");
+    document.getElementById("workspaceShell")?.classList.toggle("builder-mode",key==="builder" || key==="tutorial" || key==="notebook" || key==="aiconfig" || key==="settings");
     loading.hidden = false;
     loading.textContent = `Opening ${config.name}…`;
     statusNode.textContent = "OmniRoute Auto · switching tool";

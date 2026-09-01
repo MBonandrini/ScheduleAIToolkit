@@ -50,3 +50,43 @@ Light/dark mode is controlled only from the main suite navigation. All applicati
 ## Master Schedule Intelligence Expansion
 
 Schedule Assessment now includes a searchable Schedule Viewer/Activity Inspector, What Changed dashboard, Critical Path Intelligence, Why Did My Date Move?, dedicated Float/Logic/Progress analysis, Time Machine, Milestone Trends, Forecast Stability, Resources/EVM/Productivity, Calendar/Constraint/Baseline analysis, Lookahead, evidence-based Narrative, Executive Dashboard, Import Diagnostics, configurable thresholds, Excel export and portable project backup/restore. See `MASTER_FEATURE_MATRIX.md` and `SOFTWARE_VALIDATION_REPORT.md`.
+
+
+## Tutorial / AI Setup
+
+The suite now includes a top-level **Tutorial / AI Setup** workspace.
+
+It provides guided setup and connection testing for:
+
+- OmniRoute
+- Ollama
+- CPU/WASM browser AI
+- WebGPU browser AI
+
+Ollama is now a working shared AI provider. The toolkit discovers installed Ollama models using `/api/tags` and uses `/api/chat` for completions.
+
+See `AI_SETUP_GUIDE.md` for deployment details.
+
+
+## NotebookLM+
+
+The suite includes NotebookLM+ as a separate top-level workspace for document/notebook research. It retains its notebook/source/indexing architecture while sharing the suite shell and global theme.
+
+NotebookLM+ AI options include:
+
+- Ollama local or remote
+- OmniRoute Auto / routed AI
+- Generic OpenAI-compatible hosted AI
+
+See `NOTEBOOKLM_INTEGRATION.md` and the NotebookLM+ in-app tutorial for configuration.
+
+
+## Restored configuration workspaces — 1 September 2026
+
+The combined suite includes three dedicated utility workspaces in the top navigation:
+
+- **AI / Ollama Configuration** — configure/test OmniRoute and Ollama.
+- **Setup Tutorial** — guided connection and troubleshooting instructions for OmniRoute, Ollama and browser-local AI.
+- **Settings** — global theme, shared AI status, browser AI release and connection-reset controls.
+
+The compact **AI Settings** button in the shell is retained as a quick OmniRoute diagnostic shortcut.

@@ -2005,7 +2005,7 @@ function sleep(ms){
             {value:"mlc:Phi-3.5-mini-instruct-q4f16_1-MLC",engine:"mlc",id:"Phi-3.5-mini-instruct-q4f16_1-MLC",label:"MLC — Phi 3.5 Mini",ram:"about 3–6 GB"},
             {value:"mlc:Llama-3.1-8B-Instruct-q4f16_1-MLC",engine:"mlc",id:"Llama-3.1-8B-Instruct-q4f16_1-MLC",label:"MLC — Llama 3.1 8B",ram:"about 7–12 GB"},
             {value:"proprietary:placeholder",engine:"placeholder",id:null,label:"Proprietary Schedule AI Toolkit",disabled:true},
-            {value:"ollama:placeholder",engine:"placeholder",id:null,label:"Ollama — local installation",disabled:true}
+            {value:"ollama:auto",engine:"ollama",id:null,label:"Ollama — selected local model",ram:"model-dependent; commonly 2–16+ GB"}
         ];
 
         let currentValue = null;
@@ -2032,6 +2032,35 @@ function sleep(ms){
 
         function endpointKey(){
             try{return sessionStorage.getItem("projectControlsOmniRouteEndpointKey") || "";}catch(_){return "";}
+        }
+
+        function normaliseOllamaBaseUrl(value){
+            let clean=String(value||"").trim().replace(/\/+$/g,"");
+            clean=clean.replace(/\/(?:api|v1)(?:\/.*)?$/i,"");
+            if(!clean) clean="http://localhost:11434";
+            return clean;
+        }
+        function ollamaBaseUrl(){
+            try{return normaliseOllamaBaseUrl(localStorage.getItem("projectControlsOllamaBaseUrl")||"http://localhost:11434");}
+            catch(_){return "http://localhost:11434";}
+        }
+        function ollamaModel(){
+            try{return localStorage.getItem("projectControlsOllamaModel")||"";}catch(_){return "";}
+        }
+        function ollamaConfig(){
+            return {baseUrl:ollamaBaseUrl(),model:ollamaModel(),browserOrigin:typeof location!=="undefined"?location.origin:""};
+        }
+        function configureOllama({baseUrl,model:nextModel}={}){
+            if(typeof baseUrl==="string"&&baseUrl.trim()){
+                try{localStorage.setItem("projectControlsOllamaBaseUrl",normaliseOllamaBaseUrl(baseUrl));}catch(_){}
+            }
+            if(typeof nextModel==="string"){
+                try{
+                    if(nextModel.trim()) localStorage.setItem("projectControlsOllamaModel",nextModel.trim());
+                    else localStorage.removeItem("projectControlsOllamaModel");
+                }catch(_){}
+            }
+            return ollamaConfig();
         }
 
         function config(){
@@ -2111,6 +2140,47 @@ function sleep(ms){
             throw new Error(`Could not reach OmniRoute at ${baseUrl}. Confirm OmniRoute is running and add ${origin} to OmniRoute's CORS Allowed Origins.`);
         }
 
+
+        async function ollamaFetch(path,options={},timeoutMs=null){
+            const base=ollamaBaseUrl();
+            const urls=[`${base}${path}`];
+            const alt=loopbackAlternative(base);
+            if(alt&&alt!==base) urls.push(`${alt}${path}`);
+            const method=String(options.method||"GET").toUpperCase();
+            const timeout=Number(timeoutMs)||(method==="POST"?120000:10000);
+            let lastError=null;
+            for(const url of urls){
+                const controller=new AbortController();
+                const timer=setTimeout(()=>controller.abort(),timeout);
+                try{
+                    const requestOptions={...options,mode:"cors",cache:"no-store",credentials:"omit",referrerPolicy:"no-referrer",signal:controller.signal};
+                    if(isLoopbackUrl(url)) requestOptions.targetAddressSpace="loopback";
+                    return await fetch(url,requestOptions);
+                }catch(error){lastError=error;}finally{clearTimeout(timer);}
+            }
+            const origin=corsOriginHint();
+            if(lastError?.name==="AbortError") throw new Error(`Ollama did not respond at ${base} within ${Math.round(timeout/1000)} seconds. Confirm Ollama is running.`);
+            throw new Error(`The browser could not reach Ollama at ${base}. Confirm Ollama is running and allow ${origin} with OLLAMA_ORIGINS, then restart Ollama.`);
+        }
+        async function parseOllamaResponse(response){
+            const text=await response.text();
+            let data={};
+            try{data=text?JSON.parse(text):{};}catch(_){data={error:text||`HTTP ${response.status}`};}
+            if(!response.ok) throw new Error(`Ollama request failed: ${data?.error||data?.message||`HTTP ${response.status}`}`);
+            return data;
+        }
+        async function listOllamaModels(){
+            const response=await ollamaFetch("/api/tags",{method:"GET",headers:{"Accept":"application/json"}},10000);
+            const data=await parseOllamaResponse(response);
+            return (data?.models||[]).map(item=>({
+                name:String(item?.name||item?.model||""),
+                model:String(item?.model||item?.name||""),
+                size:Number(item?.size)||0,
+                parameterSize:String(item?.details?.parameter_size||""),
+                quantization:String(item?.details?.quantization_level||"")
+            })).filter(item=>item.name);
+        }
+
         async function parseOmniResponse(response){
             const text=await response.text();
             let data={};
@@ -2153,11 +2223,11 @@ function sleep(ms){
         }
 
         function requireLocalConsent(entry){
-            if(!["cpu","mlc"].includes(entry.engine)) return;
+            if(!["cpu","mlc","ollama"].includes(entry.engine)) return;
             const key=`projectControlsLocalAIConsent:${entry.value}`;
             try{if(sessionStorage.getItem(key)==="1") return}catch(_){}
-            const where=entry.engine==="mlc"?"GPU memory and system RAM":"system RAM";
-            const accepted=window.confirm(`${entry.label} runs locally in this browser. It can use significant ${where} (${entry.ram||"several GB"}) and may slow the overall application, other browser tabs, and your computer.\n\nContinue loading this model?`);
+            const where=entry.engine==="mlc"?"GPU memory and system RAM":entry.engine==="ollama"?"system RAM and, where available, GPU memory":"system RAM";
+            const accepted=window.confirm(`${entry.label} runs locally on this computer. It can use significant ${where} (${entry.ram||"several GB"}) and may slow the overall application and your computer.\n\nContinue loading this model?`);
             if(!accepted) throw new Error("Local AI loading was cancelled.");
             try{sessionStorage.setItem(key,"1")}catch(_){}
         }
@@ -2170,6 +2240,13 @@ function sleep(ms){
 
             if(entry.engine==="omniroute"){
                 runtime={type:"omniroute",model:entry.id};
+            }else if(entry.engine==="ollama"){
+                const models=await listOllamaModels();
+                if(!models.length) throw new Error("Ollama is running but no local models are installed. Pull or run a model in Ollama first.");
+                const saved=ollamaModel();
+                const selected=models.some(item=>item.name===saved||item.model===saved)?saved:models[0].name;
+                if(selected!==saved) configureOllama({model:selected});
+                runtime={type:"ollama",model:selected};
             }else if(entry.engine==="cpu"){
                 const transformers = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.0.1");
                 runtime = await transformers.pipeline("text-generation",entry.id,{device:"wasm",dtype:"q4"});
@@ -2240,6 +2317,45 @@ function sleep(ms){
             }
         }
 
+
+        async function runOllama(messages,{temperature,max_tokens,onToken}){
+            const selected=runtime?.model||ollamaModel();
+            if(!selected) throw new Error("No Ollama model is selected. Open Tutorial / AI Setup and choose an installed model.");
+            const response=await ollamaFetch("/api/chat",{
+                method:"POST",
+                headers:{"Content-Type":"application/json","Accept":"application/json"},
+                body:JSON.stringify({model:selected,messages,stream:false,options:{temperature,num_predict:max_tokens}})
+            },120000);
+            const data=await parseOllamaResponse(response);
+            const content=data?.message?.content||"";
+            if(!String(content).trim()) throw new Error("Ollama returned a successful response but no assistant text.");
+            if(onToken) onToken(String(content));
+            return {choices:[{message:{content:String(content)}}],model:data?.model||selected};
+        }
+
+        async function testOllamaConnection({baseUrl,model:requestedModel}={}){
+            const before=ollamaConfig();
+            if(baseUrl||typeof requestedModel==="string"){
+                configureOllama({baseUrl:baseUrl||before.baseUrl,model:typeof requestedModel==="string"?requestedModel:before.model});
+            }
+            const models=await listOllamaModels();
+            if(!models.length) return {ok:false,baseUrl:ollamaBaseUrl(),models:[],message:"Ollama is reachable but no models are installed."};
+            const configured=ollamaModel();
+            const selected=models.find(item=>item.name===configured||item.model===configured)?.name||models[0].name;
+            configureOllama({model:selected});
+            const savedRuntime=runtime,savedEngine=currentEngine,savedValue=currentValue,savedLabel=currentLabel;
+            try{
+                runtime={type:"ollama",model:selected};
+                currentEngine="ollama";
+                currentValue="ollama:auto";
+                currentLabel=`Ollama — ${selected}`;
+                const result=await runOllama([{role:"user",content:"Reply with exactly OK"}],{temperature:0,max_tokens:8,onToken:null});
+                return {ok:true,baseUrl:ollamaBaseUrl(),selectedModel:selected,models,content:result?.choices?.[0]?.message?.content||"OK"};
+            }finally{
+                runtime=savedRuntime;currentEngine=savedEngine;currentValue=savedValue;currentLabel=savedLabel;
+            }
+        }
+
         async function runMLC(messages,{temperature,max_tokens,stream,onToken}){
             if(stream){
                 const response=await runtime.chat.completions.create({messages,temperature,max_tokens,stream:true});
@@ -2265,6 +2381,8 @@ function sleep(ms){
             await ensure(currentValue || "omniroute:auto");
 
             if(currentEngine==="omniroute") return await runOmniRoute(messages,{temperature,max_tokens,onToken});
+
+            if(currentEngine==="ollama") return await runOllama(messages,{temperature,max_tokens,onToken});
 
             if(currentEngine==="cpu"){
                 const output=await runtime(messages,{max_new_tokens:max_tokens,temperature,do_sample:temperature>0,return_full_text:false});
@@ -2325,7 +2443,7 @@ function sleep(ms){
             return {ready:!!runtime,value:currentValue,engine:currentEngine || "shared",label:currentLabel,loading:!!loadingPromise,config:config()};
         }
 
-        return {catalog,ensure,run,release,status,config,configure,testConnection};
+        return {catalog,ensure,run,release,status,config,configure,testConnection,ollamaConfig,configureOllama,listOllamaModels,testOllamaConnection};
     })();
 
     const risk = (() => {

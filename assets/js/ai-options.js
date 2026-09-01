@@ -3,6 +3,7 @@
     if(!core||!core.ai||!Array.isArray(core.ai.catalog)) return;
     const groups=[
         {label:"OmniRoute",test:item=>item.engine==="omniroute"},
+        {label:"Ollama",test:item=>item.engine==="ollama"},
         {label:"Browser / local models",test:item=>item.engine==="cpu"},
         {label:"Local WebGPU models",test:item=>item.engine==="mlc"},
         {label:"Coming soon",test:item=>item.engine==="placeholder"}
