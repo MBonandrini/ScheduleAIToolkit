@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.7.0';
+export const APP_VERSION = '0.7.1-suite';
 
 export const DEFAULT_MODES = Object.freeze({
   cpu: {

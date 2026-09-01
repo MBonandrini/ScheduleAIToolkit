@@ -144,3 +144,12 @@ tests/run-release-validation.sh
 ```
 
 It executes syntax/static checks, shell/configuration contracts, AI/Ollama tests, XER regression/fuzz/stress tests, the complete NotebookLM+ non-browser test suite, and HTTP route smoke tests.
+
+
+## Bulk Information folder-link regression — 1 September 2026
+- Added collapsible Bulk Information folder trees to the shared left pane.
+- Chromium/Edge path uses File System Access API directory handles; fallback uses `webkitdirectory` folder selection.
+- Linked-folder metadata is stored separately in IndexedDB schema v2; directory handles avoid copying whole folders into browser storage where supported.
+- Refresh, permission re-acquisition, unlink safety, nested path rendering, shared Use routing and fallback snapshots are covered by suite contract tests.
+- Bulk metadata writes use one IndexedDB transaction per folder refresh/import rather than one transaction per file.
+- Full release validation passed after the change.

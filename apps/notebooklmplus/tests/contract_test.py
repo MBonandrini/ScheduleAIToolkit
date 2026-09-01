@@ -23,8 +23,10 @@ def test_required_tabs_present():
         assert f'id="tab-{tab}"' in html
     for tab in ['ollama','tutorial','settings']:
         assert f'data-tab="{tab}"' not in html
-    assert 'id="modeConfigBtn"' in html
-    assert 'Suite Settings' in html
+    assert 'id="modeConfigBtn"' not in html
+    assert 'Suite Settings' not in html
+    assert 'id="modeSelect"' not in html
+    assert 'projectControlsNotebookPerformanceMode' in app
 
 
 def test_ollama_configuration_controls_present():
@@ -206,12 +208,12 @@ def test_source_inputs_accept_supported_document_types():
 
 def test_build_version_handshake_prevents_mixed_cached_ui():
     sw = (ROOT/'sw.js').read_text(encoding='utf-8')
-    assert 'name="notebooklmplus-build" content="0.7.0"' in html
-    assert "export const APP_VERSION = '0.7.0'" in config
+    assert 'name="notebooklmplus-build" content="0.7.1-suite"' in html
+    assert "export const APP_VERSION = '0.7.1-suite'" in config
     assert 'ensureBuildCompatibility' in app
     assert 'clearAppCachesAndWorkers' in app
     assert "updateViaCache: 'none'" in app
-    assert "notebooklmplus-v0.7.0" in sw
+    assert "notebooklmplus-v0.7.1-suite" in sw
     assert 'Network-first prevents stale application JavaScript after a deployment' in sw
     assert 'return cached || network' not in sw
 

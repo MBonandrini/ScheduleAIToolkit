@@ -72,3 +72,7 @@ NotebookLM+ remains a separate top-level research workspace, but its AI provider
 When Ollama is the global engine, NotebookLM+ uses the globally selected Ollama chat model and can use the optional global Ollama embedding model for semantic retrieval. With OmniRoute it uses the globally selected route. Browser-local CPU/WebGPU selections use the shared suite AI runtime for answer generation and NotebookLM+ falls back to keyword retrieval where embeddings are unavailable.
 
 See `NOTEBOOKLM_INTEGRATION.md`.
+
+
+### Bulk Information
+The shared project pane now supports collapsible linked folders under **Bulk Information**. On supported Chromium/Edge browsers, **Link folder** retains a read-only local directory handle and resolves individual files only when the user presses **Use**. A directory-selection snapshot fallback is provided for browsers without the File System Access API. Linked folders can be refreshed or unlinked without modifying files on disk.

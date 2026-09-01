@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdn.sheetjs.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https:; worker-src 'self' blob: https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <meta name="theme-color" content="#111827" />
-  <meta name="notebooklmplus-build" content="0.7.0" />
+  <meta name="notebooklmplus-build" content="0.7.1-suite" />
   <title>NotebookLM+</title>
   <meta name="description" content="NotebookLM+ — browser-first notebook research with local Ollama, remote Ollama, or hosted AI." />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="css/styles.css?v=0.7.0" />
+  <link rel="stylesheet" href="css/styles.css?v=0.7.1-suite" />
 </head>
 <body>
   <div id="appShell" class="app-shell">
@@ -22,11 +22,6 @@
         </div>
       </div>
       <div class="topbar-controls">
-        <label class="compact-field">
-          <span>Mode</span>
-          <select id="modeSelect" aria-label="Performance mode"></select>
-        </label>
-        <button id="modeConfigBtn" class="btn secondary">Suite Settings</button>
         <div id="ollamaStatusPill" class="status-pill offline">Unified AI</div>
       </div>
     </header>
@@ -513,6 +508,6 @@ ollama pull embeddinggemma</code></pre>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=0.7.0"></script>
+  <script type="module" src="js/app.js?v=0.7.1-suite"></script>
 </body>
 </html>

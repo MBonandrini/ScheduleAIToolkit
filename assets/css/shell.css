@@ -105,3 +105,44 @@ html[data-theme="dark"] .diag-row.error{color:#FF8E86}
 html[data-theme="dark"] .shared-section{background:#071521;border-color:#1D4058}
 html[data-theme="dark"] .shared-file{background:#0B2030}
 @media(max-width:1100px){.status{display:none}.suite-tab{padding:0 9px}}
+
+.global-ai-control{margin-left:auto;display:flex;align-items:center;gap:7px;min-width:230px;color:var(--shell-muted);font-size:8px;font-weight:800;white-space:nowrap}
+.global-ai-control span{text-transform:uppercase;letter-spacing:.06em}
+.global-ai-control select{min-width:180px;max-width:260px;height:34px;border:1px solid var(--shell-border);border-radius:9px;padding:0 28px 0 9px;background:var(--shell-panel);color:var(--shell-text);font:inherit;font-size:9px;font-weight:700;outline:none;cursor:pointer}
+.global-ai-control select:focus{border-color:var(--shell-accent);box-shadow:0 0 0 3px rgba(47,155,255,.12)}
+html[data-theme="dark"] .global-ai-control select{background:#0B2030;border-color:#1D4058;color:#EDF8FF}
+@media(max-width:1180px){.global-ai-control{min-width:170px}.global-ai-control span{display:none}.global-ai-control select{min-width:160px}}
+
+/* Bulk Information linked-folder tree */
+.bulk-information{margin-top:12px;padding:9px;border:1px solid var(--shell-border);border-radius:11px;background:var(--shell-bg)}
+.bulk-information-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+.bulk-information-title{font-size:8px;font-weight:850;text-transform:uppercase;letter-spacing:.08em;color:var(--shell-text)}
+.bulk-information-subtitle{margin-top:2px;font-size:7px;line-height:1.35;color:var(--shell-muted)}
+.bulk-folder-list{display:grid;gap:5px}
+.bulk-folder{border:1px solid var(--shell-border);border-radius:9px;background:var(--shell-panel);overflow:hidden}
+.bulk-folder>summary{list-style:none;display:grid;grid-template-columns:14px minmax(0,1fr) auto;align-items:center;gap:6px;padding:8px;cursor:pointer;color:var(--shell-text);font-size:8px;font-weight:800;user-select:none}
+.bulk-folder>summary::-webkit-details-marker{display:none}
+.bulk-folder>summary::before{content:"▸";color:var(--shell-accent);font-size:8px;transition:transform .15s ease}
+.bulk-folder[open]>summary::before{transform:rotate(90deg)}
+.bulk-folder-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bulk-folder-meta{color:var(--shell-muted);font-size:7px;font-weight:650}
+.bulk-folder-body{padding:0 6px 7px 6px;border-top:1px solid var(--shell-border)}
+.bulk-tree-dir{margin-top:5px;margin-left:4px}
+.bulk-tree-dir>summary{list-style:none;display:flex;align-items:center;gap:5px;padding:4px 2px;cursor:pointer;color:var(--shell-muted);font-size:7.5px;font-weight:750}
+.bulk-tree-dir>summary::-webkit-details-marker{display:none}
+.bulk-tree-dir>summary::before{content:"▸";color:var(--shell-accent);font-size:7px;transition:transform .15s ease}
+.bulk-tree-dir[open]>summary::before{transform:rotate(90deg)}
+.bulk-tree-children{margin-left:10px;padding-left:6px;border-left:1px solid var(--shell-border)}
+.bulk-file{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:6px;align-items:center;padding:5px 3px;border-radius:7px}
+.bulk-file:hover{background:var(--shell-accent-soft)}
+.bulk-file-icon{width:22px;height:22px;display:grid;place-items:center;border-radius:6px;background:var(--shell-accent-soft);color:var(--shell-accent);font-size:7px;font-weight:850}
+.bulk-file-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:7.5px;font-weight:700}
+.bulk-folder-tools{display:flex;gap:5px;padding:6px 2px 0}
+.bulk-folder-tools button,.bulk-link-button{border:1px solid var(--shell-border);border-radius:7px;background:var(--shell-panel);color:var(--shell-text);font:inherit;font-size:7px;font-weight:750;cursor:pointer}
+.bulk-folder-tools button{padding:5px 7px}
+.bulk-folder-tools button:hover,.bulk-link-button:hover{border-color:var(--shell-accent);color:var(--shell-accent)}
+.bulk-actions{margin-top:7px}.bulk-link-button{width:100%;min-height:31px;border-style:dashed;color:var(--shell-accent)}
+.bulk-information-note{margin-top:7px;color:var(--shell-muted);font-size:6.8px;line-height:1.45}
+.bulk-empty{padding:9px 4px;color:var(--shell-muted);font-size:7px;line-height:1.4;text-align:center}
+html[data-theme="dark"] .bulk-information{background:#071521;border-color:#1D4058}
+html[data-theme="dark"] .bulk-folder,html[data-theme="dark"] .bulk-folder-tools button,html[data-theme="dark"] .bulk-link-button{background:#0B2030;border-color:#1D4058;color:#EDF8FF}

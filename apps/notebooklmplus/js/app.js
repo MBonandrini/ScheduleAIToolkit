@@ -7,7 +7,11 @@ function applyParentTheme(theme){
 window.addEventListener('message', event => {
   if (event.data?.type === 'pc-theme') applyParentTheme(event.data.theme);
 });
-try { applyParentTheme(window.parent?.document?.documentElement?.dataset?.theme || 'light'); } catch (_) { applyParentTheme('light'); }
+window.addEventListener('message', async event => {
+  if(event.data?.type==='pc-ai-config-changed' && state.settings){ syncSuiteAiToMode(); refreshUnifiedAiStatus(); }
+  if(event.data?.type==='pc-notebook-performance-changed' && state.settings){ const key=suitePerformanceMode(); if(state.settings.modes[key]){state.settings.currentMode=key; syncSuiteAiToMode(); await persistSettings(); refreshUnifiedAiStatus();} }
+});
+try { applyParentTheme(window.parent?.document?.documentElement?.dataset?.theme || 'dark'); } catch (_) { applyParentTheme('dark'); }
 import { APP_VERSION, DEFAULT_MODES, mergeSettings } from './config.js';
 import {
   bulkPut, clearAll, deleteByIndex, exportData, getAll, getAllByIndex,
@@ -97,6 +101,8 @@ async function ensureBuildCompatibility() {
   throw new Error(`NotebookLM+ build mismatch (page: ${pageBuild || 'unknown'}, JavaScript: ${APP_VERSION}). Clear site data for this GitHub Pages site and reload.`);
 }
 const currentNotebook = () => state.notebooks.find(n => n.id === state.activeNotebookId) || null;
+const PERFORMANCE_KEY='projectControlsNotebookPerformanceMode';
+function suitePerformanceMode(){ try{const v=localStorage.getItem(PERFORMANCE_KEY)||'balanced'; return state.settings?.modes?.[v]?v:'balanced'}catch(_){return 'balanced'} }
 const currentMode = () => state.settings.modes[state.settings.currentMode];
 function suiteAiSelection(){
   try {
@@ -135,29 +141,23 @@ function setBusy(value) {
 async function init() {
   if (!await ensureBuildCompatibility()) return;
   state.settings = mergeSettings(await getSetting('appSettings'));
+  state.settings.currentMode = suitePerformanceMode();
   syncSuiteAiToMode();
   await persistSettings();
   bindTabs();
-  bindTutorial();
   bindEvents();
-  populateModeSelect();
-  applySettingsToUi();
   await reloadNotebooks();
   await reloadTemplates();
   await updateStorageEstimate();
   registerServiceWorker();
-  refreshAiStatus(false);
+  refreshUnifiedAiStatus();
 }
 
 async function persistSettings() {
   await setSetting('appSettings', state.settings);
 }
 
-function populateModeSelect() {
-  $('modeSelect').innerHTML = Object.entries(state.settings.modes)
-    .map(([key, mode]) => `<option value="${key}">${escapeHtml(mode.label || key)}</option>`).join('');
-  $('modeSelect').value = state.settings.currentMode;
-}
+function populateModeSelect() { /* Performance selection is owned by Suite Settings. */ }
 
 function applySettingsToUi() {
   syncSuiteAiToMode();
@@ -292,13 +292,6 @@ function bindTutorial() {
 }
 
 function bindEvents() {
-  $('modeSelect').addEventListener('change', async e => {
-    state.settings.currentMode = e.target.value;
-    await persistSettings();
-    applySettingsToUi();
-    refreshAiStatus(false);
-  });
-  $('modeConfigBtn').addEventListener('click', () => window.parent.postMessage({type:'pc-open-settings'}, '*'));
   $('providerSelect').addEventListener('change', () => { state.models = []; updateProviderUi(); populateModelSelects(); });
   $('chatModelSelect').addEventListener('change', () => syncCustomModelInput('chatModelSelect', 'chatModelCustomInput'));
   $('embeddingModelSelect').addEventListener('change', () => syncCustomModelInput('embeddingModelSelect', 'embeddingModelCustomInput'));
@@ -707,6 +700,13 @@ async function rescanSources(silent=false) {
     if (!silent && warnings.length) alert(warnings.join('\n'));
   } catch (err) { endProgress(); if (!silent) alert(err.message); }
   finally { setBusy(false); }
+}
+
+function refreshUnifiedAiStatus(){
+  const pill=document.getElementById('ollamaStatusPill'); if(!pill) return;
+  const selected=suiteAiSelection();
+  pill.className='status-pill online';
+  pill.textContent=`${selected.label || selected.value} · ${state.settings?.modes?.[state.settings.currentMode]?.label || 'Balanced'}`;
 }
 
 async function refreshAiStatus(showResult=true) {
@@ -1264,6 +1264,8 @@ async function importBackup(e) {
     const payload = JSON.parse(await file.text());
     await importData(payload);
     state.settings = mergeSettings(await getSetting('appSettings'));
+    state.settings.currentMode = suitePerformanceMode();
+    syncSuiteAiToMode();
     state.activeNotebookId = null; state.activeConversationId = null;
     await reloadTemplates(); await reloadNotebooks(); applySettingsToUi(); await updateStorageEstimate();
     alert('Backup imported. Source handles are not included in JSON backups, so some sources may need to be re-linked.');
@@ -1275,8 +1277,10 @@ async function clearLocalData() {
   if (!confirm('Delete all notebooks, indexes, templates, chats and settings stored by this site in this browser? Original source files are not touched.')) return;
   await clearAll();
   state.settings = mergeSettings();
+  state.settings.currentMode = suitePerformanceMode();
+  syncSuiteAiToMode();
   state.notebooks = []; state.templates = []; state.artifacts=[]; state.researchResults=[]; state.activeArtifactId=null; state.activeNotebookId = null; state.activeConversationId = null;
-  await persistSettings(); populateModeSelect(); applySettingsToUi(); await reloadNotebooks(); await updateStorageEstimate();
+  await persistSettings(); await reloadNotebooks(); await updateStorageEstimate(); refreshUnifiedAiStatus();
 }
 
 async function saveGeneralSettings() {
