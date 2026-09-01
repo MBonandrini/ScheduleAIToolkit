@@ -150,3 +150,14 @@ html[data-theme="dark"] .bulk-folder,html[data-theme="dark"] .bulk-folder-tools 
 .bulk-file{grid-template-columns:22px minmax(0,1fr) auto 20px}
 .shared-remove{width:20px;height:20px;border:0;border-radius:5px;background:transparent;color:var(--shell-muted);font-size:12px;line-height:1;cursor:pointer;padding:0}
 .shared-remove:hover{background:rgba(190,40,40,.12);color:#c13b34}
+
+/* Global long-running operation progress */
+.suite-progress{position:fixed;right:16px;bottom:16px;z-index:5000;width:min(390px,calc(100vw - 32px));padding:12px 13px;border:1px solid var(--shell-border);border-radius:12px;background:var(--shell-panel);color:var(--shell-text);box-shadow:0 14px 38px rgba(0,0,0,.20)}
+.suite-progress[hidden]{display:none}
+.suite-progress-head{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:9px;font-weight:850}
+.suite-progress-detail{margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--shell-muted);font-size:8px}
+.suite-progress-track{height:6px;margin-top:9px;overflow:hidden;border-radius:999px;background:var(--shell-accent-soft)}
+.suite-progress-bar{height:100%;width:0;border-radius:999px;background:var(--shell-accent);transition:width .18s ease}
+html[data-theme="dark"] .suite-progress{background:#0B2030;border-color:#1D4058;color:#EDF8FF}
+
+.bulk-folder > summary{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px}.bulk-folder-remove{width:24px;height:24px;border:0;border-radius:6px;background:transparent;color:var(--muted,#8fa8bd);font-size:18px;line-height:1;cursor:pointer}.bulk-folder-remove:hover{background:rgba(239,68,68,.14);color:#ef4444}.bulk-folder-remove:focus-visible{outline:2px solid var(--accent,#2ea3ff);outline-offset:2px}

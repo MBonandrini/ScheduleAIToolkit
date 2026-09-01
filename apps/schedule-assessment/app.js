@@ -227,7 +227,6 @@ const state = {
     aiReady:false,
     aiBusy:false,
     aiMode:"initialising",
-    aiModelValue:"omniroute:auto",
     projectName:"Untitled project",
     projectId:null
 };
@@ -384,12 +383,6 @@ const AUTO_REPORT_EXCLUSIONS = new Set(["settings","excel","backup","monte","ai"
 let bulkScheduleSyncPromise = Promise.resolve();
 
 const MODEL_CATALOG = [
-    {value:"omniroute:auto",engine:"omniroute",id:"auto",label:"OmniRoute — Auto (default)"},
-    {value:"omniroute:auto/smart",engine:"omniroute",id:"auto/smart",label:"OmniRoute — Smart"},
-    {value:"omniroute:auto/fast",engine:"omniroute",id:"auto/fast",label:"OmniRoute — Fast"},
-    {value:"omniroute:auto/cheap",engine:"omniroute",id:"auto/cheap",label:"OmniRoute — Cheap"},
-    {value:"omniroute:auto/coding",engine:"omniroute",id:"auto/coding",label:"OmniRoute — Coding"},
-    {value:"omniroute:auto/offline",engine:"omniroute",id:"auto/offline",label:"OmniRoute — Offline/local"},
     {
         value:"browserlite:onnx-community/Qwen2.5-0.5B-Instruct",
         engine:"cpu",
@@ -487,17 +480,7 @@ async function initialiseAI(){
                 model.value === saved
         )
             ? saved
-            : "omniroute:auto";
-
-    const select =
-        document.getElementById(
-            "modelSelect"
-        );
-
-    if(select){
-        select.value =
-            requested;
-    }
+            : (MODEL_CATALOG.find(model=>model.value==="ollama:auto")?.value || MODEL_CATALOG[0]?.value);
 
     try{
 
@@ -512,11 +495,6 @@ async function initialiseAI(){
             "Preferred AI option could not start; using deterministic analysis.",
             error
         );
-
-        if(select){
-            select.value =
-                "heuristic";
-        }
 
         state.aiReady = true;
         state.aiMode = "heuristic";
@@ -695,7 +673,7 @@ ${buildAIContext(schedule)}
 
     if(
         state.aiReady &&
-        ["omniroute","mlc","cpu"].includes(
+        ["ollama","mlc","cpu"].includes(
             state.aiMode
         )
     ){
@@ -822,6 +800,10 @@ function scheduleFileSourceKey(file, explicitKey=""){
     return `direct:${file?.name||"schedule"}:${Number(file?.size||0)}:${Number(file?.lastModified||0)}`;
 }
 
+function reportProcessingProgress(percent,detail,title="Schedule processing",done=false){
+    try{window.parent.postMessage({type:"pc-progress",percent,detail,title,done},"*");}catch(_){}
+}
+
 async function handleScheduleEntries(entries,{silent=false,origin="direct"}={}){
 
     const items = [...(entries || [])]
@@ -835,9 +817,12 @@ async function handleScheduleEntries(entries,{silent=false,origin="direct"}={}){
 
     document.getElementById("autoReportStatus").textContent =
         origin === "bulk" ? "Scanning Bulk Information schedules..." : "Reading schedule files...";
+    reportProcessingProgress(2, origin === "bulk" ? "Scanning Bulk Information schedules…" : "Reading uploaded schedule files…");
 
-    for(const entry of items){
+    for(let itemIndex=0;itemIndex<items.length;itemIndex++){
+        const entry=items[itemIndex];
         const file=entry.file;
+        reportProcessingProgress(3 + Math.round((itemIndex/Math.max(1,items.length))*22), `Parsing ${file?.name||"schedule"} (${itemIndex+1}/${items.length})…`);
         if(entry.resolutionError){
             failed++;
             console.warn(`Could not access ${entry.sourcePath||file?.name||"bulk schedule"}: ${entry.resolutionError}`);
@@ -905,7 +890,8 @@ async function handleScheduleEntries(entries,{silent=false,origin="direct"}={}){
         const schedule=getScheduleById(scheduleId);
         document.getElementById("autoReportStatus").textContent=
             `Building automatic reports ${i+1}/${newlyAddedScheduleIds.length}: ${schedule?.name || "schedule"}...`;
-        const summary=await buildAllReportsForSchedule(scheduleId);
+        reportProcessingProgress(28 + Math.round((i/Math.max(1,newlyAddedScheduleIds.length))*67), `Generating reports for ${schedule?.name||"schedule"} (${i+1}/${newlyAddedScheduleIds.length})…`);
+        const summary=await buildAllReportsForSchedule(scheduleId,{batchIndex:i,batchCount:newlyAddedScheduleIds.length});
         reportsFailed += summary?.failed?.length || 0;
     }
 
@@ -914,6 +900,7 @@ async function handleScheduleEntries(entries,{silent=false,origin="direct"}={}){
     if(failed) parts.push(`${failed} import failure${failed===1?"":"s"}`);
     if(reportsFailed) parts.push(`${reportsFailed} report failure${reportsFailed===1?"":"s"}`);
     document.getElementById("autoReportStatus").textContent=`Automatic reporting complete · ${parts.join(" · ")}.`;
+    reportProcessingProgress(100, `Complete · ${parts.join(" · ")}`, "Schedule processing complete", true);
 
     const active=getActiveSchedule();
     if(active) await openReport(state.currentReport||"health");
@@ -2138,19 +2125,24 @@ async function buildReport(
     return result;
 }
 
-async function buildAllReportsForSchedule(scheduleId){
+async function buildAllReportsForSchedule(scheduleId,{batchIndex=0,batchCount=1}={}){
     const schedule=getScheduleById(scheduleId);
     if(!schedule) return {built:[],failed:[],skipped:[]};
 
     ensureReportStore(scheduleId);
     const summary={built:[],failed:[],skipped:[]};
 
+    const autoReports=REPORTS.filter(report=>AUTO_REPORT_IDS.has(report.id));
+    let reportIndex=0;
     for(const report of REPORTS){
         if(!AUTO_REPORT_IDS.has(report.id)){
             summary.skipped.push(report.id);
             continue;
         }
         try{
+            const overallFraction=(batchIndex + reportIndex/Math.max(1,autoReports.length))/Math.max(1,batchCount);
+            reportProcessingProgress(28 + Math.round(overallFraction*67), `${schedule.name}: ${report.title||report.id}`);
+            reportIndex++;
             await buildReport(report.id,scheduleId,{
                 render:getActiveSchedule()?.id===scheduleId && state.currentReport===report.id
             });

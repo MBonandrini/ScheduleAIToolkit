@@ -12,7 +12,7 @@ const checks=[
  ['logic comparison',/linkAdded/.test(app)&&/Open starts/.test(app)&&/Positive lags/.test(app)],
  ['resource comparison',/resourceChanged/.test(app)&&/Resources & cost movement/.test(app)],
  ['S curve and histogram',/drawSCurve\(job\.curveId/.test(app)&&/drawSCurve\(job\.histId/.test(app)],
- ['direct and bulk auto reporting',/buildAllReportsForSchedule\(scheduleId\)/.test(app)&&/importBulkInformationSchedules/.test(app)],
+ ['direct and bulk auto reporting',/buildAllReportsForSchedule\(scheduleId/.test(app)&&/importBulkInformationSchedules/.test(app)],
  ['schedule file remove cross',/className="file-remove"/.test(app)&&/removeScheduleFile/.test(app)],
  ['repository file remove cross',/data-shared-remove/.test(shell)&&/removeSharedFileReference/.test(shell)]
 ];

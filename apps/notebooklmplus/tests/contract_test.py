@@ -43,7 +43,7 @@ def test_ollama_configuration_controls_present():
 
 
 def test_tutorial_covers_setup():
-    phrases = ['Install Ollama','Automatic Ollama setup','Download a chat model','OLLAMA_ORIGINS','Connect and test','Link folders and files','Hosted AI Engine','OmniRoute Auto / routed AI','Configure OmniRoute or another hosted AI engine','Troubleshooting']
+    phrases = ['Install Ollama','Automatic Ollama setup','Download a chat model','OLLAMA_ORIGINS','Connect and test','Link folders and files','Hosted AI Engine','Troubleshooting']
     for p in phrases:
         assert p in html
 
@@ -208,12 +208,12 @@ def test_source_inputs_accept_supported_document_types():
 
 def test_build_version_handshake_prevents_mixed_cached_ui():
     sw = (ROOT/'sw.js').read_text(encoding='utf-8')
-    assert 'name="notebooklmplus-build" content="0.7.3-suite"' in html
-    assert "export const APP_VERSION = '0.7.3-suite'" in config
+    assert 'name="notebooklmplus-build" content="0.7.4-suite-globalai"' in html
+    assert "export const APP_VERSION = '0.7.4-suite-globalai'" in config
     assert 'ensureBuildCompatibility' in app
     assert 'clearAppCachesAndWorkers' in app
     assert "updateViaCache: 'none'" in app
-    assert "notebooklmplus-v0.7.3-suite" in sw
+    assert "notebooklmplus-v0.7.4-suite-globalai" in sw
     assert 'Network-first prevents stale application JavaScript after a deployment' in sw
     assert 'return cached || network' not in sw
 

@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdn.sheetjs.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https:; worker-src 'self' blob: https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <meta name="theme-color" content="#111827" />
-  <meta name="notebooklmplus-build" content="0.7.3-suite" />
+  <meta name="notebooklmplus-build" content="0.7.4-suite-globalai" />
   <title>NotebookLM+</title>
   <meta name="description" content="NotebookLM+ — browser-first notebook research with local Ollama, remote Ollama, or hosted AI." />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="css/styles.css?v=20260901-compare1" />
+  <link rel="stylesheet" href="css/styles.css?v=20260901-ollamaonly-folderremove" />
 </head>
 <body>
   <div id="appShell" class="app-shell">
@@ -164,7 +164,6 @@
                 <span>AI provider</span>
                 <select id="providerSelect">
                   <option value="ollama">Ollama (local or remote)</option>
-                  <option value="omniroute">OmniRoute Auto / routed AI</option>
                   <option value="openai-compatible">Hosted AI (OpenAI-compatible)</option>
                 </select>
               </label>
@@ -181,7 +180,7 @@
               <label id="hostedAuthFields" class="field span-2 hidden">
                 <span id="hostedTokenLabel">Hosted / endpoint API token</span>
                 <input id="hostedApiKeyInput" type="password" autocomplete="off" placeholder="Bearer token (memory only; cleared on reload)" />
-                <small>For OmniRoute this may be left blank for normal keyless local use. NotebookLM+ keeps any entered token only in page memory and does not save it to browser storage or backups. For production, prefer short-lived tokens or a server-side authentication layer rather than a long-lived secret in a static browser app.</small>
+                <small>NotebookLM+ keeps any entered token only in page memory and does not save it to browser storage or backups. For production, prefer short-lived tokens or a server-side authentication layer rather than a long-lived secret in a static browser app.</small>
               </label>
               <label class="field">
                 <span>Chat model</span>
@@ -212,7 +211,7 @@
             </div>
 
             <div class="callout">
-              <strong>Routed / hosted AI:</strong> the browser still performs notebook storage, source parsing, chunking and retrieval locally. With OmniRoute, only retrieved context and prompts are sent to your local OmniRoute gateway, which can route among its configured AI providers. Hosted embedding batches are sent only when you deliberately configure a hosted embedding model.
+              <strong>Routed / hosted AI:</strong> the browser still performs notebook storage, source parsing, chunking and retrieval locally. Hosted embedding batches are sent only when you deliberately configure a hosted embedding model.
             </div>
             <div class="button-row">
               <button id="testOllamaBtn" class="btn primary">Test connection</button>
@@ -386,33 +385,12 @@ ollama pull embeddinggemma</code></pre>
             </section>
 
             <section class="tutorial-step" data-step="9">
-              <h1>9. Configure OmniRoute or another hosted AI engine</h1>
-              <h3>OmniRoute — recommended routed mode</h3>
-              <p>In <strong>AI / Ollama Configuration</strong>, choose <strong>OmniRoute Auto / routed AI</strong>.</p>
-              <ol>
-                <li>Start OmniRoute locally. The normal NotebookLM+ endpoint is <code>http://localhost:20128/v1</code>.</li>
-                <li>In OmniRoute security/CORS settings, allow the exact origin from which this toolkit is hosted.</li>
-                <li>Leave the endpoint token blank for normal keyless local OmniRoute, or enter the endpoint/client key if you enabled endpoint authentication.</li>
-                <li>Press <strong>Test connection</strong>, then <strong>Discover OmniRoute routes</strong>.</li>
-                <li>Select <code>auto</code> when available. OmniRoute then decides which configured provider/model should answer the request and can move away from unavailable or quota-limited routes.</li>
-                <li>For semantic retrieval, either select an embedding-capable route/model exposed by OmniRoute or leave embeddings blank and use NotebookLM+ keyword retrieval.</li>
-                <li>Press <strong>Save AI settings</strong>.</li>
-              </ol>
-              <div class="callout"><strong>Why OmniRoute fits NotebookLM+:</strong> NotebookLM+ continues to parse, index and retrieve notebook sources locally. OmniRoute acts only as the AI gateway for the selected context, so provider switching is kept outside the notebook logic.</div>
-              <h3>Generic OpenAI-compatible engine</h3>
-              <ol>
-                <li>Choose <strong>Hosted AI (OpenAI-compatible)</strong>.</li>
-                <li>Enter an API base such as <code>https://ai.example.com/v1</code>.</li>
-                <li>Enter a session token if required. NotebookLM+ does not persist it.</li>
-                <li>Discover models or enter model names manually, then test and save.</li>
-              </ol>
-              <div class="callout warning"><strong>Static-site credential warning:</strong> never distribute a permanent paid-provider secret inside GitHub Pages source. Prefer OmniRoute, short-lived user tokens, or another server-side gateway.</div>
-            </section>
+              <h1>9. Configure a hosted AI engine</h1><p>Use a generic OpenAI-compatible hosted endpoint when required. Configure its HTTPS base URL, API token, chat model and optional embedding model. Keep long-lived provider secrets out of public GitHub Pages source.</p></section>
 
             <section class="tutorial-step" data-step="10">
               <h1>10. Troubleshooting</h1>
               <h3>“Ollama offline”</h3><p>Run the automatic setup again, confirm Ollama is running, then use <strong>Test connection</strong>. For a custom deployment, confirm its exact origin is present in <code>OLLAMA_ORIGINS</code>.</p>
-              <h3>OmniRoute cannot connect</h3><p>Confirm OmniRoute is running at <code>http://localhost:20128/v1</code>, allow this toolkit origin in OmniRoute CORS settings, and run the connection test. If endpoint authentication is enabled, enter the endpoint/client key for this browser session.</p><h3>Hosted AI cannot connect</h3><p>Check the HTTPS endpoint, API token, model name, and that the hosted service allows CORS from this NotebookLM+ origin.</p>
+              <h3>Hosted AI cannot connect</h3><p>Check the HTTPS endpoint, API token, model name, and that the hosted service allows CORS from this NotebookLM+ origin.</p>
               <h3>Browser blocks localhost</h3><p>Chrome/Edge may request local-network or loopback permission. Approve it for your trusted NotebookLM+ site. If the browser cannot access localhost, use Remote Ollama or Hosted AI Engine mode.</p>
               <h3>File or folder picker does not open</h3><p>NotebookLM+ uses the browser's native file and directory inputs for maximum compatibility on GitHub Pages. Make sure a notebook is selected, then click Add files or Add folder again. Files are processed locally in the page; they are not sent to GitHub.</p>
               <h3>Responses are slow or time out before the first token</h3><p>Use <strong>CPU / No GPU</strong> mode. It uses one indexing worker, 4K context, fewer retrieved chunks, shorter answers, keyword-first retrieval, a 30-minute Ollama keep-alive, a 900-second model-load/first-response allowance, and a separate 240-second streaming inactivity timeout. If needed, choose a smaller chat model and increase the first-response timeout further. The API/embedding timeout is separate.</p>
@@ -508,6 +486,6 @@ ollama pull embeddinggemma</code></pre>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=20260901-compare1"></script>
+  <script type="module" src="js/app.js?v=20260901-ollamaonly-folderremove"></script>
 </body>
 </html>

@@ -1,10 +1,4 @@
 const MODEL_CATALOG = [
-    { value:"omniroute:auto", engine:"omniroute", id:"auto", label:"OmniRoute — Auto (default)" },
-    { value:"omniroute:auto/smart", engine:"omniroute", id:"auto/smart", label:"OmniRoute — Smart" },
-    { value:"omniroute:auto/fast", engine:"omniroute", id:"auto/fast", label:"OmniRoute — Fast" },
-    { value:"omniroute:auto/cheap", engine:"omniroute", id:"auto/cheap", label:"OmniRoute — Cheap" },
-    { value:"omniroute:auto/coding", engine:"omniroute", id:"auto/coding", label:"OmniRoute — Coding" },
-    { value:"omniroute:auto/offline", engine:"omniroute", id:"auto/offline", label:"OmniRoute — Offline/local" },
     { value:"browserlite:onnx-community/Qwen2.5-0.5B-Instruct", engine:"cpu", id:"onnx-community/Qwen2.5-0.5B-Instruct", label:"Lightweight Browser AI — Qwen2.5 0.5B" },
     { value:"webllmio:high",   engine:"webllmio", tier:"high",   id:"Qwen3-8B-q4f16_1-MLC",              label:"Auto-routed — High quality (Qwen3 8B)" },
     { value:"webllmio:medium", engine:"webllmio", tier:"medium", id:"Qwen2.5-3B-Instruct-q4f16_1-MLC",   label:"Auto-routed — Balanced (Qwen2.5 3B)" },
@@ -1288,7 +1282,6 @@ function disposeAIClients(){
 
 function findModelEntry(value){
     return MODEL_CATALOG.find(m => m.value === value) ||
-           MODEL_CATALOG.find(m => m.value === "omniroute:auto") ||
            MODEL_CATALOG.find(m => String(m.value).includes("Qwen2.5-0.5B")) ||
            MODEL_CATALOG[0];
 }
@@ -1298,19 +1291,12 @@ async function initialiseAssistant(){
 
     const preferred =
         localStorage.getItem("projectControlsSharedAIModel") ||
-        (MODEL_CATALOG.some(m => m.value === "omniroute:auto")
-            ? "omniroute:auto"
-            : (MODEL_CATALOG.find(m => String(m.value).includes("Qwen2.5-0.5B"))?.value || MODEL_CATALOG[0].value));
+        (MODEL_CATALOG.find(m => m.value === "ollama:auto")?.value || MODEL_CATALOG.find(m => String(m.value).includes("Qwen2.5-0.5B"))?.value || MODEL_CATALOG[0].value);
 
     await window.parent.ProjectControlsCore.ai.ensure(preferred);
     currentModelValue = preferred;
     aiReady = true;
     engineMode = window.parent.ProjectControlsCore.ai.status().engine;
-
-    const modelSelect = document.getElementById("modelSelect");
-    if(modelSelect && [...modelSelect.options].some(o => o.value === preferred)){
-        modelSelect.value = preferred;
-    }
 
     setEngineStatus(engineMode, window.parent.ProjectControlsCore.ai.status().label, "ready");
     updateSendButton?.();
@@ -1322,8 +1308,6 @@ window.changeModel = async function(value){
     modelSwitchInFlight = true;
     aiReady = false;
 
-    const modelSelect=document.getElementById("modelSelect");
-    if(modelSelect) modelSelect.disabled=true;
 
     try{
         setEngineStatus(null,"Loading shared AI…","loading");
@@ -1338,14 +1322,12 @@ window.changeModel = async function(value){
         throw error;
     }finally{
         modelSwitchInFlight=false;
-        if(modelSelect) modelSelect.disabled=false;
         updateSendButton?.();
     }
 };
 
 async function runAI(messages,options={}){
     await ensureAssistantReady();
-    const select=document.getElementById("modelSelect");
     const requested=window.parent.ProjectControlsCore.ai.preferred();
     await window.parent.ProjectControlsCore.ai.ensure(requested);
     currentModelValue=requested;

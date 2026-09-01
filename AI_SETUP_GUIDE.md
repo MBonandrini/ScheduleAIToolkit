@@ -1,6 +1,5 @@
 # AI Setup Guide
 
-## OmniRoute
 Default endpoint: `http://localhost:20128/v1`. Use AI Settings or Tutorial / AI Setup to test the connection.
 
 ## Ollama

@@ -1,10 +1,4 @@
 const MODEL_CATALOG = [
-    { value:"omniroute:auto", engine:"omniroute", id:"auto", label:"OmniRoute — Auto (default)" },
-    { value:"omniroute:auto/smart", engine:"omniroute", id:"auto/smart", label:"OmniRoute — Smart" },
-    { value:"omniroute:auto/fast", engine:"omniroute", id:"auto/fast", label:"OmniRoute — Fast" },
-    { value:"omniroute:auto/cheap", engine:"omniroute", id:"auto/cheap", label:"OmniRoute — Cheap" },
-    { value:"omniroute:auto/coding", engine:"omniroute", id:"auto/coding", label:"OmniRoute — Coding" },
-    { value:"omniroute:auto/offline", engine:"omniroute", id:"auto/offline", label:"OmniRoute — Offline/local" },
     { value:"browserlite:onnx-community/Qwen2.5-0.5B-Instruct", engine:"browserlite", id:"onnx-community/Qwen2.5-0.5B-Instruct", label:"Lightweight Browser AI — Qwen2.5 0.5B" },
 
     { value:"webllmio:high",   engine:"webllmio", tier:"high",   id:"Qwen3-8B-q4f16_1-MLC",              label:"Auto-routed — High quality (Qwen3 8B)" },
@@ -1261,7 +1255,6 @@ function disposeAIClients(){
 
 function findModelEntry(value){
     return MODEL_CATALOG.find(m => m.value === value) ||
-           MODEL_CATALOG.find(m => m.value === "omniroute:auto") ||
            MODEL_CATALOG.find(m => String(m.value).includes("Qwen2.5-0.5B")) ||
            MODEL_CATALOG[0];
 }
@@ -1271,19 +1264,12 @@ async function initialiseAssistant(){
 
     const preferred =
         localStorage.getItem("projectControlsSharedAIModel") ||
-        (MODEL_CATALOG.some(m => m.value === "omniroute:auto")
-            ? "omniroute:auto"
-            : (MODEL_CATALOG.find(m => String(m.value).includes("Qwen2.5-0.5B"))?.value || MODEL_CATALOG[0].value));
+        (MODEL_CATALOG.find(m => m.value === "ollama:auto")?.value || MODEL_CATALOG.find(m => String(m.value).includes("Qwen2.5-0.5B"))?.value || MODEL_CATALOG[0].value);
 
     await window.parent.ProjectControlsCore.ai.ensure(preferred);
     currentModelValue = preferred;
     aiReady = true;
     engineMode = window.parent.ProjectControlsCore.ai.status().engine;
-
-    const modelSelect = document.getElementById("modelSelect");
-    if(modelSelect && [...modelSelect.options].some(o => o.value === preferred)){
-        modelSelect.value = preferred;
-    }
 
     setEngineStatus(engineMode, window.parent.ProjectControlsCore.ai.status().label, "ready");
     updateSendButton?.();
@@ -1295,8 +1281,6 @@ window.changeModel = async function(value){
     modelSwitchInFlight = true;
     aiReady = false;
 
-    const modelSelect=document.getElementById("modelSelect");
-    if(modelSelect) modelSelect.disabled=true;
 
     try{
         setEngineStatus(null,"Loading shared AI…","loading");
@@ -1311,14 +1295,12 @@ window.changeModel = async function(value){
         throw error;
     }finally{
         modelSwitchInFlight=false;
-        if(modelSelect) modelSelect.disabled=false;
         updateSendButton?.();
     }
 };
 
 async function runAI(messages,options={}){
     await ensureAssistantReady();
-    const select=document.getElementById("modelSelect");
     const requested=window.parent.ProjectControlsCore.ai.preferred();
     await window.parent.ProjectControlsCore.ai.ensure(requested);
     currentModelValue=requested;
@@ -3153,7 +3135,6 @@ function renderTakeoff(){
  norms.forEach((n,i)=>{nh+='<tr>'+['discipline','category','item','size','unit','hoursPerUnit'].map(k=>`<td style="padding:4px;border:1px solid var(--border)"><input value="${escapeHtml(String(n[k]??''))}" onchange="updateNorm(${i},'${k}',this.value)" style="width:100%;padding:5px"></td>`).join('')+`<td><button class="modal-close" onclick="deleteNorm(${i})">×</button></td></tr>`}); nt.innerHTML=nh+'</tbody>';
 }
 window.aiAssistTakeoff=async function(){
- if(document.getElementById('aiAssistMode')?.value==='off'){addMessage('assistant','**AI assistance is switched off.**');return;}
  if(!aiReady){addMessage('assistant','**The selected local AI engine is not ready yet.**');return;}
  const loadingId=addLoading(); try{ const result=await runAI([{role:'system',content:buildContractSystemPrompt()},{role:'user',content:`Review the uploaded documents and current take-off register. Recommend concrete take-off classifications, BOQ matches, schedule activity mappings, missing norms, variances and checks. Do not invent geometric measurements. If a quantity is not explicitly supported, label it as requiring measurement. Keep recommendations concise and auditable.`}],{temperature:.1,max_tokens:1400,stream:false}); removeLoading(loadingId); const answer=result?.choices?.[0]?.message?.content||'No recommendation returned.'; addMessage('assistant',answer); conversation.push({role:'assistant',content:answer}); }catch(e){removeLoading(loadingId);addMessage('assistant','AI take-off review failed: '+escapeHtml(e.message||String(e)));}
 };

@@ -2,7 +2,6 @@
 
 This build was hardened and smoke-tested on 24 August 2026.
 
-## OmniRoute
 
 - Base URL normalization (`/v1`, `/models`, `/chat/completions`)
 - Keyless local compatibility header
@@ -39,7 +38,6 @@ This build was hardened and smoke-tested on 24 August 2026.
 
 ## Deployment note
 
-Browser-to-local OmniRoute still requires the deployed website origin to be permitted by OmniRoute CORS settings. That server-side requirement cannot be removed by frontend code.
 
 
 ## 31 August 2026 iterative hardening cycle
@@ -109,7 +107,6 @@ Validation performed:
 - NotebookLM+ retrieval/configuration tests — 26 PASS
 - Ollama mock integration tests — 8 PASS
 - Hosted OpenAI-compatible mock integration tests — 9 PASS
-- New OmniRoute mock integration tests — 4 PASS
 - Research/transcript/transcription integration tests — 4 PASS
 - NotebookLM+ static contract tests — 42 PASS
 - NotebookLM+ GitHub Pages static-server smoke test — PASS
@@ -122,17 +119,12 @@ Validation performed:
 
 The Project Controls XER performance regression continued to parse 10,000 activities and 50,000 relationships in approximately 132 ms in this environment with about 29.7 MB heap growth.
 
-OmniRoute-specific NotebookLM+ regression coverage verifies:
 
-- `omniroute` provider sanitization/persistence
-- dedicated `OmniRoute Auto` preset
 - default `http://localhost:20128/v1` endpoint
 - `auto` chat route
-- non-empty placeholder bearer for normal keyless local OmniRoute
 - route discovery through `/v1/models`
 - streaming chat through `/v1/chat/completions`
 - optional embeddings through `/v1/embeddings` when an embedding-capable route/model is selected
-- actionable OmniRoute CORS/auth/quota diagnostics
 
 
 ## Release validation command
@@ -160,7 +152,6 @@ It executes syntax/static checks, shell/configuration contracts, AI/Ollama tests
 - Added contextual Settings provider dropdowns and provider-specific setup/tutorial content.
 - Added Ollama capability inspection through `/api/show`; embedding-only models are excluded from the chat-model list and rejected if persisted as chat.
 - Restored NotebookLM+ advanced runtime configuration centrally under General Settings (context, retrieval, answer budget, embedding batch, workers, temperature, thinking, API/embedding timeout, first-response timeout, inactivity timeout, Ollama keep-alive, semantic and keyword retrieval).
-- Improved OmniRoute endpoint-key diagnostics and tested authenticated `/v1/models` plus `/v1/chat/completions` behavior.
 - Bumped site asset cache-busting and NotebookLM+ service-worker build to prevent mixed old/new JavaScript after deployment.
 - Full release-validation pipeline passed repeatedly after the corrections.
 

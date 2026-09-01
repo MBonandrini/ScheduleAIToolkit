@@ -22,13 +22,10 @@ check('Settings contains Unified AI Configuration section',/Unified AI Configura
 check('Settings contains Setup Tutorial section',/Setup Tutorial/.test(settingsHtml));
 check('Settings persists official theme key',settingsJs.includes('projectControlsTheme'));
 check('Settings manages global AI key through core',/Core\.ai\.setPreferred/.test(settingsJs));
-check('Settings configures OmniRoute',/Core\.ai\.testConnection/.test(settingsJs)&&/OmniRoute/.test(settingsJs));
 check('Settings configures Ollama',/Core\.ai\.testOllamaConnection/.test(settingsJs)&&/Core\.ai\.inspectOllamaModels/.test(settingsJs));
 check('Settings includes Ollama GitHub Pages origin guidance',/OLLAMA_ORIGINS/.test(settingsJs));
-check('Settings includes OmniRoute CORS guidance',/OmniRoute/.test(settingsJs)&&/CORS/.test(settingsJs));
 check('Core exposes one preferred AI selection',/function preferred\(/.test(core)&&/function setPreferred\(/.test(core)&&/preferredLabel/.test(core));
 check('Ollama is enabled in shared catalog',/value:"ollama:auto",engine:"ollama"/.test(core));
-check('OmniRoute remains available',/value:"omniroute:auto",engine:"omniroute"/.test(core));
 check('Per-module AI selectors are removed', ['contract-manager','drawing-measurement','schedule-assessment','risk-analysis','claims-forensics','schedule-builder'].every(n=>!read(`apps/${n}/index.html`).includes('data-ai-model-select')&&!read(`apps/${n}/index.html`).includes('id="modelSelect"')));
 const moduleApps=['contract-manager','drawing-measurement','schedule-assessment','risk-analysis','claims-forensics','schedule-builder'].map(n=>read(`apps/${n}/app.js`));
 check('Only Settings owns global AI selection persistence',moduleApps.every(code=>!code.includes('localStorage.setItem(\"projectControlsSharedAIModel\"'))&&!notebookApp.includes('localStorage.setItem(\"projectControlsSharedAIModel\"'));
@@ -57,9 +54,18 @@ check('Settings AI configuration is provider-contextual',/aiProviderSelect/.test
 check('Settings tutorial is provider-contextual',/tutorialProviderSelect/.test(settingsJs)&&/tutorialContent/.test(settingsJs)&&/tutorialProviderView/.test(settingsJs));
 check('Ollama settings separate chat and embedding models',/Only chat\/completion-capable models are shown/.test(settingsJs)&&/Embedding-only models belong here/.test(settingsJs));
 check('Core classifies Ollama capabilities',/inspectOllamaModels/.test(core)&&/supportsChat/.test(core)&&/supportsEmbedding/.test(core)&&/\/api\/show/.test(core));
-check('OmniRoute settings explain endpoint key',/OmniRoute dashboard/.test(settingsJs)&&/Endpoints/.test(settingsJs)&&/Endpoint API key/.test(settingsJs));
 check('All AI modules consume global preference at execution time',moduleApps.every(code=>/\.ai\.preferred\(\)/.test(code)));
 
+
+
+const userFacingAiSelectPatterns=[/id="modelSelect"/,/data-ai-model-select/,/id="aiAssistMode"/];
+check('Exactly one user-facing AI/model selector exists outside Settings', (()=>{
+  const pages=['contract-manager','drawing-measurement','schedule-assessment','risk-analysis','claims-forensics','schedule-builder'];
+  return pages.every(n=>userFacingAiSelectPatterns.every(rx=>!rx.test(read(`apps/${n}/index.html`)))) && (index.match(/id="globalModelSelect"/g)||[]).length===1;
+})());
+check('Global progress HUD is present',/id="suiteProgress"/.test(index)&&/id="suiteProgressBar"/.test(index)&&/pc-progress/.test(shell));
+check('Schedule import reports progress to shell',/reportProcessingProgress/.test(read('apps/schedule-assessment/app.js'))&&/pc-progress/.test(read('apps/schedule-assessment/app.js')));
+check('Ollama has generate fallback for empty chat responses',/\/api\/generate/.test(core)&&/extractOllamaText/.test(core));
 
 check('Bulk Information section present in shared pane',/id="bulkInformationTitle"/.test(index)&&/Bulk Information/.test(index));
 check('Bulk Information exposes folder link action',/id="bulkLinkFolder"/.test(index)&&/showDirectoryPicker/.test(shell));
@@ -68,5 +74,6 @@ check('Bulk Information stores folder metadata separately',/SHARED_DB_VERSION=2/
 check('Bulk folders render as collapsible trees',/class="bulk-folder"/.test(shell)&&/bulk-tree-dir/.test(shell)&&/renderBulkNode/.test(shell));
 check('Bulk linked folders can refresh without reimporting all content',/refreshBulkFolder/.test(shell)&&/queryPermission/.test(shell)&&/requestPermission/.test(shell));
 check('Bulk folders can be safely unlinked',/unlinkBulkFolder/.test(shell)&&/No files on your computer will be deleted/.test(shell));
+check('Bulk folders show a header cross remove control',/class=\"bulk-folder-remove\"/.test(shell)&&/data-bulk-unlink/.test(shell)&&/Remove linked folder/.test(shell));
 check('Bulk files route through shared Use action',/data-bulk-use/.test(shell)&&/resolveBulkFile/.test(shell)&&/pc-use-shared-file/.test(shell));
 if(failures.length){console.error('FAILURES:',failures);process.exit(1)}

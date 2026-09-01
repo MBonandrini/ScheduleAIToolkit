@@ -20,7 +20,12 @@ async function makeCore(mode="ok"){
             if(mode==="chat500") return new Response(JSON.stringify({error:"model failed"}),{status:500,headers:{"content-type":"application/json"}});
             const payload=JSON.parse(opts.body||"{}");
             if(mode==="thinking" && payload.think!==false) return new Response(JSON.stringify({model:"qwen3:4b",message:{role:"assistant",content:"",thinking:"I should answer OK."}}),{status:200,headers:{"content-type":"application/json"}});
+            if(mode==="emptychat") return new Response(JSON.stringify({model:payload.model||"qwen3:4b",message:{role:"assistant",content:""}}),{status:200,headers:{"content-type":"application/json"}});
             return new Response(JSON.stringify({model:payload.model||"gemma3:4b",message:{role:"assistant",content:"OK"}}),{status:200,headers:{"content-type":"application/json"}});
+        }
+        if(String(url).endsWith("/api/generate")){
+            const payload=JSON.parse(opts.body||"{}");
+            return new Response(JSON.stringify({model:payload.model||"qwen3:4b",response:"OK"}),{status:200,headers:{"content-type":"application/json"}});
         }
         throw new Error("Unexpected request "+url);
     }
@@ -66,6 +71,12 @@ function check(name,value){console.log((value?"PASS ":"FAIL ")+name);if(!value)f
         const out=await ai.run([{role:"user",content:"hello"}],{max_tokens:32,thinkingMode:"auto"});
         const bodies=calls.filter(x=>x.url.endsWith("/api/chat")).map(x=>JSON.parse(x.body||"{}"));
         check("Thinking-only Ollama response retries with thinking disabled",out.choices[0].message.content==="OK"&&bodies.length===2&&bodies[1].think===false);
+    }
+    {
+        const {ai,calls}=await makeCore("emptychat");
+        ai.configureOllama({baseUrl:"http://localhost:11434",model:"gemma3:4b"});
+        const result=await ai.testOllamaConnection({baseUrl:"http://localhost:11434",model:"gemma3:4b"});
+        check("Empty /api/chat response falls back to /api/generate",result.ok===true&&result.content==="OK"&&calls.some(x=>x.url.endsWith("/api/generate")));
     }
     {
         const {ai}=await makeCore("nomodels");

@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.7.3-suite';
+export const APP_VERSION = '0.7.4-suite-globalai';
 
 export const DEFAULT_MODES = Object.freeze({
   cpu: {
@@ -115,25 +115,6 @@ export const DEFAULT_MODES = Object.freeze({
     firstResponseTimeoutSeconds: 240,
     inactivityTimeoutSeconds: 150,
   },
-  omniroute: {
-    label: 'OmniRoute Auto',
-    provider: 'omniroute',
-    endpoint: 'http://localhost:20128/v1',
-    chatModel: 'auto',
-    embeddingModel: '',
-    contextTokens: 16384,
-    topK: 12,
-    maxAnswerTokens: 1280,
-    embedBatch: 8,
-    workerCount: 3,
-    temperature: 0.18,
-    thinkingMode: 'auto',
-    semanticSearch: false,
-    keywordSearch: true,
-    keepAlive: '0',
-    firstResponseTimeoutSeconds: 300,
-    inactivityTimeoutSeconds: 180,
-  },
   hosted: {
     label: 'Hosted AI Engine',
     provider: 'openai-compatible',
@@ -216,7 +197,7 @@ function clampFinite(value, min, max, fallback) {
 
 function sanitizeMode(savedMode, defaults) {
   const raw = { ...defaults, ...(savedMode || {}) };
-  const provider = ['ollama','omniroute','openai-compatible'].includes(raw.provider) ? raw.provider : 'ollama';
+  const provider = ['ollama','openai-compatible'].includes(raw.provider) ? raw.provider : 'ollama';
   return {
     ...defaults,
     ...raw,

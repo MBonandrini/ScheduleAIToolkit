@@ -8,10 +8,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Project Controls AI Suite — Shared Core</title>
 
-<script src="./assets/js/theme.js?v=20260901-compare1"></script>
-<link rel="stylesheet" href="./assets/css/shell.css?v=20260901-compare1">
+<script src="./assets/js/theme.js?v=20260901-ollamaonly-folderremove"></script>
+<link rel="stylesheet" href="./assets/css/shell.css?v=20260901-ollamaonly-folderremove">
 </head>
-<body data-build-version="20260901-qwenruntime1">
+<body data-build-version="20260901-ollamaonly-folderremove">
 <nav class="suite-nav" role="tablist">
   <div class="brand"><span class="logo"><svg class="arc-reactor-mark" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20"></circle><path d="M11.5 16.5h25L24 37z"></path><path d="M18 21h12l-6 10z"></path></svg></span><span>Project Controls AI Suite</span></div>
   <button class="suite-tab active" data-tool="contracts" role="tab" aria-selected="true"><span class="tab-icon">▤</span>Contract Manager</button>
@@ -60,7 +60,12 @@
 </aside>
 <main id="host"><div id="loading" class="loading">Opening Contract Manager…</div></main>
 </div>
-<script src="./assets/js/core.js?v=20260901-compare1"></script>
-<script src="./assets/js/shell.js?v=20260901-compare1"></script>
+<div id="suiteProgress" class="suite-progress" hidden role="status" aria-live="polite">
+  <div class="suite-progress-head"><span id="suiteProgressTitle">Processing schedules</span><span id="suiteProgressPercent">0%</span></div>
+  <div id="suiteProgressDetail" class="suite-progress-detail">Preparing…</div>
+  <div class="suite-progress-track"><div id="suiteProgressBar" class="suite-progress-bar"></div></div>
+</div>
+<script src="./assets/js/core.js?v=20260901-ollamaonly-folderremove"></script>
+<script src="./assets/js/shell.js?v=20260901-ollamaonly-folderremove"></script>
 </body>
 </html>

@@ -140,21 +140,20 @@ function applySuiteNotebookRuntime(mode){
 }
 function suiteAiSelection(){
   try {
-    const value = localStorage.getItem('projectControlsSharedAIModel') || 'omniroute:auto';
+    const value = localStorage.getItem('projectControlsSharedAIModel') || 'ollama:auto';
     const core = window.parent?.ProjectControlsCore;
     const entry = core?.ai?.catalog?.find?.(x => x.value === value && !x.disabled);
-    return entry || core?.ai?.catalog?.find?.(x => x.value === 'omniroute:auto') || { value:'omniroute:auto', engine:'omniroute', id:'auto', label:'OmniRoute — Auto' };
-  } catch { return { value:'omniroute:auto', engine:'omniroute', id:'auto', label:'OmniRoute — Auto' }; }
+    return entry || core?.ai?.catalog?.find?.(x => x.value === 'ollama:auto') || { value:'ollama:auto', engine:'ollama', id:null, label:'Ollama — selected local model' };
+  } catch { return { value:'ollama:auto', engine:'ollama', id:null, label:'Ollama — selected local model' }; }
 }
 function syncSuiteAiToMode(){
   const selected=suiteAiSelection(), mode=currentMode(), core=window.parent?.ProjectControlsCore;
-  if(selected.engine==='omniroute'){ mode.provider='omniroute'; mode.endpoint=core?.ai?.config?.().baseUrl||'http://localhost:20128/v1'; mode.chatModel=selected.id||'auto'; mode.embeddingModel=''; mode.semanticSearch=false; }
   else if(selected.engine==='ollama'){ const oc=core?.ai?.ollamaConfig?.()||{}; mode.provider='ollama'; mode.endpoint=oc.baseUrl||'http://localhost:11434'; mode.chatModel=oc.model||''; mode.embeddingModel=core?.ai?.ollamaEmbeddingModel?.()||''; mode.semanticSearch=!!mode.embeddingModel; state.settings.ollama.endpoint=mode.endpoint; state.settings.ollama.chatModel=mode.chatModel; state.settings.ollama.embeddingModel=mode.embeddingModel; }
   else { mode.provider='suite-core'; mode.endpoint=''; mode.chatModel=selected.value; mode.embeddingModel=''; mode.semanticSearch=false; }
   applySuiteNotebookRuntime(mode);
   return selected;
 }
-const effectiveProvider = () => { syncSuiteAiToMode(); return currentMode().provider || 'omniroute'; };
+const effectiveProvider = () => { syncSuiteAiToMode(); return currentMode().provider || 'ollama'; };
 const effectiveEndpoint = () => { syncSuiteAiToMode(); return currentMode().endpoint || ''; };
 const effectiveChatModel = () => { syncSuiteAiToMode(); return currentMode().chatModel || ''; };
 const effectiveEmbeddingModel = () => { syncSuiteAiToMode(); return currentMode().embeddingModel || ''; };
@@ -198,7 +197,7 @@ function applySettingsToUi() {
   syncSuiteAiToMode();
   const mode = currentMode();
   $('providerSelect').value = mode.provider || 'ollama';
-  $('ollamaEndpointInput').value = mode.endpoint || (mode.provider === 'omniroute' ? 'http://localhost:20128/v1' : mode.provider === 'openai-compatible' ? '' : state.settings.ollama.endpoint);
+  $('ollamaEndpointInput').value = mode.endpoint || (mode.provider === 'openai-compatible' ? '' : state.settings.ollama.endpoint);
   $('hostedApiKeyInput').value = getSessionApiKey();
   $('requestTimeoutInput').value = state.settings.ollama.requestTimeoutSeconds;
   $('keepAliveSelect').value = mode.keepAlive;
@@ -287,23 +286,18 @@ function populateModelSelects() {
 function updateProviderUi() {
   const provider = $('providerSelect').value || effectiveProvider();
   const hosted = provider !== 'ollama';
-  const omni = provider === 'omniroute';
   $('hostedAuthFields').classList.toggle('hidden', !hosted);
   $('ollamaOnlyFields').classList.toggle('hidden', hosted);
-  $('connectionHeading').textContent = omni ? 'OmniRoute connection' : hosted ? 'Hosted AI connection' : 'Ollama connection';
-  $('connectionDescription').textContent = omni
-    ? 'Connect NotebookLM+ to OmniRoute and let the local gateway route requests among its configured providers.'
-    : hosted
+  $('connectionHeading').textContent = hosted ? 'Hosted AI connection' : 'Ollama connection';
+  $('connectionDescription').textContent = hosted
       ? 'Configure an OpenAI-compatible hosted endpoint. Notebook sources remain local until relevant context is sent for a question or hosted embedding request.'
       : 'Configure local or remote Ollama and test it directly from this page.';
-  $('endpointHelp').textContent = omni
-    ? 'OmniRoute local default: http://localhost:20128/v1 • allow this site origin in OmniRoute CORS settings.'
-    : hosted
+  $('endpointHelp').textContent = hosted
       ? 'Enter the OpenAI-compatible API base, normally ending in /v1.'
       : 'Local default: http://127.0.0.1:11434';
-  $('refreshModelsBtn').textContent = omni ? 'Discover OmniRoute routes' : hosted ? 'Discover hosted models' : 'Refresh installed models';
+  $('refreshModelsBtn').textContent = hosted ? 'Discover hosted models' : 'Refresh installed models';
   const label = $('hostedTokenLabel');
-  if (label) label.textContent = omni ? 'OmniRoute endpoint key (optional)' : 'Hosted API token';
+  if (label) label.textContent = 'Hosted API token';
 }
 
 function bindTabs() {
@@ -749,7 +743,7 @@ async function refreshAiStatus(showResult=true) {
   const endpoint = $('ollamaEndpointInput').value.trim() || effectiveEndpoint();
   const apiKey = $('hostedApiKeyInput').value.trim() || getSessionApiKey();
   const pill = $('ollamaStatusPill');
-  pill.className = 'status-pill offline'; pill.textContent = provider === 'ollama' ? 'Testing Ollama…' : provider === 'omniroute' ? 'Testing OmniRoute…' : 'Testing hosted AI…';
+  pill.className = 'status-pill offline'; pill.textContent = provider === 'ollama' ? 'Testing Ollama…' : 'Testing hosted AI…';
   if (showResult) { $('ollamaTestResult').className = 'test-result neutral'; $('ollamaTestResult').textContent = 'Testing connection…'; }
   try {
     const result = await testAiConnection({ provider, endpoint, apiKey, timeoutSeconds: Math.min(10, state.settings.ollama.requestTimeoutSeconds) });
@@ -760,7 +754,7 @@ async function refreshAiStatus(showResult=true) {
     }
     return true;
   } catch (err) {
-    pill.className = 'status-pill error'; pill.textContent = provider === 'ollama' ? 'Ollama offline' : provider === 'omniroute' ? 'OmniRoute offline' : 'Hosted AI offline';
+    pill.className = 'status-pill error'; pill.textContent = provider === 'ollama' ? 'Ollama offline' : 'Hosted AI offline';
     if (showResult) { $('ollamaTestResult').className = 'test-result bad'; $('ollamaTestResult').textContent = explainAiConnectionError(err, endpoint, provider); }
     return false;
   }
@@ -771,14 +765,14 @@ async function refreshModels() {
   const endpoint = $('ollamaEndpointInput').value.trim() || effectiveEndpoint();
   const apiKey = $('hostedApiKeyInput').value.trim() || getSessionApiKey();
   $('ollamaTestResult').className = 'test-result neutral';
-  $('ollamaTestResult').textContent = provider === 'ollama' ? 'Reading installed models…' : provider === 'omniroute' ? 'Discovering OmniRoute routes…' : 'Discovering hosted models…';
+  $('ollamaTestResult').textContent = provider === 'ollama' ? 'Reading installed models…' : 'Discovering hosted models…';
   try {
     state.models = await listAiModels({ provider, endpoint, apiKey, timeoutSeconds: state.settings.ollama.requestTimeoutSeconds });
     populateModelSelects();
     $('ollamaTestResult').className = 'test-result good';
     $('ollamaTestResult').textContent = `${state.models.length} model(s) found on ${endpoint}. Select a model from the dropdown, or choose Custom model… for a manual name.`;
     $('ollamaStatusPill').className = 'status-pill online';
-    $('ollamaStatusPill').textContent = provider === 'ollama' ? 'Ollama online' : provider === 'omniroute' ? 'OmniRoute online' : 'Hosted AI online';
+    $('ollamaStatusPill').textContent = provider === 'ollama' ? 'Ollama online' : 'Hosted AI online';
   } catch (err) {
     $('ollamaTestResult').className = 'test-result bad';
     $('ollamaTestResult').textContent = explainAiConnectionError(err, endpoint, provider);
@@ -803,7 +797,7 @@ async function saveAiSettings() {
   }
   await persistSettings();
   $('ollamaTestResult').className = 'test-result good';
-  $('ollamaTestResult').textContent = `Saved AI settings for ${mode.label}. Hosted/OmniRoute endpoint tokens, when used, are kept only for this browser session.`;
+  $('ollamaTestResult').textContent = `Saved AI settings for ${mode.label}. Hosted endpoint tokens, when used, are kept only for this browser session.`;
   refreshAiStatus(false);
 }
 

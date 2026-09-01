@@ -3,7 +3,7 @@ import { embedTexts as ollamaEmbedTexts, getVersion as getOllamaVersion, listMod
 let sessionApiKey = '';
 
 export function normalizeProvider(provider) {
-  return ['omniroute','openai-compatible','suite-core'].includes(provider) ? provider : 'ollama';
+  return ['openai-compatible','suite-core'].includes(provider) ? provider : 'ollama';
 }
 
 // Hosted credentials intentionally live only in this ES module's memory. They
@@ -46,7 +46,6 @@ async function fetchHosted(endpoint, path, init={}, timeoutSeconds=120, apiKey=g
   try {
     const headers = new Headers(init.headers || {});
     if (apiKey) headers.set('Authorization', `Bearer ${apiKey}`);
-    else if (provider === 'omniroute') headers.set('Authorization', 'Bearer sk_omniroute');
     return await fetch(hostedUrl(endpoint, path), { ...init, headers, mode: 'cors', signal: controller.signal });
   } finally {
     clearTimeout(timeout);
@@ -55,7 +54,7 @@ async function fetchHosted(endpoint, path, init={}, timeoutSeconds=120, apiKey=g
 
 export async function testAiConnection({ provider='ollama', endpoint, timeoutSeconds=10, apiKey=getSessionApiKey() }) {
   provider = normalizeProvider(provider);
-  if (provider === 'suite-core') { const core=window.parent?.ProjectControlsCore; if(!core?.ai) throw new Error('Shared suite AI runtime is unavailable.'); const selected=localStorage.getItem('projectControlsSharedAIModel')||'omniroute:auto'; const ready=await core.ai.ensure(selected); return {provider,ok:true,label:ready.label||core.ai.preferredLabel(),detail:ready}; }
+  if (provider === 'suite-core') { const core=window.parent?.ProjectControlsCore; if(!core?.ai) throw new Error('Shared suite AI runtime is unavailable.'); const selected=localStorage.getItem('projectControlsSharedAIModel')||'ollama:auto'; const ready=await core.ai.ensure(selected); return {provider,ok:true,label:ready.label||core.ai.preferredLabel(),detail:ready}; }
   if (provider === 'ollama') {
     const version = await getOllamaVersion(endpoint, timeoutSeconds);
     return { provider, ok: true, label: `Ollama ${version.version || 'online'}`, detail: version };
@@ -66,7 +65,7 @@ export async function testAiConnection({ provider='ollama', endpoint, timeoutSec
     throw new Error(`Hosted AI returned HTTP ${res.status}. ${body.slice(0, 240)}`);
   }
   const data = await res.json().catch(() => ({}));
-  return { provider, ok: true, label: provider === 'omniroute' ? 'OmniRoute online' : 'Hosted AI online', detail: data };
+  return { provider, ok: true, label: 'Hosted AI online', detail: data };
 }
 
 export async function listAiModels({ provider='ollama', endpoint, timeoutSeconds=12, apiKey=getSessionApiKey() }) {
@@ -145,7 +144,6 @@ export async function streamAiChat({ provider='ollama', endpoint, apiKey=getSess
   try {
     const headers = new Headers({ 'Content-Type': 'application/json', 'Accept': 'text/event-stream, application/json' });
     if (apiKey) headers.set('Authorization', `Bearer ${apiKey}`);
-    else if (provider === 'omniroute') headers.set('Authorization', 'Bearer sk_omniroute');
     const res = await fetch(hostedUrl(endpoint, 'chat/completions'), {
       method: 'POST', mode: 'cors', headers, signal: controller.signal,
       body: JSON.stringify({ model, messages, stream: true, temperature, max_tokens: maxAnswerTokens }),
@@ -204,12 +202,6 @@ export function explainAiConnectionError(error, endpoint, provider='ollama') {
   provider = normalizeProvider(provider);
   if (provider === 'suite-core') return String(error?.message||error||'Shared browser AI failed. Open the suite Settings tab and test the selected AI.');
   if (provider === 'ollama') return explainOllamaError(error, endpoint);
-  if (provider === 'omniroute') {
-    const msg = String(error?.message || error || 'Unknown error');
-    if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) return `Could not reach OmniRoute at ${endpoint}. Confirm OmniRoute is running, allow ${location.origin} in OmniRoute CORS settings, and approve any browser local-network permission.`;
-    if (/401|403|unauthor|forbidden/i.test(msg)) return 'OmniRoute endpoint authentication failed. Enter the endpoint/client key if authentication is enabled; normal keyless local mode can leave it blank.';
-    if (/429|quota|rate limit/i.test(msg)) return 'OmniRoute reported a quota or rate-limit condition. Check that the selected route is auto and that alternative providers/routes are configured and healthy.';
-  }
   const msg = String(error?.message || error || 'Unknown error');
   if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) {
     return `Could not reach the hosted AI endpoint ${endpoint}. Check the URL, HTTPS certificate, CORS settings for ${location.origin}, authentication, and network access.`;

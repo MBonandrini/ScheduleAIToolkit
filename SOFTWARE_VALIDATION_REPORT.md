@@ -14,7 +14,6 @@ Schedule AI Toolkit web workbench — master-feature integration build.
 - Contract Manager
 - Drawing Measurement
 - Schedule Builder
-- Shared AI/OmniRoute service
 - PDF/Excel/reporting paths
 
 ## Automated/static tests performed
@@ -132,13 +131,11 @@ A GitHub Pages website calling local Ollama requires the deployed site origin to
 The direct Ollama implementation and tutorial functionality are suitable for release subject to a final smoke test from the actual deployed GitHub Pages origin on a Windows machine with Ollama installed.
 
 
-# Validation Addendum — NotebookLM+ / OmniRoute Integration
 
 **Date:** 1 September 2026
 
 NotebookLM+ v0.7.0 has been incorporated as a separate suite tab. Its original notebook repository remains independent from the Project Controls shared repository. The application inherits the suite light/dark theme through the parent theme message.
 
-AI configuration now provides explicit Ollama, OmniRoute, and generic OpenAI-compatible modes. OmniRoute defaults to `http://localhost:20128/v1` and the `auto` route. Credentials, when endpoint authentication is enabled, remain session-memory only. Normal keyless local OmniRoute uses the same non-empty placeholder bearer approach as the shared Project Controls AI service.
 
 All automated regression and integration tests listed in `TESTING.md` passed. No unresolved code-level regression was found during this integration cycle. A final deployed-origin browser smoke test remains recommended because CORS and local-network permissions are enforced by the user's browser and local AI service.
 
@@ -161,8 +158,6 @@ Validation was repeated after restoring the dedicated AI/Ollama Configuration an
 - CSS structural brace validation: PASS.
 - 10 shell tabs matched against 10 registered application routes: PASS.
 - All application routes physically present and HTTP-served: PASS.
-- AI/Ollama Configuration: OmniRoute test wiring, Ollama discovery and Ollama chat test wiring: PASS.
-- Setup Tutorial: Ollama `OLLAMA_ORIGINS` guidance and OmniRoute connection test guidance: PASS.
 - Shared Ollama integration: 10/10 checks PASS.
 - XER parser core regression: PASS.
 - Malformed-row, duplicate-ID and orphan-relationship diagnostics: PASS.
@@ -172,7 +167,6 @@ Validation was repeated after restoring the dedicated AI/Ollama Configuration an
 - NotebookLM+ unit suite: 26/26 PASS.
 - NotebookLM+ Ollama integration: 8/8 PASS.
 - NotebookLM+ generic hosted-AI integration: 9/9 PASS.
-- NotebookLM+ OmniRoute integration: 4/4 PASS.
 - NotebookLM+ research/transcript/transcription integration: 4/4 PASS.
 - NotebookLM+ static application contracts: 42/42 PASS.
 - GitHub Pages static-server smoke test: PASS.
@@ -182,7 +176,6 @@ Validation was repeated after restoring the dedicated AI/Ollama Configuration an
 
 The Playwright browser runtime available in this execution environment is blocked by administrator policy from navigating to localhost (`ERR_BLOCKED_BY_ADMINISTRATOR`). The existing NotebookLM+ browser E2E suite therefore cannot execute here even though the same static server is reachable through ordinary HTTP clients. This is an environment restriction, not an application test failure.
 
-A final browser smoke test should be run from the deployed GitHub Pages origin on the target Windows/browser configuration. This is particularly important for local-network permission and CORS when connecting to Ollama or OmniRoute.
 
 ## Release position
 

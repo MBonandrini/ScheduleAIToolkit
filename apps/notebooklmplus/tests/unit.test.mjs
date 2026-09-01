@@ -6,7 +6,7 @@ import { DEFAULT_MODES, mergeSettings } from '../js/config.js';
 import { buildSourceTree, documentsInFolder, flattenTreeDocs, normalizedRelativeParts } from '../js/source_tree.js';
 
 test('all nine performance and AI modes are present', () => {
-  assert.deepEqual(Object.keys(DEFAULT_MODES), ['cpu','lightweight','local','balanced','power','remote','omniroute','hosted','custom']);
+  assert.deepEqual(Object.keys(DEFAULT_MODES), ['cpu','lightweight','local','balanced','power','remote','hosted','custom']);
   assert.equal(DEFAULT_MODES.cpu.semanticSearch, false);
   assert.equal(DEFAULT_MODES.cpu.workerCount, 1);
   assert.ok(DEFAULT_MODES.cpu.firstResponseTimeoutSeconds >= 600);
@@ -253,12 +253,3 @@ test('CSV artifact export quotes commas, quotes and newlines', async () => {
 });
 
 
-test('OmniRoute preset uses routed provider and auto model', () => {
-  const settings = mergeSettings({ currentMode:'omniroute' });
-  assert.equal(settings.currentMode, 'omniroute');
-  assert.equal(settings.modes.omniroute.provider, 'omniroute');
-  assert.equal(settings.modes.omniroute.endpoint, 'http://localhost:20128/v1');
-  assert.equal(settings.modes.omniroute.chatModel, 'auto');
-  assert.equal(settings.modes.omniroute.semanticSearch, false);
-  assert.equal(settings.modes.omniroute.keywordSearch, true);
-});

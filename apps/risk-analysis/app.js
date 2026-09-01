@@ -152,8 +152,8 @@ function renderMitigation(){
  <div class="card"><div class="card-head">Mitigation Options</div><div class="card-body table-wrap">${mitigations.length?`<table class="risk-table"><thead><tr><th>Action</th><th>Target</th><th>P80 gain</th><th>Confidence</th><th>Owner</th><th></th></tr></thead><tbody>${mitigations.map((m,i)=>`<tr><td>${esc(m.action)}</td><td>${esc(m.target)}</td><td>${m.days}d</td><td>${esc(m.confidence)}</td><td>${esc(m.owner)}</td><td><button class="btn" data-del-mit="${i}">×</button></td></tr>`).join("")}</tbody></table>`:`<div class="empty">No mitigation actions entered yet.</div>`}</div></div>`;
 }
 function renderAI(){
- return heading("AI Risk Review","OmniRoute interprets calculated risk evidence; it does not calculate or invent schedule metrics.",`<button class="btn primary" id="runAIReview">✦ Generate risk review</button>`)+
- `<div class="card"><div class="card-head"><span>Evidence-grounded Risk Review</span><span>OmniRoute</span></div><div class="card-body"><div id="aiOutput" class="ai-output">The AI review will summarise the deterministic risk screen, Monte Carlo results, criticality, WBS concentration, registered risks and mitigation opportunities. Unsupported claims should be identified as evidence gaps.</div></div></div>`;
+ return heading("AI Risk Review","The selected AI interprets calculated risk evidence; it does not calculate or invent schedule metrics.",`<button class="btn primary" id="runAIReview">✦ Generate risk review</button>`)+
+ `<div class="card"><div class="card-head"><span>Evidence-grounded Risk Review</span><span>Selected AI</span></div><div class="card-body"><div id="aiOutput" class="ai-output">The AI review will summarise the deterministic risk screen, Monte Carlo results, criticality, WBS concentration, registered risks and mitigation opportunities. Unsupported claims should be identified as evidence gaps.</div></div></div>`;
 }
 function bindView(){
  document.querySelectorAll("[data-del-risk]").forEach(b=>b.onclick=()=>{register.splice(+b.dataset.delRisk,1);saveJson("pcRiskRegister",register);render()});

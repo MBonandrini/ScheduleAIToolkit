@@ -15,8 +15,6 @@ node --test tests/ollama.integration.mjs
 echo "[4/8] Hosted AI integration tests (mock OpenAI-compatible server)"
 node --test tests/hosted-ai.integration.mjs
 
-echo "[5/8] OmniRoute integration tests (mock routed endpoint)"
-node --test tests/omniroute.integration.mjs
 
 echo "[6/8] Research / transcript / transcription integration tests"
 node --test tests/research-tools.integration.mjs
@@ -37,7 +35,7 @@ curl --fail --silent --show-error "http://127.0.0.1:$PORT/js/app.js" -o "$SMOKE_
 curl --fail --silent --show-error "http://127.0.0.1:$PORT/sw.js" -o "$SMOKE_DIR/sw.js"
 grep -q 'NotebookLM+' "$SMOKE_DIR/index.html"
 grep -q 'sendQuestion' "$SMOKE_DIR/app.js"
-grep -q 'notebooklmplus-v0.7.3-suite' "$SMOKE_DIR/sw.js"
+grep -q 'notebooklmplus-v0.7.4-suite-globalai' "$SMOKE_DIR/sw.js"
 rm -rf "$SMOKE_DIR"
 kill "$SERVER_PID" 2>/dev/null || true
 trap - EXIT

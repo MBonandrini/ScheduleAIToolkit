@@ -28,7 +28,6 @@ This build maps the master 70-section development brief into the current web too
 | 10k/50k performance | Partial/validated progressively | Heavy reports on-demand and Monte Carlo worker; full 50k-relationship certification needs representative test corpus |
 | Synthetic/regression suite | Expanded | TESTING.md plus synthetic QA test generator in tests/ |
 | Raw vs calculated integrity | Implemented | Original XER text retained; normalized/calculated values separate |
-| AI explanation layer | Implemented | OmniRoute/local AI sits above deterministic analysis |
 | Portfolio hierarchy | Architecture-ready | Shared repository/project model can be extended without changing parsers |
 | Command architecture | Partial | UI actions call reusable services; formal command registry is reserved for desktop app |
 | Backup/restore portability | Partial | Browser local repository persists; packaged repository backup/import/export is desktop phase |

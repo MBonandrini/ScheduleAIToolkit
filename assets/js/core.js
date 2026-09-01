@@ -1988,12 +1988,6 @@ function sleep(ms){
 
     const ai = (() => {
         const catalog = [
-            {value:"omniroute:auto",engine:"omniroute",id:"auto",label:"OmniRoute — Auto (default)"},
-            {value:"omniroute:auto/smart",engine:"omniroute",id:"auto/smart",label:"OmniRoute — Smart / quality first"},
-            {value:"omniroute:auto/fast",engine:"omniroute",id:"auto/fast",label:"OmniRoute — Fastest"},
-            {value:"omniroute:auto/cheap",engine:"omniroute",id:"auto/cheap",label:"OmniRoute — Lowest cost"},
-            {value:"omniroute:auto/coding",engine:"omniroute",id:"auto/coding",label:"OmniRoute — Coding"},
-            {value:"omniroute:auto/offline",engine:"omniroute",id:"auto/offline",label:"OmniRoute — Local/offline providers"},
             {value:"browserlite:onnx-community/Qwen2.5-0.5B-Instruct",engine:"cpu",id:"onnx-community/Qwen2.5-0.5B-Instruct",label:"Lightweight Browser AI — Qwen2.5 0.5B",ram:"about 0.8–1.5 GB"},
             {value:"cpu:onnx-community/Qwen2.5-0.5B-Instruct",engine:"cpu",id:"onnx-community/Qwen2.5-0.5B-Instruct",label:"Local CPU/WASM — Qwen2.5 0.5B",ram:"about 0.8–1.5 GB"},
             {value:"cpu:onnx-community/Llama-3.2-1B-Instruct",engine:"cpu",id:"onnx-community/Llama-3.2-1B-Instruct",label:"Local CPU/WASM — Llama 3.2 1B",ram:"about 1.2–2.2 GB"},
@@ -2013,26 +2007,6 @@ function sleep(ms){
         let currentLabel = "AI idle";
         let runtime = null;
         let loadingPromise = null;
-
-        function normaliseBaseUrl(value){
-            let clean=String(value||"").trim().replace(/\/+$/g,"");
-            clean=clean.replace(/\/(?:chat\/completions|models)$/i,"");
-            if(!clean) clean="http://localhost:20128/v1";
-            if(!/\/v1$/i.test(clean)) clean+="/v1";
-            return clean;
-        }
-
-        function defaultBaseUrl(){
-            try{
-                return normaliseBaseUrl(localStorage.getItem("projectControlsOmniRouteBaseUrl") || "http://localhost:20128/v1");
-            }catch(_){
-                return "http://localhost:20128/v1";
-            }
-        }
-
-        function endpointKey(){
-            try{return sessionStorage.getItem("projectControlsOmniRouteEndpointKey") || "";}catch(_){return "";}
-        }
 
         function normaliseOllamaBaseUrl(value){
             let clean=String(value||"").trim().replace(/\/+$/g,"");
@@ -2063,24 +2037,16 @@ function sleep(ms){
             return ollamaConfig();
         }
 
-        function config(){
-            return {
-                baseUrl:defaultBaseUrl(),
-                endpointKeyConfigured:!!endpointKey(),
-                browserOrigin:typeof location!=="undefined" ? location.origin : ""
-            };
-        }
-
         function preferred(){
             try{
-                const saved=localStorage.getItem("projectControlsSharedAIModel")||"omniroute:auto";
+                const saved=localStorage.getItem("projectControlsSharedAIModel")||"ollama:auto";
                 const entry=catalog.find(item=>item.value===saved&&!item.disabled);
-                return entry?entry.value:"omniroute:auto";
-            }catch(_){return "omniroute:auto";}
+                return entry?entry.value:"ollama:auto";
+            }catch(_){return "ollama:auto";}
         }
         function preferredLabel(){
             const value=preferred();
-            return catalog.find(item=>item.value===value)?.label||"OmniRoute — Auto";
+            return catalog.find(item=>item.value===value)?.label||"Ollama — selected local model";
         }
         function setPreferred(value){
             const entry=catalog.find(item=>item.value===value&&!item.disabled);
@@ -2117,29 +2083,6 @@ function sleep(ms){
             return ollamaEmbeddingModel();
         }
 
-        function configure({baseUrl,endpointKey:nextKey}={}){
-            if(typeof baseUrl==="string" && baseUrl.trim()){
-                const clean=normaliseBaseUrl(baseUrl);
-                try{localStorage.setItem("projectControlsOmniRouteBaseUrl",clean)}catch(_){}
-            }
-            if(typeof nextKey==="string"){
-                try{
-                    if(nextKey.trim()) sessionStorage.setItem("projectControlsOmniRouteEndpointKey",nextKey.trim());
-                    else sessionStorage.removeItem("projectControlsOmniRouteEndpointKey");
-                }catch(_){}
-            }
-            return config();
-        }
-
-        function omniHeaders(){
-            const key=endpointKey();
-            return {
-                "Content-Type":"application/json",
-                "Accept":"application/json",
-                "Authorization":`Bearer ${key || "sk_omniroute"}`
-            };
-        }
-
         function isLoopbackUrl(url){
             try{
                 const parsed=new URL(url,location.href);
@@ -2160,32 +2103,6 @@ function sleep(ms){
         function corsOriginHint(){
             try{return !location.origin || location.origin==="null" ? "this website origin" : location.origin;}catch(_){return "this website origin";}
         }
-
-        async function omniFetch(url,options={},timeoutMs=null){
-            const candidates=[url];
-            const alternate=loopbackAlternative(url);
-            if(alternate && alternate!==url) candidates.push(alternate);
-            const method=String(options.method||"GET").toUpperCase();
-            const timeout=Number(timeoutMs) || (method==="POST" ? 120000 : 10000);
-            let lastError=null;
-            for(const candidate of candidates){
-                const controller=new AbortController();
-                const timer=setTimeout(()=>controller.abort(),timeout);
-                try{
-                    const requestOptions={...options,mode:"cors",cache:"no-store",credentials:"omit",referrerPolicy:"no-referrer",signal:controller.signal};
-                    if(isLoopbackUrl(candidate)) requestOptions.targetAddressSpace="loopback";
-                    return await fetch(candidate,requestOptions);
-                }catch(error){lastError=error;}finally{clearTimeout(timer);}
-            }
-            const baseUrl=config().baseUrl;
-            const local=isLoopbackUrl(baseUrl);
-            const securePage=typeof location!=="undefined" && location.protocol==="https:";
-            const origin=corsOriginHint();
-            if(lastError?.name==="AbortError") throw new Error(`OmniRoute did not respond at ${baseUrl} within ${Math.round(timeout/1000)} seconds. Confirm OmniRoute is running and that the selected provider is responsive.`);
-            if(local && securePage) throw new Error(`The browser could not read local OmniRoute at ${baseUrl}. In OmniRoute open Settings/Security and add ${origin} to CORS Allowed Origins. Also allow local-network access for this site if the browser asks for permission.`);
-            throw new Error(`Could not reach OmniRoute at ${baseUrl}. Confirm OmniRoute is running and add ${origin} to OmniRoute's CORS Allowed Origins.`);
-        }
-
 
         async function ollamaFetch(path,options={},timeoutMs=null){
             const base=ollamaBaseUrl();
@@ -2261,35 +2178,9 @@ function sleep(ms){
             return await Promise.all(models.map(async item=>({...item,...await inspectOllamaModel(item.name)})));
         }
 
-        async function parseOmniResponse(response){
-            const text=await response.text();
-            let data={};
-            try{data=text ? JSON.parse(text) : {};}catch(_){data={error:{message:text || `HTTP ${response.status}`}};}
-            if(response.status===401 || response.status===403){
-                const detail=data?.error?.message || data?.message || `HTTP ${response.status}`;
-                const error=new Error(`OmniRoute is reachable but rejected the endpoint key (${detail}). Open the OmniRoute dashboard → Endpoints, create or copy an API key, then enter it in Suite Settings. Some installations allow keyless local access, but current OmniRoute setups commonly use an endpoint key.`);
-                error.omniStatus=response.status;
-                error.omniCode="auth";
-                throw error;
-            }
-            if(!response.ok){
-                const message=data?.error?.message || data?.message || `HTTP ${response.status}`;
-                const error=new Error(`OmniRoute request failed: ${message}`);
-                error.omniStatus=response.status;
-                error.omniCode="http";
-                throw error;
-            }
-            return data;
-        }
-
-        function shouldTryZeroConfigFallback(error){
-            if(!error || error.omniCode==="auth") return false;
-            return [400,404,409,422,429,500,502,503,504].includes(Number(error.omniStatus)) || /model|provider|route|quota|unavailable|not found|no .*provider/i.test(String(error.message||""));
-        }
-
         function model(value){
             const found=catalog.find(item=>item.value===value && !item.disabled);
-            return found || catalog.find(item=>item.value==="omniroute:auto");
+            return found || catalog.find(item=>item.value==="ollama:auto");
         }
 
         async function release(){
@@ -2318,9 +2209,7 @@ function sleep(ms){
             requireLocalConsent(entry);
             await release();
 
-            if(entry.engine==="omniroute"){
-                runtime={type:"omniroute",model:entry.id};
-            }else if(entry.engine==="ollama"){
+            if(entry.engine==="ollama"){
                 const models=await inspectOllamaModels();
                 if(!models.length) throw new Error("Ollama is running but no local models are installed. Pull or run a chat model in Ollama first.");
                 const chatModels=models.filter(item=>item.supportsChat);
@@ -2365,40 +2254,33 @@ function sleep(ms){
             return generated.trim();
         }
 
-        async function omniCompletion(modelId,messages,{temperature,max_tokens,onToken}){
-            const {baseUrl}=config();
-            const runtimeCfg=aiRuntimeConfig();
-            const response=await omniFetch(`${baseUrl}/chat/completions`,{
-                method:"POST",
-                headers:omniHeaders(),
-                body:JSON.stringify({model:modelId,messages,temperature,max_tokens,stream:false})
-            },runtimeCfg.requestTimeoutSeconds*1000);
-            const data=await parseOmniResponse(response);
-            const content=data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? "";
-            if(!String(content||"").trim()){
-                const error=new Error("OmniRoute returned a successful response but no assistant text.");
-                error.omniStatus=502;
-                throw error;
-            }
-            if(onToken) onToken(String(content));
-            return {choices:[{message:{content:String(content)}}],model:data?.model||modelId};
-        }
-
-        async function runOmniRoute(messages,{temperature,max_tokens,onToken}){
-            const requested=runtime?.model || "auto";
-            try{return await omniCompletion(requested,messages,{temperature,max_tokens,onToken});}
-            catch(error){
-                if(requested==="auto" && shouldTryZeroConfigFallback(error)){
-                    try{
-                        const fallback=await omniCompletion("felo/auto",messages,{temperature,max_tokens,onToken});
-                        fallback.omniFallback="felo/auto";
-                        return fallback;
-                    }catch(fallbackError){if(fallbackError.omniCode==="auth") throw fallbackError;}
+        function extractOllamaText(data){
+            const candidates=[
+                data?.message?.content,
+                data?.response,
+                data?.content,
+                data?.text,
+                data?.message?.text
+            ];
+            for(const value of candidates){
+                if(typeof value==="string" && value.trim()) return value.trim();
+                if(Array.isArray(value)){
+                    const text=value.map(part=>typeof part==="string"?part:(part?.text||part?.content||"")).join("").trim();
+                    if(text) return text;
                 }
-                throw error;
             }
+            return "";
         }
 
+        function ollamaGeneratePrompt(messages){
+            return (messages||[]).map(message=>{
+                const role=String(message?.role||"user").toUpperCase();
+                const content=Array.isArray(message?.content)
+                    ? message.content.map(x=>typeof x==="string"?x:(x?.text||"")).join("\n")
+                    : String(message?.content||"");
+                return `${role}: ${content}`;
+            }).join("\n\n") + "\n\nASSISTANT:";
+        }
 
         async function runOllama(messages,{temperature,max_tokens,onToken,thinkingMode=null,testMode=false}={}){
             const selected=runtime?.model||ollamaModel();
@@ -2412,13 +2294,13 @@ function sleep(ms){
                     messages,
                     stream:false,
                     keep_alive:runtimeCfg.keepAlive,
-                    options:{temperature,num_predict:max_tokens,num_ctx:runtimeCfg.contextTokens}
+                    options:{temperature,num_predict:Math.max(testMode?64:1,Number(max_tokens)||runtimeCfg.maxAnswerTokens),num_ctx:runtimeCfg.contextTokens}
                 };
                 if(effectiveMode==="off") body.think=false;
                 else if(effectiveMode==="on") body.think=true;
                 return body;
             };
-            const execute=async(effectiveMode)=>{
+            const executeChat=async(effectiveMode)=>{
                 const response=await ollamaFetch("/api/chat",{
                     method:"POST",
                     headers:{"Content-Type":"application/json","Accept":"application/json"},
@@ -2426,16 +2308,44 @@ function sleep(ms){
                 },timeoutMs);
                 return await parseOllamaResponse(response);
             };
-            let data=await execute(mode);
-            let content=String(data?.message?.content||"");
-            const thinking=String(data?.message?.thinking||"");
-            if(!content.trim() && thinking.trim() && mode!=="off"){
-                data=await execute("off");
-                content=String(data?.message?.content||"");
+            const executeGenerate=async()=>{
+                const response=await ollamaFetch("/api/generate",{
+                    method:"POST",
+                    headers:{"Content-Type":"application/json","Accept":"application/json"},
+                    body:JSON.stringify({
+                        model:selected,
+                        prompt:ollamaGeneratePrompt(messages),
+                        stream:false,
+                        think:false,
+                        keep_alive:runtimeCfg.keepAlive,
+                        options:{temperature,num_predict:Math.max(testMode?64:1,Number(max_tokens)||runtimeCfg.maxAnswerTokens),num_ctx:runtimeCfg.contextTokens}
+                    })
+                },timeoutMs);
+                return await parseOllamaResponse(response);
+            };
+
+            let data=await executeChat(mode);
+            let content=extractOllamaText(data);
+            let thinking=String(data?.message?.thinking||data?.thinking||"");
+            if(!content && mode!=="off"){
+                data=await executeChat("off");
+                content=extractOllamaText(data);
+                thinking=thinking || String(data?.message?.thinking||data?.thinking||"");
             }
-            if(!content.trim()){
-                if(thinking.trim()) throw new Error("Ollama completed its reasoning but returned no final assistant text. This build retried with thinking disabled; try increasing Maximum answer tokens or select a different chat model.");
-                throw new Error("Ollama returned a successful response but no assistant text. Try increasing Maximum answer tokens or testing another chat-capable model.");
+            // Some Ollama/model combinations can return HTTP 200 from /api/chat with
+            // an empty content field. Fall back to the native generate endpoint before
+            // treating that as a failure.
+            if(!content){
+                const generated=await executeGenerate();
+                content=extractOllamaText(generated);
+                thinking=thinking || String(generated?.thinking||"");
+                data=generated;
+            }
+            if(!content){
+                const detail=thinking.trim()
+                    ? "The model produced reasoning but no final answer, even after retrying without thinking and falling back to /api/generate."
+                    : "Ollama returned HTTP success but no text from either /api/chat or /api/generate.";
+                throw new Error(`${detail} Try increasing Maximum answer tokens, verify the model directly in Ollama, or select another chat-capable model.`);
             }
             if(onToken) onToken(content);
             return {choices:[{message:{content,thinking:thinking||undefined}}],model:data?.model||selected};
@@ -2492,12 +2402,10 @@ function sleep(ms){
         }
 
         async function run(messages,{temperature=null,max_tokens=null,stream=false,onToken=null,thinkingMode=null}={}){
-            await ensure(currentValue || "omniroute:auto");
+            await ensure(currentValue || preferred());
             const runtimeCfg=aiRuntimeConfig();
             temperature=Number.isFinite(Number(temperature))?Number(temperature):runtimeCfg.temperature;
             max_tokens=Number.isFinite(Number(max_tokens))?Number(max_tokens):runtimeCfg.maxAnswerTokens;
-
-            if(currentEngine==="omniroute") return await runOmniRoute(messages,{temperature,max_tokens,onToken});
 
             if(currentEngine==="ollama") return await runOllama(messages,{temperature,max_tokens,onToken,thinkingMode});
 
@@ -2513,54 +2421,11 @@ function sleep(ms){
             throw new Error("No AI engine is available.");
         }
 
-        async function testConnection(){
-            const savedValue=currentValue;
-            const savedRuntime=runtime;
-            const savedEngine=currentEngine;
-            const savedLabel=currentLabel;
-            const {baseUrl}=config();
-            try{
-                const modelsResponse=await omniFetch(`${baseUrl}/models`,{method:"GET",headers:omniHeaders()},10000);
-                const modelsData=await parseOmniResponse(modelsResponse);
-                const models=Array.isArray(modelsData?.data) ? modelsData.data : [];
-                const modelIds=models.map(item=>String(item?.id||"")).filter(Boolean);
-                const preferred=modelIds.includes("auto") ? "auto" : (modelIds.includes("felo/auto") ? "felo/auto" : "auto");
-                runtime={type:"omniroute",model:preferred};
-                currentValue="omniroute:auto";
-                currentEngine="omniroute";
-                currentLabel="OmniRoute — Auto";
-                let result;
-                let testedModel=preferred;
-                try{result=await omniCompletion(preferred,[{role:"user",content:"Reply with exactly OK"}],{temperature:0,max_tokens:8,onToken:null});}
-                catch(error){
-                    if(preferred!=="felo/auto" && shouldTryZeroConfigFallback(error)){
-                        testedModel="felo/auto";
-                        result=await omniCompletion("felo/auto",[{role:"user",content:"Reply with exactly OK"}],{temperature:0,max_tokens:8,onToken:null});
-                    }else throw error;
-                }
-                return {
-                    ok:true,
-                    content:result?.choices?.[0]?.message?.content || "OK",
-                    modelCount:models.length,
-                    modelIds:modelIds.slice(0,40),
-                    testedModel,
-                    baseUrl,
-                    endpointKeyConfigured:!!endpointKey(),
-                    authHeader:endpointKey() ? "endpoint key" : "local placeholder"
-                };
-            }finally{
-                currentValue=savedValue;
-                runtime=savedRuntime;
-                currentEngine=savedEngine;
-                currentLabel=savedLabel;
-            }
-        }
-
         function status(){
-            return {ready:!!runtime,value:currentValue,engine:currentEngine || "shared",label:currentLabel,loading:!!loadingPromise,config:config()};
+            return {ready:!!runtime,value:currentValue,engine:currentEngine || "shared",label:currentLabel,loading:!!loadingPromise,config:ollamaConfig()};
         }
 
-        return {catalog,ensure,run,release,status,config,configure,testConnection,ollamaConfig,configureOllama,listOllamaModels,inspectOllamaModel,inspectOllamaModels,testOllamaConnection,preferred,preferredLabel,setPreferred,ollamaEmbeddingModel,configureOllamaEmbedding,aiRuntimeConfig};
+        return {catalog,ensure,run,release,status,ollamaConfig,configureOllama,listOllamaModels,inspectOllamaModel,inspectOllamaModels,testOllamaConnection,preferred,preferredLabel,setPreferred,ollamaEmbeddingModel,configureOllamaEmbedding,aiRuntimeConfig};
     })();
 
     const risk = (() => {

@@ -1,14 +1,14 @@
 "use strict";
 
 const TOOL_CONFIG = {
-    contracts: { name: "Contract Manager", url: "./apps/contract-manager/index.html?sharedPane=1" },
-    drawing: { name: "Drawing Measurement", url: "./apps/drawing-measurement/index.html?sharedPane=1" },
-    assessment: { name: "Schedule Assessment", url: "./apps/schedule-assessment/index.html?sharedPane=1" },
-    risk: { name: "Risk Analysis", url: "./apps/risk-analysis/index.html?sharedPane=1" },
-    claims: { name: "Claims & Forensics", url: "./apps/claims-forensics/index.html?sharedPane=1" },
-    notebook: { name: "NotebookLM+", url: "./apps/notebooklmplus/index.html" },
-    settings: { name: "Settings", url: "./apps/settings/index.html" },
-    builder: { name: "Schedule Builder", url: "./apps/schedule-builder/index.html" }
+    contracts: { name: "Contract Manager", url: "./apps/contract-manager/index.html?sharedPane=1&v=20260901-ollamaonly-folderremove" },
+    drawing: { name: "Drawing Measurement", url: "./apps/drawing-measurement/index.html?sharedPane=1&v=20260901-ollamaonly-folderremove" },
+    assessment: { name: "Schedule Assessment", url: "./apps/schedule-assessment/index.html?sharedPane=1&v=20260901-ollamaonly-folderremove" },
+    risk: { name: "Risk Analysis", url: "./apps/risk-analysis/index.html?sharedPane=1&v=20260901-ollamaonly-folderremove" },
+    claims: { name: "Claims & Forensics", url: "./apps/claims-forensics/index.html?sharedPane=1&v=20260901-ollamaonly-folderremove" },
+    notebook: { name: "NotebookLM+", url: "./apps/notebooklmplus/index.html?v=20260901-ollamaonly-folderremove" },
+    settings: { name: "Settings", url: "./apps/settings/index.html?v=20260901-ollamaonly-folderremove" },
+    builder: { name: "Schedule Builder", url: "./apps/schedule-builder/index.html?v=20260901-ollamaonly-folderremove" }
 };
 
 const host = document.getElementById("host");
@@ -92,7 +92,7 @@ function populateGlobalModelSelect(){
     if(!globalModelSelect) return;
     const groups=new Map();
     ProjectControlsCore.ai.catalog.filter(x=>!x.disabled).forEach(item=>{
-        const key=item.engine==="omniroute"?"OmniRoute":item.engine==="ollama"?"Ollama":item.engine==="mlc"?"Browser WebGPU":"Browser CPU / WASM";
+        const key=item.engine==="ollama"?"Ollama":item.engine==="mlc"?"Browser WebGPU":"Browser CPU / WASM";
         if(!groups.has(key)) groups.set(key,[]); groups.get(key).push(item);
     });
     globalModelSelect.innerHTML=[...groups.entries()].map(([label,items])=>`<optgroup label="${label}">${items.map(item=>`<option value="${item.value}">${item.label}</option>`).join("")}</optgroup>`).join("");
@@ -109,6 +109,24 @@ async function setGlobalModel(value){
 }
 globalModelSelect?.addEventListener("change",e=>setGlobalModel(e.target.value));
 populateGlobalModelSelect();
+
+const suiteProgress=document.getElementById("suiteProgress");
+const suiteProgressTitle=document.getElementById("suiteProgressTitle");
+const suiteProgressPercent=document.getElementById("suiteProgressPercent");
+const suiteProgressDetail=document.getElementById("suiteProgressDetail");
+const suiteProgressBar=document.getElementById("suiteProgressBar");
+let suiteProgressHideTimer=null;
+function updateSuiteProgress(payload={}){
+  if(!suiteProgress)return;
+  clearTimeout(suiteProgressHideTimer);
+  const percent=Math.max(0,Math.min(100,Number(payload.percent)||0));
+  suiteProgress.hidden=false;
+  suiteProgressTitle.textContent=payload.title||"Processing schedules";
+  suiteProgressPercent.textContent=`${Math.round(percent)}%`;
+  suiteProgressDetail.textContent=payload.detail||"Working…";
+  suiteProgressBar.style.width=`${percent}%`;
+  if(payload.done){suiteProgressHideTimer=setTimeout(()=>{suiteProgress.hidden=true},1800);}
+}
 
 document.querySelectorAll(".suite-tab").forEach(button => {
     button.addEventListener("click", () => activateTool(button.dataset.tool));
@@ -265,12 +283,12 @@ function renderBulkFolders(){
   const records=sharedFiles.filter(f=>f.bulkFolderId===folder.id);
   const tree=bulkTree(records);
   const mode=folder.handle?"linked":"local snapshot";
-  return `<details class="bulk-folder" data-bulk-folder="${escapeShellHTML(folder.id)}"><summary><span class="bulk-folder-name" title="${escapeShellHTML(folder.name)}">${escapeShellHTML(folder.name)}</span><span class="bulk-folder-meta">${records.length} · ${mode}</span></summary><div class="bulk-folder-body">${renderBulkNode(tree)}<div class="bulk-folder-tools">${folder.handle?`<button type="button" data-bulk-refresh="${escapeShellHTML(folder.id)}">↻ Refresh</button>`:""}<button type="button" data-bulk-unlink="${escapeShellHTML(folder.id)}">Unlink</button></div></div></details>`;
+  return `<details class="bulk-folder" data-bulk-folder="${escapeShellHTML(folder.id)}"><summary><span class="bulk-folder-name" title="${escapeShellHTML(folder.name)}">${escapeShellHTML(folder.name)}</span><span class="bulk-folder-meta">${records.length} · ${mode}</span><button class="bulk-folder-remove" data-bulk-unlink="${escapeShellHTML(folder.id)}" type="button" title="Remove linked folder" aria-label="Remove linked folder ${escapeShellHTML(folder.name)}">×</button></summary><div class="bulk-folder-body">${renderBulkNode(tree)}<div class="bulk-folder-tools">${folder.handle?`<button type="button" data-bulk-refresh="${escapeShellHTML(folder.id)}">↻ Refresh</button>`:""}</div></div></details>`;
  }).join("");
  bulkFolderList.querySelectorAll('[data-bulk-use]').forEach(button=>button.addEventListener('click',()=>useSharedFile(button.dataset.bulkUse)));
  bulkFolderList.querySelectorAll('[data-shared-remove]').forEach(button=>button.addEventListener('click',()=>removeSharedFileReference(button.dataset.sharedRemove)));
  bulkFolderList.querySelectorAll('[data-bulk-refresh]').forEach(button=>button.addEventListener('click',()=>refreshBulkFolder(button.dataset.bulkRefresh)));
- bulkFolderList.querySelectorAll('[data-bulk-unlink]').forEach(button=>button.addEventListener('click',()=>unlinkBulkFolder(button.dataset.bulkUnlink)));
+ bulkFolderList.querySelectorAll('[data-bulk-unlink]').forEach(button=>button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();unlinkBulkFolder(button.dataset.bulkUnlink);}));
 }
 async function removeSharedFileReference(fileId){
  const record=sharedFiles.find(file=>file.id===fileId);if(!record)return;
@@ -455,11 +473,15 @@ window.addEventListener("message",event=>{if(event.data&&event.data.type==="pc-t
 
 window.addEventListener("unhandledrejection",event=>{
     const message=event.reason?.message||String(event.reason||"");
-    if(message && /OmniRoute|AI|fetch|network/i.test(message) && statusNode) statusNode.textContent="AI connection issue · open Settings";
+    if(message && /Ollama|AI|fetch|network/i.test(message) && statusNode) statusNode.textContent="AI connection issue · open Settings";
 });
 
 window.addEventListener("message",event=>{
     if(event.data&&event.data.type==="pc-open-settings") activateTool("settings");
     if(event.data&&event.data.type==="pc-ai-config-changed"){ if(statusNode) statusNode.textContent=`${ProjectControlsCore.ai.preferredLabel()} · configured`; syncGlobalModelSelect(); }
     if(event.data&&event.data.type==="pc-notebook-performance-changed" && frame?.contentWindow) frame.contentWindow.postMessage(event.data,"*");
+});
+
+window.addEventListener("message",event=>{
+  if(event.data?.type==="pc-progress") updateSuiteProgress(event.data);
 });

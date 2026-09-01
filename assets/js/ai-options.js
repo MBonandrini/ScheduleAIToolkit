@@ -3,7 +3,7 @@
     if(!core||!core.ai||!Array.isArray(core.ai.catalog)) return;
     function renderSelect(select){
         const preferred=core.ai.preferred();
-        const entry=core.ai.catalog.find(item=>item.value===preferred&&!item.disabled)||core.ai.catalog.find(item=>item.value==="omniroute:auto");
+        const entry=core.ai.catalog.find(item=>item.value===preferred&&!item.disabled)||core.ai.catalog.find(item=>item.value==="ollama:auto");
         const heuristic=select.dataset.includeHeuristic==="true";
         select.classList.add("shared-ai-select");
         select.removeAttribute("onchange");
