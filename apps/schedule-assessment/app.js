@@ -221,6 +221,8 @@ const state = {
     delayBaselineBySchedule:{},
     forensicBaselineBySchedule:{},
     monteSettingsBySchedule:{},
+    comparisonSequenceIds:[],
+    savedComparisonReports:[],
     chat:[],
     aiReady:false,
     aiBusy:false,
@@ -321,6 +323,8 @@ async function saveProject(){
             delayBaselineBySchedule:state.delayBaselineBySchedule,
             forensicBaselineBySchedule:state.forensicBaselineBySchedule,
             monteSettingsBySchedule:state.monteSettingsBySchedule,
+            comparisonSequenceIds:state.comparisonSequenceIds,
+            savedComparisonReports:state.savedComparisonReports,
             aiModelValue:state.aiModelValue,
             chat:state.chat,
             updatedAt:Date.now()
@@ -369,7 +373,15 @@ function scheduleSave(){
         );
 }
 
-const AUTO_REPORT_IDS = new Set(["health","dcma","detailed","forensic","scurve","cost"]);
+const AUTO_REPORT_IDS = new Set([
+    "viewer","changes","critical","float","logic","progress","timeline","milestones","forecast",
+    "resources","calendars","constraints","baseline","lookahead","narrative","executive","diagnostics",
+    "whymove","health","dcma","detailed","forensic","scurve","cost","comparison","week","delay",
+    "nodes","gantt"
+]);
+
+const AUTO_REPORT_EXCLUSIONS = new Set(["settings","excel","backup","monte","ai"]);
+let bulkScheduleSyncPromise = Promise.resolve();
 
 const MODEL_CATALOG = [
     {value:"omniroute:auto",engine:"omniroute",id:"auto",label:"OmniRoute — Auto (default)"},
@@ -805,99 +817,80 @@ function heuristicAIResponse(
     ].join("\n");
 }
 
-async function handleScheduleFiles(fileList){
+function scheduleFileSourceKey(file, explicitKey=""){
+    if(explicitKey) return String(explicitKey);
+    return `direct:${file?.name||"schedule"}:${Number(file?.size||0)}:${Number(file?.lastModified||0)}`;
+}
 
-    const files =
-        [...(fileList || [])];
+async function handleScheduleEntries(entries,{silent=false,origin="direct"}={}){
 
-    if(!files.length)
-        return;
+    const items = [...(entries || [])]
+        .map(entry=>entry?.file ? entry : {file:entry})
+        .filter(entry=>entry.file);
+
+    if(!items.length) return {added:0,skipped:0,failed:0,reportsFailed:0};
 
     const newlyAddedScheduleIds = [];
+    let skipped=0, failed=0, reportsFailed=0;
 
-    document.getElementById(
-        "autoReportStatus"
-    ).textContent =
-        "Reading schedule files...";
+    document.getElementById("autoReportStatus").textContent =
+        origin === "bulk" ? "Scanning Bulk Information schedules..." : "Reading schedule files...";
 
-    for(const file of files){
-
-        const ext =
-            file.name
-                .split(".")
-                .pop()
-                .toLowerCase();
+    for(const entry of items){
+        const file=entry.file;
+        if(entry.resolutionError){
+            failed++;
+            console.warn(`Could not access ${entry.sourcePath||file?.name||"bulk schedule"}: ${entry.resolutionError}`);
+            continue;
+        }
+        const ext=String(file.name||"").split(".").pop().toLowerCase();
 
         if(!["xer","xml"].includes(ext)){
+            if(!silent) alert(`${file.name} is not a supported schedule file. Please upload XER or Microsoft Project XML.`);
+            skipped++;
+            continue;
+        }
 
-            alert(
-                `${file.name} is not a supported schedule file. Please upload XER or Microsoft Project XML.`
-            );
-
+        const sourceKey=scheduleFileSourceKey(file,entry.sourceKey);
+        if(state.files.some(existing=>existing.sourceKey===sourceKey)){
+            skipped++;
             continue;
         }
 
         try{
-
-            const fileText =
-                await readFile(file);
-
-            const result =
-                parseScheduleFile(
-                    file,
-                    fileText
-                );
-
-            const fileRecord = {
+            const fileText=await readFile(file);
+            const result=parseScheduleFile(file,fileText);
+            const fileRecord={
                 id:crypto.randomUUID(),
                 name:result.fileName,
                 extension:result.extension,
                 text:result.text,
-                uploadedAt:Date.now()
+                uploadedAt:Date.now(),
+                sourceKey,
+                sourceOrigin:origin,
+                sourcePath:entry.sourcePath||file.name,
+                bulkFolderId:entry.bulkFolderId||null,
+                size:Number(file.size||0),
+                lastModified:Number(file.lastModified||0)
             };
-
-            state.files.push(
-                fileRecord
-            );
-
-            result.schedules.forEach(
-                schedule=>{
-
-                    schedule.fileId =
-                        fileRecord.id;
-
-                    schedule.expanded =
-                        false;
-
-                    state.schedules.push(
-                        schedule
-                    );
-
-                    newlyAddedScheduleIds.push(
-                        schedule.id
-                    );
-                }
-            );
-
+            state.files.push(fileRecord);
+            result.schedules.forEach(schedule=>{
+                schedule.fileId=fileRecord.id;
+                schedule.sourceKey=sourceKey;
+                schedule.sourcePath=fileRecord.sourcePath;
+                schedule.expanded=false;
+                state.schedules.push(schedule);
+                newlyAddedScheduleIds.push(schedule.id);
+            });
         }catch(error){
-
-            console.error(error);
-
-            alert(
-                `Could not read ${file.name}: ${error.message}`
-            );
+            failed++;
+            console.error(`Could not import ${file.name}`,error);
+            if(!silent) alert(`Could not read ${file.name}: ${error.message}`);
         }
     }
 
-    if(
-        !getActiveSchedule() &&
-        newlyAddedScheduleIds.length
-    ){
-
-        state.activeSchedules =
-            new Set([
-                newlyAddedScheduleIds[0]
-            ]);
+    if(!getActiveSchedule() && newlyAddedScheduleIds.length){
+        state.activeSchedules=new Set([newlyAddedScheduleIds[0]]);
     }
 
     renderScheduleTree();
@@ -905,50 +898,53 @@ async function handleScheduleFiles(fileList){
     renderRightPane();
     scheduleSave();
 
-    for(
-        let i=0;
-        i<newlyAddedScheduleIds.length;
-        i++
-    ){
-
-        const scheduleId =
-            newlyAddedScheduleIds[i];
-
-        const schedule =
-            getScheduleById(
-                scheduleId
-            );
-
-        document.getElementById(
-            "autoReportStatus"
-        ).textContent =
-            `Building reports ${i+1}/${newlyAddedScheduleIds.length}: ${schedule?.name || "schedule"}...`;
-
-        await buildAllReportsForSchedule(
-            scheduleId
-        );
+    // All schedules are parsed before any report is generated. This lets comparison,
+    // trend and revision reports see the complete imported revision set.
+    for(let i=0;i<newlyAddedScheduleIds.length;i++){
+        const scheduleId=newlyAddedScheduleIds[i];
+        const schedule=getScheduleById(scheduleId);
+        document.getElementById("autoReportStatus").textContent=
+            `Building automatic reports ${i+1}/${newlyAddedScheduleIds.length}: ${schedule?.name || "schedule"}...`;
+        const summary=await buildAllReportsForSchedule(scheduleId);
+        reportsFailed += summary?.failed?.length || 0;
     }
 
-    document.getElementById(
-        "autoReportStatus"
-    ).textContent =
-        "All automatic reports complete.";
+    const parts=[`${newlyAddedScheduleIds.length} schedule${newlyAddedScheduleIds.length===1?"":"s"} imported`];
+    if(skipped) parts.push(`${skipped} unchanged/skipped`);
+    if(failed) parts.push(`${failed} import failure${failed===1?"":"s"}`);
+    if(reportsFailed) parts.push(`${reportsFailed} report failure${reportsFailed===1?"":"s"}`);
+    document.getElementById("autoReportStatus").textContent=`Automatic reporting complete · ${parts.join(" · ")}.`;
 
-    const active =
-        getActiveSchedule();
-
-    if(active){
-
-        const preferred =
-            state.currentReport ||
-            "health";
-
-        await openReport(
-            preferred
-        );
-    }
-
+    const active=getActiveSchedule();
+    if(active) await openReport(state.currentReport||"health");
     renderRightPane();
+    return {added:newlyAddedScheduleIds.length,skipped,failed,reportsFailed};
+}
+
+async function handleScheduleFiles(fileList){
+    return await handleScheduleEntries([...(fileList||[])].map(file=>({file})),{origin:"direct"});
+}
+
+async function importBulkInformationSchedules(){
+    let repository;
+    try{ repository=window.parent?.ProjectControlsSharedRepository; }catch(_){ return {added:0,skipped:0,failed:0,reportsFailed:0}; }
+    if(!repository?.getBulkScheduleEntries) return {added:0,skipped:0,failed:0,reportsFailed:0};
+    try{
+        const entries=await repository.getBulkScheduleEntries();
+        return await handleScheduleEntries(entries,{silent:true,origin:"bulk"});
+    }catch(error){
+        console.warn("Bulk Information schedule scan failed",error);
+        const node=document.getElementById("autoReportStatus");
+        if(node) node.textContent=`Bulk Information scan could not complete: ${error.message||error}`;
+        return {added:0,skipped:0,failed:1,reportsFailed:0};
+    }
+}
+
+function queueBulkInformationScheduleSync(){
+    bulkScheduleSyncPromise=bulkScheduleSyncPromise
+        .catch(()=>{})
+        .then(()=>importBulkInformationSchedules());
+    return bulkScheduleSyncPromise;
 }
 
 function readFile(file){
@@ -1215,7 +1211,7 @@ function renderScheduleTree(){
                 No schedule files uploaded.
             </div>
         `;
-
+        renderCompareSchedulesPane();
         return;
     }
 
@@ -1310,6 +1306,15 @@ function renderScheduleTree(){
                 header
             );
 
+            const removeButton=document.createElement("button");
+            removeButton.type="button";
+            removeButton.className="file-remove";
+            removeButton.title=`Remove ${file.name}`;
+            removeButton.setAttribute("aria-label",`Remove ${file.name}`);
+            removeButton.textContent="×";
+            removeButton.onclick=(event)=>{event.preventDefault();event.stopPropagation();removeScheduleFile(file.id);};
+            wrapper.appendChild(removeButton);
+
             const children =
                 document.createElement(
                     "div"
@@ -1385,6 +1390,29 @@ function renderScheduleTree(){
             );
         }
     );
+
+    renderCompareSchedulesPane();
+}
+
+
+async function removeScheduleFile(fileId){
+    const file=state.files.find(item=>item.id===fileId); if(!file)return;
+    if(!confirm(`Remove ${file.name} from Schedule Assessment? The source file on your computer will not be deleted.`))return;
+    const removedIds=state.schedules.filter(schedule=>schedule.fileId===fileId).map(schedule=>schedule.id);
+    const removedSet=new Set(removedIds);
+    state.files=state.files.filter(item=>item.id!==fileId);
+    state.schedules=state.schedules.filter(schedule=>!removedSet.has(schedule.id));
+    removedIds.forEach(id=>{
+        state.activeSchedules.delete(id); delete state.reports[id]; delete state.recommendationsBySchedule[id]; delete state.comparisonScheduleBySchedule[id]; delete state.weekComparisonBySchedule[id]; delete state.delayBaselineBySchedule[id]; delete state.forensicBaselineBySchedule[id]; delete state.monteSettingsBySchedule[id];
+    });
+    for(const mapName of ["comparisonScheduleBySchedule","weekComparisonBySchedule","delayBaselineBySchedule","forensicBaselineBySchedule"]){
+        Object.keys(state[mapName]||{}).forEach(key=>{if(removedSet.has(state[mapName][key]))state[mapName][key]="";});
+    }
+    state.comparisonSequenceIds=(state.comparisonSequenceIds||[]).filter(id=>!removedSet.has(id));
+    state.savedComparisonReports=(state.savedComparisonReports||[]).filter(item=>!(item.scheduleIds||[]).some(id=>removedSet.has(id)));
+    if(!getActiveSchedule()&&state.schedules.length)state.activeSchedules=new Set([state.schedules[0].id]);
+    renderScheduleTree();renderReportList();renderRightPane();updateWorkspaceMeta();scheduleSave();
+    if(getActiveSchedule())await openReport(state.currentReport||"health");else renderNoScheduleReport();
 }
 
 function updateWorkspaceMeta(){
@@ -1427,6 +1455,320 @@ function getReportForSchedule(
 ){
 
     return state.reports?.[scheduleId]?.[reportId] || null;
+}
+
+
+function comparisonScheduleSort(a,b){
+    const ad=a?.statusDate ? new Date(a.statusDate).getTime() : 0;
+    const bd=b?.statusDate ? new Date(b.statusDate).getTime() : 0;
+    if(ad!==bd) return ad-bd;
+    return String(a?.name||"").localeCompare(String(b?.name||""));
+}
+
+function ensureComparisonSequence(){
+    const validIds=new Set(state.schedules.map(schedule=>schedule.id));
+    state.comparisonSequenceIds=(state.comparisonSequenceIds||[]).filter((id,index,array)=>validIds.has(id)&&array.indexOf(id)===index);
+    if(state.comparisonSequenceIds.length<2 && state.schedules.length>=2){
+        state.comparisonSequenceIds=[...state.schedules].sort(comparisonScheduleSort).map(schedule=>schedule.id);
+    }
+    return state.comparisonSequenceIds;
+}
+
+function renderCompareSchedulesPane(){
+    const list=document.getElementById("compareSequenceList");
+    const saved=document.getElementById("savedComparisonList");
+    const add=document.getElementById("compareAddSchedule");
+    const generate=document.getElementById("generateSequenceComparison");
+    if(!list||!saved||!add||!generate) return;
+
+    const ids=ensureComparisonSequence();
+    const selected=new Set(ids);
+
+    if(!state.schedules.length){
+        list.innerHTML='<div class="compare-empty">Import at least two schedules to compare revisions.</div>';
+    }else{
+        list.innerHTML=ids.map((id,index)=>{
+            const schedule=getScheduleById(id);
+            const options=state.schedules.map(candidate=>{
+                const inOtherRow=selected.has(candidate.id)&&candidate.id!==id;
+                return `<option value="${escapeHTML(candidate.id)}" ${candidate.id===id?"selected":""} ${inOtherRow?"disabled":""}>${escapeHTML(candidate.name)} · ${formatDate(candidate.statusDate)}</option>`;
+            }).join("");
+            return `<div class="compare-sequence-row" data-compare-row="${index}">
+                <span class="compare-sequence-number">${index+1}</span>
+                <select aria-label="Comparison schedule ${index+1}" data-compare-select="${index}">${options}</select>
+                <button class="compare-sequence-action" type="button" data-compare-up="${index}" title="Move earlier" ${index===0?"disabled":""}>↑</button>
+                <button class="compare-sequence-action" type="button" data-compare-down="${index}" title="Move later" ${index===ids.length-1?"disabled":""}>↓</button>
+                <button class="compare-sequence-action" type="button" data-compare-remove="${index}" title="Remove from comparison">×</button>
+            </div>`;
+        }).join("") || '<div class="compare-empty">Add schedules to the comparison sequence.</div>';
+    }
+
+    list.querySelectorAll("[data-compare-select]").forEach(select=>select.addEventListener("change",()=>updateComparisonSequenceAt(Number(select.dataset.compareSelect),select.value)));
+    list.querySelectorAll("[data-compare-up]").forEach(button=>button.addEventListener("click",()=>moveComparisonSequence(Number(button.dataset.compareUp),-1)));
+    list.querySelectorAll("[data-compare-down]").forEach(button=>button.addEventListener("click",()=>moveComparisonSequence(Number(button.dataset.compareDown),1)));
+    list.querySelectorAll("[data-compare-remove]").forEach(button=>button.addEventListener("click",()=>removeComparisonSequenceAt(Number(button.dataset.compareRemove))));
+
+    add.disabled=ids.length>=state.schedules.length;
+    add.onclick=addComparisonSequenceSchedule;
+    generate.disabled=ids.length<2;
+    generate.onclick=generateSequenceComparison;
+
+    const savedReports=state.savedComparisonReports||[];
+    saved.innerHTML=savedReports.length?savedReports.slice().sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0)).map(item=>{
+        const names=(item.scheduleIds||[]).map(id=>getScheduleById(id)?.name||"Missing schedule");
+        return `<div class="saved-comparison-item">
+            <button class="saved-comparison-open" type="button" data-saved-compare="${escapeHTML(item.id)}" title="${escapeHTML(item.name)}">
+                <div class="saved-comparison-name">${escapeHTML(item.name)}</div>
+                <div class="saved-comparison-meta">${names.length} revisions · ${new Date(item.createdAt||Date.now()).toLocaleString()}</div>
+            </button>
+            <button class="saved-comparison-delete" type="button" data-delete-saved-compare="${escapeHTML(item.id)}" title="Remove saved comparison">×</button>
+        </div>`;
+    }).join(""):'<div class="compare-empty">Generated comparisons will be saved here.</div>';
+
+    saved.querySelectorAll("[data-saved-compare]").forEach(button=>button.addEventListener("click",()=>openSavedSequenceComparison(button.dataset.savedCompare)));
+    saved.querySelectorAll("[data-delete-saved-compare]").forEach(button=>button.addEventListener("click",event=>{event.stopPropagation();deleteSavedSequenceComparison(button.dataset.deleteSavedCompare)}));
+}
+
+function updateComparisonSequenceAt(index,scheduleId){
+    if(!getScheduleById(scheduleId)) return;
+    const ids=ensureComparisonSequence().slice();
+    const duplicate=ids.indexOf(scheduleId);
+    if(duplicate>=0&&duplicate!==index){
+        const old=ids[index]; ids[index]=scheduleId; ids[duplicate]=old;
+    }else ids[index]=scheduleId;
+    state.comparisonSequenceIds=ids;
+    renderCompareSchedulesPane(); scheduleSave();
+}
+
+function moveComparisonSequence(index,delta){
+    const ids=ensureComparisonSequence().slice();
+    const target=index+delta;
+    if(target<0||target>=ids.length) return;
+    [ids[index],ids[target]]=[ids[target],ids[index]];
+    state.comparisonSequenceIds=ids;
+    renderCompareSchedulesPane(); scheduleSave();
+}
+
+function removeComparisonSequenceAt(index){
+    const ids=ensureComparisonSequence().slice();
+    ids.splice(index,1);
+    state.comparisonSequenceIds=ids;
+    renderCompareSchedulesPane(); scheduleSave();
+}
+
+function addComparisonSequenceSchedule(){
+    const ids=ensureComparisonSequence().slice();
+    const next=[...state.schedules].sort(comparisonScheduleSort).find(schedule=>!ids.includes(schedule.id));
+    if(next) ids.push(next.id);
+    state.comparisonSequenceIds=ids;
+    renderCompareSchedulesPane(); scheduleSave();
+}
+
+function scheduleLogicSnapshot(schedule){
+    const activities=schedule?.activities||[];
+    const relationships=schedule?.relationships||[];
+    const incomplete=activities.filter(activity=>Number(activity.percent||0)<100);
+    const openStarts=incomplete.filter(activity=>(activity.predecessors||[]).length===0).length;
+    const openFinishes=incomplete.filter(activity=>(activity.successors||[]).length===0).length;
+    const positiveLags=relationships.filter(link=>Number(link.lag||0)>0).length;
+    const negativeLags=relationships.filter(link=>Number(link.lag||0)<0).length;
+    const types={FS:0,SS:0,FF:0,SF:0};
+    relationships.forEach(link=>{const type=String(link.type||"").toUpperCase(); if(type in types)types[type]++;});
+    return {relationships:relationships.length,openStarts,openFinishes,positiveLags,negativeLags,types,density:activities.length?relationships.length/activities.length:0};
+}
+
+function scheduleResourceSnapshot(schedule){
+    const totals={assignments:0,budgetUnits:0,actualUnits:0,remainingUnits:0,budgetCost:0,actualCost:0,remainingCost:0};
+    const byResource=new Map();
+    (schedule?.activities||[]).forEach(activity=>{
+        const activityResources=activity.resources||[];
+        const resourceBudgetUnits=activityResources.reduce((sum,resource)=>sum+Number(resource.budgetUnits||0),0);
+        const resourceActualUnits=activityResources.reduce((sum,resource)=>sum+Number(resource.actualUnits||0),0);
+        const resourceRemainingUnits=activityResources.reduce((sum,resource)=>sum+Number(resource.remainingUnits||0),0);
+        totals.budgetUnits+=Number(activity.budgetUnits ?? resourceBudgetUnits ?? 0);
+        totals.actualUnits+=Number(activity.actualUnits ?? resourceActualUnits ?? 0);
+        totals.remainingUnits+=Number(activity.remainingUnits ?? resourceRemainingUnits ?? 0);
+        activityResources.forEach(resource=>{
+            totals.assignments++;
+            totals.budgetCost+=Number(resource.budgetCost||0); totals.actualCost+=Number(resource.actualCost||0); totals.remainingCost+=Number(resource.remainingCost||0);
+            const key=String(resource.resourceId||resource.resourceName||"Unassigned");
+            if(!byResource.has(key))byResource.set(key,{name:resource.resourceName||key,assignments:0,budgetUnits:0,actualUnits:0,remainingUnits:0,budgetCost:0,actualCost:0,remainingCost:0});
+            const row=byResource.get(key); row.assignments++; row.budgetUnits+=Number(resource.budgetUnits||0); row.actualUnits+=Number(resource.actualUnits||0); row.remainingUnits+=Number(resource.remainingUnits||0); row.budgetCost+=Number(resource.budgetCost||0); row.actualCost+=Number(resource.actualCost||0); row.remainingCost+=Number(resource.remainingCost||0);
+        });
+    });
+    return {totals,byResource};
+}
+
+function assignmentFingerprint(activity){
+    return (activity?.resources||[]).map(resource=>[
+        String(resource.resourceId||resource.resourceName||""),
+        Number(resource.budgetUnits||0).toFixed(3),Number(resource.actualUnits||0).toFixed(3),Number(resource.remainingUnits||0).toFixed(3),
+        Number(resource.budgetCost||0).toFixed(2),Number(resource.actualCost||0).toFixed(2),Number(resource.remainingCost||0).toFixed(2)
+    ].join("|")).sort().join(";");
+}
+
+function transitionDetails(previous,current){
+    const network=compareScheduleNetworks(current,previous);
+    const prevById=new Map((previous.activities||[]).map(a=>[String(a.id),a]));
+    const currentById=new Map((current.activities||[]).map(a=>[String(a.id),a]));
+    let progressChanged=0,actualStartChanged=0,actualFinishChanged=0,constraintsChanged=0,calendarChanged=0,resourceChanged=0,durationChanged=0,floatChanged=0;
+    for(const [id,curr] of currentById){
+        const prev=prevById.get(id); if(!prev)continue;
+        if(Number(curr.percent||0)!==Number(prev.percent||0))progressChanged++;
+        if(String(curr.actualStart||"")!==String(prev.actualStart||""))actualStartChanged++;
+        if(String(curr.actualFinish||"")!==String(prev.actualFinish||""))actualFinishChanged++;
+        if(String(curr.constraint||"")!==String(prev.constraint||"")||String(curr.secondConstraint||"")!==String(prev.secondConstraint||""))constraintsChanged++;
+        if(String(curr.calendar||"")!==String(prev.calendar||""))calendarChanged++;
+        if(assignmentFingerprint(curr)!==assignmentFingerprint(prev))resourceChanged++;
+        if(Number(curr.duration||0)!==Number(prev.duration||0))durationChanged++;
+        if(Number(curr.totalFloat||0)!==Number(prev.totalFloat||0))floatChanged++;
+    }
+    const previousFinish=latestDate((previous.activities||[]).map(a=>a.currentFinish||a.finish));
+    const currentFinish=latestDate((current.activities||[]).map(a=>a.currentFinish||a.finish));
+    return {
+        previous,current,network,progressChanged,actualStartChanged,actualFinishChanged,constraintsChanged,calendarChanged,resourceChanged,durationChanged,floatChanged,
+        dataDateDelta:previous.statusDate&&current.statusDate?daysBetween(previous.statusDate,current.statusDate):null,
+        finishDelta:previousFinish&&currentFinish?daysBetween(previousFinish,currentFinish):null,
+        previousFinish,currentFinish,
+        progressDelta:weightedProgress(current.activities||[])-weightedProgress(previous.activities||[]),
+        previousLogic:scheduleLogicSnapshot(previous),currentLogic:scheduleLogicSnapshot(current),
+        previousResources:scheduleResourceSnapshot(previous),currentResources:scheduleResourceSnapshot(current)
+    };
+}
+
+function transitionActivityRows(detail,limit=500){
+    return detail.network.activityChanges.filter(change=>change.status!=="Unchanged").sort((a,b)=>Math.abs(Number(b.finishVariance||0))-Math.abs(Number(a.finishVariance||0))).slice(0,limit).map(change=>{
+        const before=change.baseline,after=change.current;
+        const constraintChange=before&&after&&(String(before.constraint||"")!==String(after.constraint||"")||String(before.secondConstraint||"")!==String(after.secondConstraint||""));
+        const resourceChange=before&&after&&assignmentFingerprint(before)!==assignmentFingerprint(after);
+        return `<tr>
+            <td class="activity-id">${escapeHTML(change.id)}</td><td>${escapeHTML(change.status)}</td><td>${escapeHTML(after?.name||before?.name||"—")}</td>
+            <td>${before?formatPercent(before.percent):"—"}</td><td>${after?formatPercent(after.percent):"—"}</td>
+            <td>${change.startVariance===null?"—":`${formatNumber(change.startVariance)} d`}</td><td>${change.finishVariance===null?"—":`${formatNumber(change.finishVariance)} d`}</td>
+            <td>${change.durationVariance===null?"—":`${formatNumber(change.durationVariance)} d`}</td><td>${change.floatVariance===null?"—":`${formatNumber(change.floatVariance)} d`}</td>
+            <td>${constraintChange?"Changed":"—"}</td><td>${change.calendarChanged?"Changed":"—"}</td><td>${resourceChange?"Changed":"—"}</td>
+            <td>+${change.predecessorAdded.length}/−${change.predecessorRemoved.length} pred · +${change.successorAdded.length}/−${change.successorRemoved.length} succ</td>
+        </tr>`;
+    }).join("");
+}
+
+function buildSequenceComparisonReport(scheduleIds,savedName=""){
+    const schedules=(scheduleIds||[]).map(getScheduleById).filter(Boolean);
+    if(schedules.length<2) throw new Error("Select at least two available schedules in comparison order.");
+    const transitions=[];
+    for(let i=1;i<schedules.length;i++) transitions.push(transitionDetails(schedules[i-1],schedules[i]));
+
+    const chartJobs=[];
+    const chartPanels=schedules.map((schedule,index)=>{
+        const points=buildTimeSeries(schedule.activities||[]);
+        const curveId=`compare-curve-${crypto.randomUUID()}`;
+        const histId=`compare-hist-${crypto.randomUUID()}`;
+        chartJobs.push({curveId,histId,points});
+        return `<div class="panel"><div class="panel-title">${index+1}. ${escapeHTML(schedule.name)}</div><div class="panel-subtitle">Data date ${formatDate(schedule.statusDate)} · ${schedule.activities.length} activities</div><div class="comparison-chart-grid"><div><div class="panel-subtitle">S-Curve</div><div class="chart-wrap"><canvas id="${curveId}"></canvas></div></div><div><div class="panel-subtitle">Finish histogram</div><div class="chart-wrap"><canvas id="${histId}"></canvas></div></div></div></div>`;
+    }).join("");
+    setTimeout(()=>chartJobs.forEach(job=>{drawSCurve(job.curveId,job.points,"scurve");drawSCurve(job.histId,job.points,"histogram");}),80);
+
+    const scheduleRows=schedules.map((schedule,index)=>{
+        const logic=scheduleLogicSnapshot(schedule),resources=scheduleResourceSnapshot(schedule),finish=latestDate((schedule.activities||[]).map(a=>a.currentFinish||a.finish));
+        const complete=(schedule.activities||[]).filter(a=>Number(a.percent||0)>=100).length;
+        const inProgress=(schedule.activities||[]).filter(a=>Number(a.percent||0)>0&&Number(a.percent||0)<100).length;
+        const critical=criticalActivities(schedule).length;
+        return `<tr><td>${index+1}</td><td>${escapeHTML(schedule.name)}</td><td>${formatDate(schedule.statusDate)}</td><td>${schedule.activities.length}</td><td>${formatPercent(weightedProgress(schedule.activities||[]))}</td><td>${complete}</td><td>${inProgress}</td><td>${formatDate(finish)}</td><td>${critical}</td><td>${logic.relationships}</td><td>${logic.openStarts}/${logic.openFinishes}</td><td>${resources.totals.assignments}</td><td>${formatNumber(resources.totals.actualUnits)}</td><td>${currency(resources.totals.actualCost)}</td></tr>`;
+    }).join("");
+
+    const transitionRows=transitions.map((d,index)=>`<tr><td>${index+1}</td><td>${escapeHTML(d.previous.name)} → ${escapeHTML(d.current.name)}</td><td>${d.dataDateDelta===null?"—":`${d.dataDateDelta} d`}</td><td>${d.finishDelta===null?"—":`${d.finishDelta} d`}</td><td>${formatPercent(d.progressDelta)}</td><td>${d.network.activityChanges.filter(x=>x.status==="New").length}</td><td>${d.network.activityChanges.filter(x=>x.status==="Deleted").length}</td><td>${d.network.activityChanges.filter(x=>x.status==="Changed").length}</td><td>${d.network.linkAdded.length}/${d.network.linkRemoved.length}</td><td>${d.constraintsChanged}</td><td>${d.calendarChanged}</td><td>${d.resourceChanged}</td></tr>`).join("");
+
+    const transitionPanels=transitions.map((d,index)=>{
+        const newCount=d.network.activityChanges.filter(x=>x.status==="New").length;
+        const deletedCount=d.network.activityChanges.filter(x=>x.status==="Deleted").length;
+        const changedCount=d.network.activityChanges.filter(x=>x.status==="Changed").length;
+        const resourceUnitDelta=d.currentResources.totals.actualUnits-d.previousResources.totals.actualUnits;
+        const resourceCostDelta=d.currentResources.totals.actualCost-d.previousResources.totals.actualCost;
+        return `<div class="panel comparison-transition">
+            <div class="panel-title">Transition ${index+1}: ${escapeHTML(d.previous.name)} → ${escapeHTML(d.current.name)}</div>
+            <div class="panel-subtitle">Data date ${formatDate(d.previous.statusDate)} → ${formatDate(d.current.statusDate)}</div>
+            <div class="metrics">
+                ${metric("Data date Δ",d.dataDateDelta===null?"—":`${d.dataDateDelta} d`,"Update interval","blue")}
+                ${metric("Forecast finish Δ",d.finishDelta===null?"—":`${d.finishDelta} d`,`${formatDate(d.previousFinish)} → ${formatDate(d.currentFinish)}`,Number(d.finishDelta)>0?"danger":"good")}
+                ${metric("Progress Δ",formatPercent(d.progressDelta),`${formatPercent(weightedProgress(d.previous.activities||[]))} → ${formatPercent(weightedProgress(d.current.activities||[]))}`,d.progressDelta>=0?"good":"warning")}
+                ${metric("Scope changes",`${newCount} / ${deletedCount}`,"New / deleted activities",newCount||deletedCount?"warning":"good")}
+                ${metric("Logic changes",`${d.network.linkAdded.length} / ${d.network.linkRemoved.length}`,"Added / removed relationships",d.network.linkAdded.length||d.network.linkRemoved.length?"warning":"good")}
+                ${metric("Resource changes",d.resourceChanged,"Activities with assignment/unit/cost changes",d.resourceChanged?"warning":"good")}
+            </div>
+            <div class="grid2">
+                <div class="panel"><div class="panel-title">Progress & dates</div><table><tbody>
+                    <tr><td>Activities with progress movement</td><td>${d.progressChanged}</td></tr><tr><td>Actual-start changes</td><td>${d.actualStartChanged}</td></tr><tr><td>Actual-finish changes</td><td>${d.actualFinishChanged}</td></tr><tr><td>Duration changes</td><td>${d.durationChanged}</td></tr><tr><td>Float changes</td><td>${d.floatChanged}</td></tr><tr><td>Changed activities</td><td>${changedCount}</td></tr>
+                </tbody></table></div>
+                <div class="panel"><div class="panel-title">Logic & controls</div><table><tbody>
+                    <tr><td>Relationships</td><td>${d.previousLogic.relationships} → ${d.currentLogic.relationships}</td></tr><tr><td>Open starts</td><td>${d.previousLogic.openStarts} → ${d.currentLogic.openStarts}</td></tr><tr><td>Open finishes</td><td>${d.previousLogic.openFinishes} → ${d.currentLogic.openFinishes}</td></tr><tr><td>Positive lags</td><td>${d.previousLogic.positiveLags} → ${d.currentLogic.positiveLags}</td></tr><tr><td>Constraint changes</td><td>${d.constraintsChanged}</td></tr><tr><td>Calendar changes</td><td>${d.calendarChanged}</td></tr>
+                </tbody></table></div>
+            </div>
+            <div class="panel"><div class="panel-title">Resources & cost movement</div><table><tbody>
+                <tr><td>Assignments</td><td>${d.previousResources.totals.assignments} → ${d.currentResources.totals.assignments}</td></tr>
+                <tr><td>Actual units</td><td>${formatNumber(d.previousResources.totals.actualUnits)} → ${formatNumber(d.currentResources.totals.actualUnits)} (${formatNumber(resourceUnitDelta)} Δ)</td></tr>
+                <tr><td>Remaining units</td><td>${formatNumber(d.previousResources.totals.remainingUnits)} → ${formatNumber(d.currentResources.totals.remainingUnits)}</td></tr>
+                <tr><td>Actual cost</td><td>${currency(d.previousResources.totals.actualCost)} → ${currency(d.currentResources.totals.actualCost)} (${currency(resourceCostDelta)} Δ)</td></tr>
+                <tr><td>Remaining cost</td><td>${currency(d.previousResources.totals.remainingCost)} → ${currency(d.currentResources.totals.remainingCost)}</td></tr>
+            </tbody></table></div>
+            <div class="panel"><div class="panel-title">Detailed activity change register</div><div class="panel-subtitle">Up to 500 material activity rows for this transition, ranked by absolute finish movement.</div><table><thead><tr><th>ID</th><th>Status</th><th>Activity</th><th>Prev %</th><th>Current %</th><th>Start Δ</th><th>Finish Δ</th><th>Duration Δ</th><th>Float Δ</th><th>Constraint</th><th>Calendar</th><th>Resources</th><th>Logic</th></tr></thead><tbody>${transitionActivityRows(d)}</tbody></table></div>
+        </div>`;
+    }).join("");
+
+    const resourceNames=new Set();
+    const snapshots=schedules.map(schedule=>scheduleResourceSnapshot(schedule));
+    snapshots.forEach(snapshot=>snapshot.byResource.forEach(row=>resourceNames.add(row.name)));
+    const resourceRows=[...resourceNames].sort().slice(0,300).map(name=>{
+        const cells=snapshots.map(snapshot=>{const row=[...snapshot.byResource.values()].find(r=>r.name===name);return `<td>${row?`${formatNumber(row.actualUnits)} AU · ${formatNumber(row.remainingUnits)} RU · ${currency(row.actualCost)}`:"—"}</td>`;}).join("");
+        return `<tr><td>${escapeHTML(name)}</td>${cells}</tr>`;
+    }).join("");
+
+    const title=savedName||`Schedule comparison · ${schedules[0].name} → ${schedules[schedules.length-1].name}`;
+    return {id:"sequence-comparison",title,subtitle:`${schedules.length} schedules compared in sequence · ${transitions.length} revision transitions`,html:`
+        <div class="metrics">
+            ${metric("Schedules",schedules.length,"Ordered revisions","blue")}
+            ${metric("Transitions",transitions.length,"Adjacent comparisons","blue")}
+            ${metric("First data date",formatDate(schedules[0].statusDate),escapeHTML(schedules[0].name),"blue")}
+            ${metric("Latest data date",formatDate(schedules[schedules.length-1].statusDate),escapeHTML(schedules[schedules.length-1].name),"blue")}
+        </div>
+        <div class="panel"><div class="panel-title">Revision sequence summary</div><div class="panel-subtitle">Progress, logic, forecast and resource position for every selected schedule.</div><table><thead><tr><th>#</th><th>Schedule</th><th>Data date</th><th>Activities</th><th>Progress</th><th>Complete</th><th>In progress</th><th>Forecast finish</th><th>Critical</th><th>Relationships</th><th>Open S/F</th><th>Assignments</th><th>Actual units</th><th>Actual cost</th></tr></thead><tbody>${scheduleRows}</tbody></table></div>
+        <div class="panel"><div class="panel-title">Change summary by update</div><table><thead><tr><th>#</th><th>Transition</th><th>Data date Δ</th><th>Finish Δ</th><th>Progress Δ</th><th>New</th><th>Deleted</th><th>Changed</th><th>Links +/−</th><th>Constraints</th><th>Calendars</th><th>Resources</th></tr></thead><tbody>${transitionRows}</tbody></table></div>
+        ${transitionPanels}
+        <div class="panel"><div class="panel-title">Resource trend by resource</div><div class="panel-subtitle">Actual units, remaining units and actual cost where resource assignments are present in the source schedules.</div><table><thead><tr><th>Resource</th>${schedules.map(s=>`<th>${escapeHTML(s.name)}</th>`).join("")}</tr></thead><tbody>${resourceRows||'<tr><td colspan="99">No resource assignment data was available.</td></tr>'}</tbody></table></div>
+        <div class="panel"><div class="panel-title">S-Curve & histogram by schedule</div><div class="panel-subtitle">Each revision is plotted independently so progress/forecast shape and finish-period density can be compared without blending revisions.</div></div>
+        ${chartPanels}
+    `,text:`${title}\n${schedules.map((s,i)=>`${i+1}. ${s.name} | data date ${formatDate(s.statusDate)} | progress ${formatPercent(weightedProgress(s.activities||[]))}`).join("\n")}\n\n${transitions.map((d,i)=>`Transition ${i+1}: ${d.previous.name} -> ${d.current.name}; finish Δ ${d.finishDelta??"—"} d; progress Δ ${formatPercent(d.progressDelta)}; links +${d.network.linkAdded.length}/-${d.network.linkRemoved.length}; resource-changed activities ${d.resourceChanged}`).join("\n")}`};
+}
+
+async function generateSequenceComparison(){
+    const ids=ensureComparisonSequence().slice();
+    if(ids.length<2){alert("Select at least two schedules to compare.");return;}
+    const schedules=ids.map(getScheduleById).filter(Boolean);
+    if(schedules.length<2){alert("Two or more selected schedules are no longer available.");return;}
+    const saved={id:crypto.randomUUID(),name:`${schedules[0].name} → ${schedules[schedules.length-1].name}${schedules.length>2?` (${schedules.length} revisions)`:""}`,scheduleIds:ids,createdAt:Date.now()};
+    state.savedComparisonReports=state.savedComparisonReports||[];
+    state.savedComparisonReports.push(saved);
+    state.currentReport="comparison";
+    renderReportList();
+    document.getElementById("workspaceTitle").textContent="Compare Schedules";
+    renderReport(buildSequenceComparisonReport(ids,saved.name));
+    scheduleSave();
+}
+
+function openSavedSequenceComparison(savedId){
+    const saved=(state.savedComparisonReports||[]).find(item=>item.id===savedId);
+    if(!saved)return;
+    const available=(saved.scheduleIds||[]).filter(id=>getScheduleById(id));
+    if(available.length<2){alert("This saved comparison no longer has at least two available schedules.");return;}
+    state.comparisonSequenceIds=available.slice();
+    state.currentReport="comparison";
+    renderReportList(); renderCompareSchedulesPane();
+    document.getElementById("workspaceTitle").textContent="Compare Schedules";
+    renderReport(buildSequenceComparisonReport(available,saved.name));
+}
+
+function deleteSavedSequenceComparison(savedId){
+    state.savedComparisonReports=(state.savedComparisonReports||[]).filter(item=>item.id!==savedId);
+    renderCompareSchedulesPane(); scheduleSave();
 }
 
 const REPORT_CATEGORIES = [
@@ -1605,6 +1947,8 @@ function renderReportList(){
         "reportCount"
     ).textContent =
         state.reportCategory==="all" ? REPORTS.length : `${visibleReports.length}/${REPORTS.length}`;
+
+    renderCompareSchedulesPane();
 }
 
 async function openReport(id){
@@ -1794,45 +2138,33 @@ async function buildReport(
     return result;
 }
 
-async function buildAllReportsForSchedule(
-    scheduleId
-){
+async function buildAllReportsForSchedule(scheduleId){
+    const schedule=getScheduleById(scheduleId);
+    if(!schedule) return {built:[],failed:[],skipped:[]};
 
-    const schedule =
-        getScheduleById(
-            scheduleId
-        );
-
-    if(!schedule)
-        return;
-
-    ensureReportStore(
-        scheduleId
-    );
+    ensureReportStore(scheduleId);
+    const summary={built:[],failed:[],skipped:[]};
 
     for(const report of REPORTS){
-
-        if(!AUTO_REPORT_IDS.has(report.id))
+        if(!AUTO_REPORT_IDS.has(report.id)){
+            summary.skipped.push(report.id);
             continue;
-
-        await buildReport(
-            report.id,
-            scheduleId,
-            {
-                render:
-                    getActiveSchedule()?.id ===
-                    scheduleId &&
-                    state.currentReport ===
-                    report.id
-            }
-        );
+        }
+        try{
+            await buildReport(report.id,scheduleId,{
+                render:getActiveSchedule()?.id===scheduleId && state.currentReport===report.id
+            });
+            summary.built.push(report.id);
+        }catch(error){
+            summary.failed.push({id:report.id,error:error?.message||String(error)});
+            state.reportJobs[`${scheduleId}:${report.id}`]={progress:100,status:"error",error:error?.message||String(error)};
+            console.error(`Automatic report failed: ${report.id} / ${schedule.name}`,error);
+        }
     }
 
-    refreshRecommendationsForSchedule(
-        scheduleId
-    );
-
+    refreshRecommendationsForSchedule(scheduleId);
     scheduleSave();
+    return summary;
 }
 
 async function generateReport(
@@ -2144,12 +2476,12 @@ function buildExcelExportReport(schedules){
 }
 
 function exportProjectPackage(){
-    const payload={format:"ScheduleAIToolkitProject",version:1,exportedAt:new Date().toISOString(),projectName:state.projectName,files:state.files,schedules:state.schedules,activeSchedules:[...state.activeSchedules],reports:state.reports,currentReport:state.currentReport,recommendationsBySchedule:state.recommendationsBySchedule,comparisonScheduleBySchedule:state.comparisonScheduleBySchedule,weekComparisonBySchedule:state.weekComparisonBySchedule,delayBaselineBySchedule:state.delayBaselineBySchedule,forensicBaselineBySchedule:state.forensicBaselineBySchedule,monteSettingsBySchedule:state.monteSettingsBySchedule,chat:state.chat};
+    const payload={format:"ScheduleAIToolkitProject",version:1,exportedAt:new Date().toISOString(),projectName:state.projectName,files:state.files,schedules:state.schedules,activeSchedules:[...state.activeSchedules],reports:state.reports,currentReport:state.currentReport,recommendationsBySchedule:state.recommendationsBySchedule,comparisonScheduleBySchedule:state.comparisonScheduleBySchedule,weekComparisonBySchedule:state.weekComparisonBySchedule,delayBaselineBySchedule:state.delayBaselineBySchedule,forensicBaselineBySchedule:state.forensicBaselineBySchedule,monteSettingsBySchedule:state.monteSettingsBySchedule,comparisonSequenceIds:state.comparisonSequenceIds,savedComparisonReports:state.savedComparisonReports,chat:state.chat};
     const blob=new Blob([JSON.stringify(payload)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`${safeFilename(state.projectName)}.schedule-ai-project.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
 async function importProjectPackage(file){
-    try{const payload=JSON.parse(await file.text());if(payload.format!=="ScheduleAIToolkitProject")throw new Error("This is not a Schedule AI Toolkit project package.");state.projectName=payload.projectName||"Imported project";state.files=payload.files||[];state.schedules=payload.schedules||[];state.activeSchedules=new Set(payload.activeSchedules||[]);state.reports=payload.reports||{};state.currentReport=payload.currentReport||"health";state.recommendationsBySchedule=payload.recommendationsBySchedule||{};state.comparisonScheduleBySchedule=payload.comparisonScheduleBySchedule||{};state.weekComparisonBySchedule=payload.weekComparisonBySchedule||{};state.delayBaselineBySchedule=payload.delayBaselineBySchedule||{};state.forensicBaselineBySchedule=payload.forensicBaselineBySchedule||{};state.monteSettingsBySchedule=payload.monteSettingsBySchedule||{};state.chat=payload.chat||[];state.projectId=null;renderScheduleTree();renderReportList();renderRightPane();updateWorkspaceMeta();restoreChat();scheduleSave();await openReport(state.currentReport||"health")}catch(error){alert(`Project restore failed: ${error.message||error}`)}
+    try{const payload=JSON.parse(await file.text());if(payload.format!=="ScheduleAIToolkitProject")throw new Error("This is not a Schedule AI Toolkit project package.");state.projectName=payload.projectName||"Imported project";state.files=payload.files||[];state.schedules=payload.schedules||[];state.activeSchedules=new Set(payload.activeSchedules||[]);state.reports=payload.reports||{};state.currentReport=payload.currentReport||"health";state.recommendationsBySchedule=payload.recommendationsBySchedule||{};state.comparisonScheduleBySchedule=payload.comparisonScheduleBySchedule||{};state.weekComparisonBySchedule=payload.weekComparisonBySchedule||{};state.delayBaselineBySchedule=payload.delayBaselineBySchedule||{};state.forensicBaselineBySchedule=payload.forensicBaselineBySchedule||{};state.monteSettingsBySchedule=payload.monteSettingsBySchedule||{};state.comparisonSequenceIds=payload.comparisonSequenceIds||[];state.savedComparisonReports=payload.savedComparisonReports||[];state.chat=payload.chat||[];state.projectId=null;renderScheduleTree();renderReportList();renderRightPane();updateWorkspaceMeta();restoreChat();scheduleSave();await openReport(state.currentReport||"health")}catch(error){alert(`Project restore failed: ${error.message||error}`)}
 }
 
 function buildBackupPortabilityReport(){
@@ -11213,6 +11545,8 @@ async function newProject(){
     state.delayBaselineBySchedule = {};
     state.forensicBaselineBySchedule = {};
     state.monteSettingsBySchedule = {};
+    state.comparisonSequenceIds = [];
+    state.savedComparisonReports = [];
     state.chat = [];
     state.projectId = null;
     state.projectName =
@@ -11234,7 +11568,7 @@ async function newProject(){
     document.getElementById(
         "autoReportStatus"
     ).textContent =
-        "Core reports build automatically; advanced reports build on demand.";
+        "Analytical reports build automatically after direct or Bulk Information schedule import; AI and Monte-Carlo remain on demand.";
 
     document.getElementById(
         "saveStatus"
@@ -12122,6 +12456,8 @@ async function initialise(){
                 state.monteSettingsBySchedule =
                     project.monteSettingsBySchedule ||
                     {};
+                state.comparisonSequenceIds = project.comparisonSequenceIds || [];
+                state.savedComparisonReports = project.savedComparisonReports || [];
 
                 state.chat =
                     project.chat ||
@@ -12270,14 +12606,21 @@ async function initialise(){
         }
     }
 
+    await queueBulkInformationScheduleSync();
+
     renderRightPane();
     updateChatButton();
 }
+
+window.addEventListener("message",event=>{
+    if(event.data?.type==="pc-bulk-schedules-changed") queueBulkInformationScheduleSync();
+});
 
 initialise();
 
 window.handleScheduleFiles = handleScheduleFiles;
 window.handleFiles = handleScheduleFiles;
+window.importBulkInformationSchedules = importBulkInformationSchedules;
 
 window.inspectActivity = inspectActivity;
 window.initialiseViewerInteractions = initialiseViewerInteractions;

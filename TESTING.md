@@ -163,3 +163,16 @@ It executes syntax/static checks, shell/configuration contracts, AI/Ollama tests
 - Improved OmniRoute endpoint-key diagnostics and tested authenticated `/v1/models` plus `/v1/chat/completions` behavior.
 - Bumped site asset cache-busting and NotebookLM+ service-worker build to prevent mixed old/new JavaScript after deployment.
 - Full release-validation pipeline passed repeatedly after the corrections.
+
+## 1 September 2026 — Multi-schedule comparison and automatic reporting hardening
+
+- Added persistent Compare Schedules mini-pane at the bottom of Schedule Assessment reports.
+- Ordered comparison sequences support two or more schedule revisions and adjacent revision analysis.
+- Saved comparisons persist with the Schedule Assessment project and reopen from the mini-pane.
+- Comparison coverage includes data date, progress/actuals, dates, duration, float, logic/relationships/lags/open ends, constraints, calendars, resources/units/costs, criticality and forecast finish.
+- Separate S-curves and finish histograms are generated for every selected revision.
+- Added deterministic transition tests for progress, data-date, logic, constraint, calendar and resource movement.
+- Added static contracts for saved comparison persistence, charts, direct/Bulk Information auto-reporting and file-removal controls.
+- Direct schedule import and Bulk Information schedule scanning continue through the same automatic report-generation pipeline.
+- File-level remove controls were added to Schedule Assessment and the shared/Bulk Information repository; removing a reference never deletes the source file from disk.
+- Full release validation passed after changes, including parser fuzzing and large-schedule stress tests.

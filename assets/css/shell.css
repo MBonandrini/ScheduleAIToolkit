@@ -146,3 +146,7 @@ html[data-theme="dark"] .global-ai-control select{background:#0B2030;border-colo
 .bulk-empty{padding:9px 4px;color:var(--shell-muted);font-size:7px;line-height:1.4;text-align:center}
 html[data-theme="dark"] .bulk-information{background:#071521;border-color:#1D4058}
 html[data-theme="dark"] .bulk-folder,html[data-theme="dark"] .bulk-folder-tools button,html[data-theme="dark"] .bulk-link-button{background:#0B2030;border-color:#1D4058;color:#EDF8FF}
+.shared-file{grid-template-columns:26px minmax(0,1fr) auto 20px}
+.bulk-file{grid-template-columns:22px minmax(0,1fr) auto 20px}
+.shared-remove{width:20px;height:20px;border:0;border-radius:5px;background:transparent;color:var(--shell-muted);font-size:12px;line-height:1;cursor:pointer;padding:0}
+.shared-remove:hover{background:rgba(190,40,40,.12);color:#c13b34}

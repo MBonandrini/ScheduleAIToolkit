@@ -10,10 +10,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Schedule Intelligence & Project Controls</title>
 
-<script src="../../assets/js/theme.js?v=20260901-aiunified2"></script>
-<link rel="stylesheet" href="../../assets/css/shared.css?v=20260901-aiunified2">
-<link rel="stylesheet" href="./style.css?v=20260901-aiunified2">
-<link rel="stylesheet" href="../../assets/css/theme.css?v=20260901-aiunified2">
+<script src="../../assets/js/theme.js?v=20260901-compare1"></script>
+<link rel="stylesheet" href="../../assets/css/shared.css?v=20260901-compare1">
+<link rel="stylesheet" href="./style.css?v=20260901-compare1">
+<link rel="stylesheet" href="../../assets/css/theme.css?v=20260901-compare1">
 </head>
 
 <body>
@@ -154,6 +154,20 @@
             id="reportList"
             class="report-list"
         ></div>
+
+        <section id="compareSchedulesPane" class="compare-schedules-pane" aria-label="Compare schedules">
+            <div class="compare-mini-heading">
+                <div>
+                    <div class="compare-mini-title">Compare Schedules</div>
+                    <div class="compare-mini-subtitle">Select 2+ revisions in comparison order</div>
+                </div>
+                <button id="compareAddSchedule" class="compare-mini-add" type="button" title="Add schedule to sequence">+</button>
+            </div>
+            <div id="compareSequenceList" class="compare-sequence-list"></div>
+            <button id="generateSequenceComparison" class="compare-generate" type="button">Generate extensive comparison</button>
+            <div class="compare-saved-heading">Saved comparisons</div>
+            <div id="savedComparisonList" class="saved-comparison-list"></div>
+        </section>
 
     </section>
 
@@ -375,8 +389,8 @@
 
 </div>
 
-<script src="../../assets/js/ai-options.js?v=20260901-aiunified2"></script>
-<script src="./app.js?v=20260901-aiunified2"></script>
-<script src="./cleanup.js?v=20260901-aiunified2"></script>
+<script src="../../assets/js/ai-options.js?v=20260901-compare1"></script>
+<script src="./app.js?v=20260901-compare1"></script>
+<script src="./cleanup.js?v=20260901-compare1"></script>
 </body>
 </html>

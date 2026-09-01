@@ -115,7 +115,12 @@ function suiteNotebookRuntimeConfig(){
       thinkingMode:['off','auto','on'].includes(raw.thinkingMode)?raw.thinkingMode:undefined, requestTimeoutSeconds:clamp(raw.requestTimeoutSeconds,5,1800),
       firstResponseTimeoutSeconds:clamp(raw.firstResponseTimeoutSeconds,30,1800), inactivityTimeoutSeconds:clamp(raw.inactivityTimeoutSeconds,30,600),
       keepAlive:['0','5m','15m','30m','-1'].includes(String(raw.keepAlive))?String(raw.keepAlive):undefined,
-      semanticSearch:typeof raw.semanticSearch==='boolean'?raw.semanticSearch:undefined, keywordSearch:typeof raw.keywordSearch==='boolean'?raw.keywordSearch:undefined
+      semanticSearch:typeof raw.semanticSearch==='boolean'?raw.semanticSearch:undefined, keywordSearch:typeof raw.keywordSearch==='boolean'?raw.keywordSearch:undefined,
+      chunkSize:clamp(raw.chunkSize,500,12000), chunkOverlap:clamp(raw.chunkOverlap,0,2000), minKeywordScore:clamp(raw.minKeywordScore,0,1),
+      maxFileSizeMB:clamp(raw.maxFileSizeMB,1,2048), researchTimeoutSeconds:clamp(raw.researchTimeoutSeconds,5,1800), maxDiscoveryResults:clamp(raw.maxDiscoveryResults,1,100),
+      rescanOnOpen:typeof raw.rescanOnOpen==='boolean'?raw.rescanOnOpen:undefined,
+      searchEndpoint:typeof raw.searchEndpoint==='string'?raw.searchEndpoint.trim():undefined, webProxyEndpoint:typeof raw.webProxyEndpoint==='string'?raw.webProxyEndpoint.trim():undefined,
+      youtubeTranscriptEndpoint:typeof raw.youtubeTranscriptEndpoint==='string'?raw.youtubeTranscriptEndpoint.trim():undefined, audioTranscriptionEndpoint:typeof raw.audioTranscriptionEndpoint==='string'?raw.audioTranscriptionEndpoint.trim():undefined
     };
   } catch { return {}; }
 }
@@ -123,6 +128,14 @@ function applySuiteNotebookRuntime(mode){
   const cfg=suiteNotebookRuntimeConfig();
   for(const [key,value] of Object.entries(cfg)) if(value!==undefined) mode[key]=value;
   if(cfg.requestTimeoutSeconds!==undefined && state.settings?.ollama) state.settings.ollama.requestTimeoutSeconds=cfg.requestTimeoutSeconds;
+  if(state.settings?.retrieval){
+    for(const key of ['chunkSize','chunkOverlap','minKeywordScore','maxFileSizeMB','rescanOnOpen']) if(cfg[key]!==undefined) state.settings.retrieval[key]=cfg[key];
+  }
+  if(state.settings?.research){
+    if(cfg.researchTimeoutSeconds!==undefined) state.settings.research.requestTimeoutSeconds=cfg.researchTimeoutSeconds;
+    if(cfg.maxDiscoveryResults!==undefined) state.settings.research.maxDiscoveryResults=Math.round(cfg.maxDiscoveryResults);
+    for(const key of ['searchEndpoint','webProxyEndpoint','youtubeTranscriptEndpoint','audioTranscriptionEndpoint']) if(cfg[key]!==undefined) state.settings.research[key]=cfg[key];
+  }
   return mode;
 }
 function suiteAiSelection(){

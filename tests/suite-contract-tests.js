@@ -39,6 +39,9 @@ check('Notebook performance is centrally sourced',/projectControlsNotebookPerfor
 check('Settings owns Notebook performance selector',/notebookPerformanceSelect/.test(settingsJs)&&/projectControlsNotebookPerformanceMode/.test(settingsJs));
 check('Settings restores NotebookLM+ advanced configuration',/NotebookLM\+ advanced configuration/.test(settingsJs)&&/projectControlsNotebookRuntimeConfig/.test(settingsJs)&&/nbContextTokens/.test(settingsJs)&&/nbFirstResponse/.test(settingsJs));
 check('Notebook consumes central advanced configuration',/suiteNotebookRuntimeConfig/.test(notebookApp)&&/applySuiteNotebookRuntime/.test(notebookApp)&&/projectControlsNotebookRuntimeConfig/.test(notebookApp));
+check('Shared AI consumes central runtime timeouts and thinking settings',/aiRuntimeConfig/.test(core)&&/firstResponseTimeoutSeconds/.test(core)&&/requestTimeoutSeconds/.test(core)&&/thinkingMode/.test(core)&&/keepAlive/.test(core));
+check('Settings exposes original NotebookLM+ timeout and retrieval controls',/nbRequestTimeout/.test(settingsJs)&&/nbFirstResponse/.test(settingsJs)&&/nbInactivity/.test(settingsJs)&&/nbKeepAlive/.test(settingsJs)&&/nbChunkSize/.test(settingsJs)&&/nbResearchTimeout/.test(settingsJs));
+check('Notebook consumes central retrieval and research controls',/maxFileSizeMB/.test(notebookApp)&&/maxDiscoveryResults/.test(notebookApp)&&/researchTimeoutSeconds/.test(notebookApp)&&/webProxyEndpoint/.test(notebookApp));
 check('Shell exposes global model selector',/id="globalModelSelect"/.test(index)&&/populateGlobalModelSelect/.test(shell)&&/setGlobalModel/.test(shell));
 check('Legacy top-right AI status pill removed',!index.includes('id="status"'));
 check('Dark theme is first-run default',/localStorage\.getItem\(key\)\|\|"dark"/.test(read('assets/js/theme.js')));

@@ -236,9 +236,10 @@ function renderSharedRepo(){
  sharedRepoList.innerHTML=groups.map(group=>{
   const files=sharedFiles.filter(f=>f.category===group&&!f.bulkFolderId);
   const safeGroup=escapeShellHTML(group);
-  return `<section class="shared-section"><div class="shared-section-title"><span>${safeGroup}</span><span>${files.length}</span></div>${files.length?files.map(f=>{const safeName=escapeShellHTML(f.name);const safeId=escapeShellHTML(f.id);return `<div class="shared-file"><div class="shared-file-icon">${escapeShellHTML(sharedIcon(f.name))}</div><div><div class="shared-file-name" title="${safeName}">${safeName}</div><div class="shared-file-meta">${bytes(f.size||0)}</div></div><button class="shared-use" data-shared-use="${safeId}" type="button">Use</button></div>`}).join(""):`<div class="shared-empty">No ${safeGroup.toLowerCase()} files</div>`}</section>`;
+  return `<section class="shared-section"><div class="shared-section-title"><span>${safeGroup}</span><span>${files.length}</span></div>${files.length?files.map(f=>{const safeName=escapeShellHTML(f.name);const safeId=escapeShellHTML(f.id);return `<div class="shared-file"><div class="shared-file-icon">${escapeShellHTML(sharedIcon(f.name))}</div><div><div class="shared-file-name" title="${safeName}">${safeName}</div><div class="shared-file-meta">${bytes(f.size||0)}</div></div><button class="shared-use" data-shared-use="${safeId}" type="button">Use</button><button class="shared-remove" data-shared-remove="${safeId}" type="button" title="Remove file" aria-label="Remove ${safeName}">×</button></div>`}).join(""):`<div class="shared-empty">No ${safeGroup.toLowerCase()} files</div>`}</section>`;
  }).join("");
  sharedRepoList.querySelectorAll("[data-shared-use]").forEach(button=>button.addEventListener("click",()=>useSharedFile(button.dataset.sharedUse)));
+ sharedRepoList.querySelectorAll("[data-shared-remove]").forEach(button=>button.addEventListener("click",()=>removeSharedFileReference(button.dataset.sharedRemove)));
 }
 function bulkTree(records){
  const root={dirs:new Map(),files:[]};
@@ -253,7 +254,7 @@ function bulkTree(records){
 }
 function renderBulkNode(node){
  const dirs=[...node.dirs.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([name,child])=>`<details class="bulk-tree-dir"><summary>${escapeShellHTML(name)}</summary><div class="bulk-tree-children">${renderBulkNode(child)}</div></details>`).join("");
- const files=node.files.sort((a,b)=>a.displayName.localeCompare(b.displayName)).map(f=>`<div class="bulk-file"><div class="bulk-file-icon">${escapeShellHTML(sharedIcon(f.name))}</div><div class="bulk-file-name" title="${escapeShellHTML(f.relativePath||f.name)}">${escapeShellHTML(f.displayName)}</div><button class="shared-use" data-bulk-use="${escapeShellHTML(f.id)}" type="button">Use</button></div>`).join("");
+ const files=node.files.sort((a,b)=>a.displayName.localeCompare(b.displayName)).map(f=>`<div class="bulk-file"><div class="bulk-file-icon">${escapeShellHTML(sharedIcon(f.name))}</div><div class="bulk-file-name" title="${escapeShellHTML(f.relativePath||f.name)}">${escapeShellHTML(f.displayName)}</div><button class="shared-use" data-bulk-use="${escapeShellHTML(f.id)}" type="button">Use</button><button class="shared-remove" data-shared-remove="${escapeShellHTML(f.id)}" type="button" title="Remove file reference" aria-label="Remove ${escapeShellHTML(f.displayName)}">×</button></div>`).join("");
  return dirs+files;
 }
 function renderBulkFolders(){
@@ -267,8 +268,15 @@ function renderBulkFolders(){
   return `<details class="bulk-folder" data-bulk-folder="${escapeShellHTML(folder.id)}"><summary><span class="bulk-folder-name" title="${escapeShellHTML(folder.name)}">${escapeShellHTML(folder.name)}</span><span class="bulk-folder-meta">${records.length} · ${mode}</span></summary><div class="bulk-folder-body">${renderBulkNode(tree)}<div class="bulk-folder-tools">${folder.handle?`<button type="button" data-bulk-refresh="${escapeShellHTML(folder.id)}">↻ Refresh</button>`:""}<button type="button" data-bulk-unlink="${escapeShellHTML(folder.id)}">Unlink</button></div></div></details>`;
  }).join("");
  bulkFolderList.querySelectorAll('[data-bulk-use]').forEach(button=>button.addEventListener('click',()=>useSharedFile(button.dataset.bulkUse)));
+ bulkFolderList.querySelectorAll('[data-shared-remove]').forEach(button=>button.addEventListener('click',()=>removeSharedFileReference(button.dataset.sharedRemove)));
  bulkFolderList.querySelectorAll('[data-bulk-refresh]').forEach(button=>button.addEventListener('click',()=>refreshBulkFolder(button.dataset.bulkRefresh)));
  bulkFolderList.querySelectorAll('[data-bulk-unlink]').forEach(button=>button.addEventListener('click',()=>unlinkBulkFolder(button.dataset.bulkUnlink)));
+}
+async function removeSharedFileReference(fileId){
+ const record=sharedFiles.find(file=>file.id===fileId);if(!record)return;
+ if(!confirm(`Remove ${record.name} from the project repository? The source file on your computer will not be deleted.`))return;
+ await sharedDelete("files",fileId);sharedFiles=sharedFiles.filter(file=>file.id!==fileId);renderSharedRepo();renderBulkFolders();
+ if(["xer","xml"].includes((record.name.split(".").pop()||"").toLowerCase()))notifyBulkSchedulesChanged();
 }
 async function collectDirectoryHandle(handle,folderId,pathPrefix=""){
  const records=[];
@@ -289,6 +297,7 @@ async function replaceBulkFolderRecords(folderId,records){
  await sharedPutMany('files',records);
  sharedFiles.push(...records);
  renderBulkFolders();renderSharedRepo();
+ notifyBulkSchedulesChanged();
 }
 async function linkDirectoryHandle(){
  const handle=await window.showDirectoryPicker({mode:'read'});
@@ -318,6 +327,7 @@ async function unlinkBulkFolder(folderId){
  await sharedDeleteFolderFiles(folderId);await sharedDelete('folders',folderId);
  sharedFiles=sharedFiles.filter(f=>f.bulkFolderId!==folderId);sharedFolders=sharedFolders.filter(f=>f.id!==folderId);
  renderBulkFolders();renderSharedRepo();
+ notifyBulkSchedulesChanged();
 }
 async function addBulkFallbackFiles(fileList){
  const files=[...fileList];if(!files.length)return;
@@ -346,6 +356,51 @@ async function resolveBulkFile(record){
  for(const part of parts)handle=await handle.getDirectoryHandle(part);
  const fileHandle=await handle.getFileHandle(fileName);
  return await fileHandle.getFile();
+}
+function isBulkScheduleRecord(record){
+ const ext=String(record?.name||'').split('.').pop().toLowerCase();
+ return Boolean(record?.bulkFolderId) && (ext==='xer' || ext==='xml');
+}
+function bulkScheduleSourceKey(record){
+ return `bulk:${record.bulkFolderId}:${record.relativePath||record.name}:${Number(record.size||0)}:${Number(record.lastModified||0)}`;
+}
+async function getBulkScheduleEntries(){
+ await sharedRepoReadyPromise;
+ const scheduleRecords=sharedFiles.filter(isBulkScheduleRecord).sort((a,b)=>String(a.relativePath||a.name).localeCompare(String(b.relativePath||b.name)));
+ const entries=[];
+ for(const record of scheduleRecords){
+  try{
+   let file=await resolveBulkFile(record);
+   if(!(file instanceof File) || file.name!==record.name){
+    file=new File([file],record.name,{type:record.type||file.type||'',lastModified:record.lastModified||file.lastModified||Date.now()});
+   }
+   entries.push({
+    file,
+    sourceKey:bulkScheduleSourceKey(record),
+    sourcePath:record.relativePath||record.name,
+    bulkFolderId:record.bulkFolderId,
+    recordId:record.id
+   });
+  }catch(error){
+   console.warn(`Could not resolve bulk schedule ${record.relativePath||record.name}`,error);
+   entries.push({
+    file:new File([],record.name,{type:record.type||'',lastModified:record.lastModified||Date.now()}),
+    sourceKey:bulkScheduleSourceKey(record),
+    sourcePath:record.relativePath||record.name,
+    bulkFolderId:record.bulkFolderId,
+    recordId:record.id,
+    resolutionError:error?.message||String(error)
+   });
+  }
+ }
+ return entries;
+}
+function notifyBulkSchedulesChanged(){
+ try{
+  if(activeTool==='assessment' && frame?.contentWindow){
+   frame.contentWindow.postMessage({type:'pc-bulk-schedules-changed'},'*');
+  }
+ }catch(error){console.warn('Could not notify Schedule Assessment about Bulk Information changes',error)}
 }
 async function loadSharedRepo(){
  try{
@@ -388,11 +443,12 @@ bulkLinkFolder?.addEventListener("click",async()=>{
  bulkFolderFallbackInput?.click();
 });
 bulkFolderFallbackInput?.addEventListener("change",async()=>{try{await addBulkFallbackFiles(bulkFolderFallbackInput.files)}finally{bulkFolderFallbackInput.value=""}});
+let sharedRepoReadyPromise=loadSharedRepo().then(()=>{notifyBulkSchedulesChanged();});
 window.ProjectControlsSharedRepository={
  getSnapshot:()=>({projectName:sharedProject,files:sharedFiles.slice(),folders:sharedFolders.map(({handle,...folder})=>folder)}),
- useFile:useSharedFile
+ useFile:useSharedFile,
+ getBulkScheduleEntries
 };
-loadSharedRepo();
 
 document.addEventListener("pc-theme-change",event=>{try{if(frame&&frame.contentWindow)frame.contentWindow.postMessage({type:"pc-theme",theme:event.detail.theme},"*")}catch(_){}});
 window.addEventListener("message",event=>{if(event.data&&event.data.type==="pc-theme"){try{if(frame&&frame.contentWindow&&event.source!==frame.contentWindow)frame.contentWindow.postMessage(event.data,"*")}catch(_){}}});

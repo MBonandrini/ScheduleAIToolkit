@@ -37,7 +37,7 @@ curl --fail --silent --show-error "http://127.0.0.1:$PORT/js/app.js" -o "$SMOKE_
 curl --fail --silent --show-error "http://127.0.0.1:$PORT/sw.js" -o "$SMOKE_DIR/sw.js"
 grep -q 'NotebookLM+' "$SMOKE_DIR/index.html"
 grep -q 'sendQuestion' "$SMOKE_DIR/app.js"
-grep -q 'notebooklmplus-v0.7.2-suite' "$SMOKE_DIR/sw.js"
+grep -q 'notebooklmplus-v0.7.3-suite' "$SMOKE_DIR/sw.js"
 rm -rf "$SMOKE_DIR"
 kill "$SERVER_PID" 2>/dev/null || true
 trap - EXIT

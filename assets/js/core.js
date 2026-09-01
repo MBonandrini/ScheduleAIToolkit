@@ -2088,6 +2088,24 @@ function sleep(ms){
             try{localStorage.setItem("projectControlsSharedAIModel",entry.value)}catch(_){}
             return entry.value;
         }
+
+        function aiRuntimeConfig(){
+            let raw={};
+            try{raw=JSON.parse(localStorage.getItem("projectControlsNotebookRuntimeConfig")||"{}");}catch(_){raw={};}
+            const clamp=(value,min,max,fallback)=>{const n=Number(value);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):fallback;};
+            const thinking=["off","auto","on"].includes(raw?.thinkingMode)?raw.thinkingMode:"auto";
+            return {
+                contextTokens:Math.round(clamp(raw?.contextTokens,2048,131072,16384)),
+                maxAnswerTokens:Math.round(clamp(raw?.maxAnswerTokens,128,8192,1280)),
+                temperature:clamp(raw?.temperature,0,2,0.18),
+                thinkingMode:thinking,
+                requestTimeoutSeconds:Math.round(clamp(raw?.requestTimeoutSeconds,5,1800,300)),
+                firstResponseTimeoutSeconds:Math.round(clamp(raw?.firstResponseTimeoutSeconds,30,1800,300)),
+                inactivityTimeoutSeconds:Math.round(clamp(raw?.inactivityTimeoutSeconds,30,600,180)),
+                keepAlive:["0","5m","15m","30m","-1"].includes(String(raw?.keepAlive))?String(raw.keepAlive):"5m"
+            };
+        }
+
         function ollamaEmbeddingModel(){
             try{return localStorage.getItem("projectControlsOllamaEmbeddingModel")||""}catch(_){return ""}
         }
@@ -2349,11 +2367,12 @@ function sleep(ms){
 
         async function omniCompletion(modelId,messages,{temperature,max_tokens,onToken}){
             const {baseUrl}=config();
+            const runtimeCfg=aiRuntimeConfig();
             const response=await omniFetch(`${baseUrl}/chat/completions`,{
                 method:"POST",
                 headers:omniHeaders(),
                 body:JSON.stringify({model:modelId,messages,temperature,max_tokens,stream:false})
-            },120000);
+            },runtimeCfg.requestTimeoutSeconds*1000);
             const data=await parseOmniResponse(response);
             const content=data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? "";
             if(!String(content||"").trim()){
@@ -2381,19 +2400,45 @@ function sleep(ms){
         }
 
 
-        async function runOllama(messages,{temperature,max_tokens,onToken}){
+        async function runOllama(messages,{temperature,max_tokens,onToken,thinkingMode=null,testMode=false}={}){
             const selected=runtime?.model||ollamaModel();
-            if(!selected) throw new Error("No Ollama model is selected. Open Tutorial / AI Setup and choose an installed model.");
-            const response=await ollamaFetch("/api/chat",{
-                method:"POST",
-                headers:{"Content-Type":"application/json","Accept":"application/json"},
-                body:JSON.stringify({model:selected,messages,stream:false,options:{temperature,num_predict:max_tokens}})
-            },120000);
-            const data=await parseOllamaResponse(response);
-            const content=data?.message?.content||"";
-            if(!String(content).trim()) throw new Error("Ollama returned a successful response but no assistant text.");
-            if(onToken) onToken(String(content));
-            return {choices:[{message:{content:String(content)}}],model:data?.model||selected};
+            if(!selected) throw new Error("No Ollama model is selected. Open Settings → Unified AI Configuration and choose an installed chat model.");
+            const runtimeCfg=aiRuntimeConfig();
+            const mode=testMode ? "off" : (["off","auto","on"].includes(thinkingMode)?thinkingMode:runtimeCfg.thinkingMode);
+            const timeoutMs=(testMode?runtimeCfg.firstResponseTimeoutSeconds:runtimeCfg.requestTimeoutSeconds)*1000;
+            const makeBody=(effectiveMode)=>{
+                const body={
+                    model:selected,
+                    messages,
+                    stream:false,
+                    keep_alive:runtimeCfg.keepAlive,
+                    options:{temperature,num_predict:max_tokens,num_ctx:runtimeCfg.contextTokens}
+                };
+                if(effectiveMode==="off") body.think=false;
+                else if(effectiveMode==="on") body.think=true;
+                return body;
+            };
+            const execute=async(effectiveMode)=>{
+                const response=await ollamaFetch("/api/chat",{
+                    method:"POST",
+                    headers:{"Content-Type":"application/json","Accept":"application/json"},
+                    body:JSON.stringify(makeBody(effectiveMode))
+                },timeoutMs);
+                return await parseOllamaResponse(response);
+            };
+            let data=await execute(mode);
+            let content=String(data?.message?.content||"");
+            const thinking=String(data?.message?.thinking||"");
+            if(!content.trim() && thinking.trim() && mode!=="off"){
+                data=await execute("off");
+                content=String(data?.message?.content||"");
+            }
+            if(!content.trim()){
+                if(thinking.trim()) throw new Error("Ollama completed its reasoning but returned no final assistant text. This build retried with thinking disabled; try increasing Maximum answer tokens or select a different chat model.");
+                throw new Error("Ollama returned a successful response but no assistant text. Try increasing Maximum answer tokens or testing another chat-capable model.");
+            }
+            if(onToken) onToken(content);
+            return {choices:[{message:{content,thinking:thinking||undefined}}],model:data?.model||selected};
         }
 
         async function testOllamaConnection({baseUrl,model:requestedModel}={}){
@@ -2418,7 +2463,7 @@ function sleep(ms){
                 currentEngine="ollama";
                 currentValue="ollama:auto";
                 currentLabel=`Ollama — ${selected}`;
-                const result=await runOllama([{role:"user",content:"Reply with exactly OK"}],{temperature:0,max_tokens:8,onToken:null});
+                const result=await runOllama([{role:"user",content:"Reply with exactly OK"}],{temperature:0,max_tokens:32,onToken:null,thinkingMode:"off",testMode:true});
                 return {ok:true,baseUrl:ollamaBaseUrl(),selectedModel:selected,models,content:result?.choices?.[0]?.message?.content||"OK"};
             }finally{
                 runtime=savedRuntime;currentEngine=savedEngine;currentValue=savedValue;currentLabel=savedLabel;
@@ -2446,12 +2491,15 @@ function sleep(ms){
             return {choices:[{message:{content:String(content||"")}}]};
         }
 
-        async function run(messages,{temperature=.2,max_tokens=1000,stream=false,onToken=null}={}){
+        async function run(messages,{temperature=null,max_tokens=null,stream=false,onToken=null,thinkingMode=null}={}){
             await ensure(currentValue || "omniroute:auto");
+            const runtimeCfg=aiRuntimeConfig();
+            temperature=Number.isFinite(Number(temperature))?Number(temperature):runtimeCfg.temperature;
+            max_tokens=Number.isFinite(Number(max_tokens))?Number(max_tokens):runtimeCfg.maxAnswerTokens;
 
             if(currentEngine==="omniroute") return await runOmniRoute(messages,{temperature,max_tokens,onToken});
 
-            if(currentEngine==="ollama") return await runOllama(messages,{temperature,max_tokens,onToken});
+            if(currentEngine==="ollama") return await runOllama(messages,{temperature,max_tokens,onToken,thinkingMode});
 
             if(currentEngine==="cpu"){
                 const output=await runtime(messages,{max_new_tokens:max_tokens,temperature,do_sample:temperature>0,return_full_text:false});
@@ -2512,7 +2560,7 @@ function sleep(ms){
             return {ready:!!runtime,value:currentValue,engine:currentEngine || "shared",label:currentLabel,loading:!!loadingPromise,config:config()};
         }
 
-        return {catalog,ensure,run,release,status,config,configure,testConnection,ollamaConfig,configureOllama,listOllamaModels,inspectOllamaModel,inspectOllamaModels,testOllamaConnection,preferred,preferredLabel,setPreferred,ollamaEmbeddingModel,configureOllamaEmbedding};
+        return {catalog,ensure,run,release,status,config,configure,testConnection,ollamaConfig,configureOllama,listOllamaModels,inspectOllamaModel,inspectOllamaModels,testOllamaConnection,preferred,preferredLabel,setPreferred,ollamaEmbeddingModel,configureOllamaEmbedding,aiRuntimeConfig};
     })();
 
     const risk = (() => {
