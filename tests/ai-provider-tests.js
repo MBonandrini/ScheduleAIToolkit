@@ -9,7 +9,12 @@ async function makeCore(mode="ok"){
         if(String(url).endsWith("/api/tags")){
             if(mode==="network") throw new TypeError("Failed to fetch");
             if(mode==="nomodels") return new Response(JSON.stringify({models:[]}),{status:200,headers:{"content-type":"application/json"}});
-            return new Response(JSON.stringify({models:[{name:"gemma3:4b",model:"gemma3:4b",size:1,details:{parameter_size:"4.3B",quantization_level:"Q4_K_M"}}]}),{status:200,headers:{"content-type":"application/json"}});
+            return new Response(JSON.stringify({models:[{name:"gemma3:4b",model:"gemma3:4b",size:1,details:{parameter_size:"4.3B",quantization_level:"Q4_K_M"}},{name:"embeddinggemma:latest",model:"embeddinggemma:latest",size:1,details:{parameter_size:"300M",quantization_level:"F16"}}]}),{status:200,headers:{"content-type":"application/json"}});
+        }
+        if(String(url).endsWith("/api/show")){
+            const payload=JSON.parse(opts.body||"{}");
+            const isEmbed=/embeddinggemma/i.test(payload.model||"");
+            return new Response(JSON.stringify({model:payload.model,capabilities:isEmbed?["embedding"]:["completion"]}),{status:200,headers:{"content-type":"application/json"}});
         }
         if(String(url).endsWith("/api/chat")){
             if(mode==="chat500") return new Response(JSON.stringify({error:"model failed"}),{status:500,headers:{"content-type":"application/json"}});
@@ -32,7 +37,9 @@ function check(name,value){console.log((value?"PASS ":"FAIL ")+name);if(!value)f
         ai.configureOllama({baseUrl:"http://localhost:11434/api",model:""});
         check("Ollama base URL normalization",ai.ollamaConfig().baseUrl==="http://localhost:11434");
         const models=await ai.listOllamaModels();
-        check("Ollama model discovery",models.length===1&&models[0].name==="gemma3:4b");
+        check("Ollama model discovery",models.length===2&&models.some(x=>x.name==="gemma3:4b"));
+        const inspected=await ai.inspectOllamaModels();
+        check("Ollama capability classification separates chat and embedding",inspected.find(x=>x.name==="gemma3:4b")?.supportsChat===true&&inspected.find(x=>x.name==="embeddinggemma:latest")?.supportsChat===false&&inspected.find(x=>x.name==="embeddinggemma:latest")?.supportsEmbedding===true);
         const result=await ai.testOllamaConnection({baseUrl:"http://localhost:11434",model:"gemma3:4b"});
         check("Ollama test completion",result.ok&&result.content==="OK"&&result.selectedModel==="gemma3:4b");
         await ai.ensure("ollama:auto");
@@ -40,6 +47,10 @@ function check(name,value){console.log((value?"PASS ":"FAIL ")+name);if(!value)f
         check("Shared AI run routes to Ollama",run.choices[0].message.content==="OK");
         check("Native /api/tags used",calls.some(x=>x.url.endsWith("/api/tags")));
         check("Native /api/chat used",calls.some(x=>x.url.endsWith("/api/chat")));
+        check("Native /api/show used for capabilities",calls.some(x=>x.url.endsWith("/api/show")));
+        let embeddingChatError="";
+        try{await ai.testOllamaConnection({baseUrl:"http://localhost:11434",model:"embeddinggemma:latest"});}catch(e){embeddingChatError=String(e.message||e)}
+        check("Embedding-only model is rejected as chat model",/does not support chat/i.test(embeddingChatError));
     }
     {
         const {ai}=await makeCore("nomodels");

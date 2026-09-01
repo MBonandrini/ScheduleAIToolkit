@@ -153,3 +153,13 @@ It executes syntax/static checks, shell/configuration contracts, AI/Ollama tests
 - Refresh, permission re-acquisition, unlink safety, nested path rendering, shared Use routing and fallback snapshots are covered by suite contract tests.
 - Bulk metadata writes use one IndexedDB transaction per folder refresh/import rather than one transaction per file.
 - Full release validation passed after the change.
+
+## 1 September 2026 — Unified AI/provider correction cycle
+- Removed all per-module AI model selectors from Contract Manager, Drawing Measurement / Quantity & Schedule Intelligence, Schedule Assessment, Risk Analysis, Claims & Forensics / Project Intelligence, and Schedule Builder.
+- Corrected every AI execution path to resolve the current suite-wide preference at request time rather than caching a module-local selection.
+- Added contextual Settings provider dropdowns and provider-specific setup/tutorial content.
+- Added Ollama capability inspection through `/api/show`; embedding-only models are excluded from the chat-model list and rejected if persisted as chat.
+- Restored NotebookLM+ advanced runtime configuration centrally under General Settings (context, retrieval, answer budget, embedding batch, workers, temperature, thinking, API/embedding timeout, first-response timeout, inactivity timeout, Ollama keep-alive, semantic and keyword retrieval).
+- Improved OmniRoute endpoint-key diagnostics and tested authenticated `/v1/models` plus `/v1/chat/completions` behavior.
+- Bumped site asset cache-busting and NotebookLM+ service-worker build to prevent mixed old/new JavaScript after deployment.
+- Full release-validation pipeline passed repeatedly after the corrections.

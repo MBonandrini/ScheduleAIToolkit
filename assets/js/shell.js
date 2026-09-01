@@ -20,29 +20,7 @@ let activeTool = null;
 let token = 0;
 
 function setTabs(key) {
-    function populateGlobalModelSelect(){
-    if(!globalModelSelect) return;
-    const groups=new Map();
-    ProjectControlsCore.ai.catalog.filter(x=>!x.disabled).forEach(item=>{
-        const key=item.engine==="omniroute"?"OmniRoute":item.engine==="ollama"?"Ollama":item.engine==="mlc"?"Browser WebGPU":"Browser CPU / WASM";
-        if(!groups.has(key)) groups.set(key,[]); groups.get(key).push(item);
-    });
-    globalModelSelect.innerHTML=[...groups.entries()].map(([label,items])=>`<optgroup label="${label}">${items.map(item=>`<option value="${item.value}">${item.label}</option>`).join("")}</optgroup>`).join("");
-    syncGlobalModelSelect();
-}
-function syncGlobalModelSelect(){ if(globalModelSelect) globalModelSelect.value=ProjectControlsCore.ai.preferred(); }
-async function setGlobalModel(value){
-    try{
-        ProjectControlsCore.ai.setPreferred(value);
-        await ProjectControlsCore.ai.release();
-        syncGlobalModelSelect();
-        document.querySelectorAll("iframe.tool-frame").forEach(f=>{try{f.contentWindow.postMessage({type:"pc-ai-config-changed",value},"*")}catch(_){}});
-    }catch(error){ console.error("Could not change global AI model",error); syncGlobalModelSelect(); }
-}
-globalModelSelect?.addEventListener("change",e=>setGlobalModel(e.target.value));
-populateGlobalModelSelect();
-
-document.querySelectorAll(".suite-tab").forEach(button => {
+    document.querySelectorAll(".suite-tab").forEach(button => {
         const selected = button.dataset.tool === key;
         button.classList.toggle("active", selected);
         button.setAttribute("aria-selected", selected ? "true" : "false");

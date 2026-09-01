@@ -187,3 +187,6 @@ A final browser smoke test should be run from the deployed GitHub Pages origin o
 ## Release position
 
 All automated tests that can execute in this environment pass. No software can responsibly be certified as “100% defect-free”; release readiness remains subject to the final deployed-browser smoke test and testing against representative real production XER/document sets.
+
+### Unified AI correction addendum — 1 September 2026
+The suite now exposes exactly one user-facing AI/model selector in the top shell. Module-level selectors were removed and module AI calls resolve the current global selection at execution time. Settings now changes configuration and tutorial content according to the selected provider. Ollama model discovery classifies capabilities and prevents embedding-only models from being used for chat. NotebookLM+ advanced runtime controls have been centralized under General Settings. Repeated release-validation runs passed after cache/version updates.

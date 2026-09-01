@@ -1393,7 +1393,7 @@ window.changeModel = async function(value){
 
 async function runAI(messages,options={}){
     const select=document.getElementById("modelSelect");
-    const requested=select?.value || currentModelValue || "omniroute:auto";
+    const requested=window.parent.ProjectControlsCore.ai.preferred();
     await window.parent.ProjectControlsCore.ai.ensure(requested);
     currentModelValue=requested;
     engineMode=window.parent.ProjectControlsCore.ai.status().engine;

@@ -511,11 +511,6 @@ async function initialiseAI(){
         state.aiModelValue =
             "heuristic";
 
-        localStorage.setItem(
-            "projectControlsSharedAIModel",
-            "omniroute:auto"
-        );
-
         setEngine(
             "Deterministic analysis ready",
             "ready"
@@ -553,11 +548,10 @@ async function runLocalAI(messages,options={}){
         throw new Error("Deterministic mode selected.");
     }
 
-    const modelValue =
-        state.aiModelValue ||
-        "omniroute:auto";
-
+    const modelValue = window.parent.ProjectControlsCore.ai.preferred();
     await window.parent.ProjectControlsCore.ai.ensure(modelValue);
+    state.aiModelValue = modelValue;
+    state.aiMode = window.parent.ProjectControlsCore.ai.status().engine;
     return await window.parent.ProjectControlsCore.ai.run(messages,options);
 }
 

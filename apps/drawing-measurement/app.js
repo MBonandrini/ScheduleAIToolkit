@@ -1319,7 +1319,7 @@ window.changeModel = async function(value){
 async function runAI(messages,options={}){
     await ensureAssistantReady();
     const select=document.getElementById("modelSelect");
-    const requested=select?.value || currentModelValue || localStorage.getItem("projectControlsSharedAIModel") || "omniroute:auto";
+    const requested=window.parent.ProjectControlsCore.ai.preferred();
     await window.parent.ProjectControlsCore.ai.ensure(requested);
     currentModelValue=requested;
     engineMode=window.parent.ProjectControlsCore.ai.status().engine;

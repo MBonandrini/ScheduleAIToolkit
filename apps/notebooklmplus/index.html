@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdn.sheetjs.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https:; worker-src 'self' blob: https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <meta name="theme-color" content="#111827" />
-  <meta name="notebooklmplus-build" content="0.7.1-suite" />
+  <meta name="notebooklmplus-build" content="0.7.2-suite" />
   <title>NotebookLM+</title>
   <meta name="description" content="NotebookLM+ — browser-first notebook research with local Ollama, remote Ollama, or hosted AI." />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="css/styles.css?v=0.7.1-suite" />
+  <link rel="stylesheet" href="css/styles.css?v=20260901-aiunified2" />
 </head>
 <body>
   <div id="appShell" class="app-shell">
@@ -140,7 +140,7 @@
               <section class="studio-tool-section"><h3>Saved artifacts</h3><div id="artifactList" class="artifact-list"></div></section>
               <section class="studio-tool-section"><h3>Web / source tools</h3>
                 <label class="field"><span>Web page URL</span><input id="webUrlInput" type="url" placeholder="https://example.com/article" /></label><button id="studioAddWebBtn" class="btn secondary small">Add web page</button>
-                <label class="field"><span>YouTube URL</span><input id="youtubeUrlInput" type="url" placeholder="https://youtube.com/watch?v=..." /></label><button id="studioAddYouTubeBtn" class="btn secondary small">Add transcript</button>
+                <label class="field"><span>YouTube URL</span><input id="youtubeUrlInput" type="url" placeholder="https://youtube.com/watch?v=20260901-aiunified2" /></label><button id="studioAddYouTubeBtn" class="btn secondary small">Add transcript</button>
               </section>
               <section class="studio-tool-section"><h3>Source discovery / Deep Research</h3><label class="field"><span>Research question</span><textarea id="researchQueryInput" rows="3" placeholder="What should NotebookLM+ research?"></textarea></label><label class="field"><span>Depth</span><select id="researchModeSelect"><option value="quick">Quick discovery</option><option value="deep">Deep research (fetch top pages)</option></select></label><button id="runResearchBtn" class="btn primary small">Find sources</button><div id="researchResults" class="research-results"></div><button id="addResearchSelectedBtn" class="btn secondary small hidden">Add selected sources</button></section>
               <section class="studio-tool-section"><h3>Analysis Lab</h3><label class="field"><span>Input</span><select id="analysisInputSelect"><option value="documents">Indexed documents</option><option value="chunks">Selected source chunks</option><option value="artifact">Current Studio artifact</option></select></label><label class="field"><span>Starter</span><select id="analysisStarterSelect"><option value="summary">Inspect/sample data</option><option value="numeric">Numeric statistics</option><option value="custom">Custom code</option></select></label><textarea id="analysisCodeInput" rows="9" spellcheck="false" placeholder="JavaScript. Return a JSON-serialisable result."></textarea><button id="runAnalysisBtn" class="btn secondary small">Run sandboxed analysis</button><pre id="analysisResult" class="analysis-result">No analysis run.</pre></section>
@@ -491,7 +491,7 @@ ollama pull embeddinggemma</code></pre>
 
 
   <dialog id="urlDialog"><form method="dialog" id="urlForm" class="dialog-form"><h2>Add web page</h2><label class="field"><span>URL</span><input id="urlDialogInput" type="url" required placeholder="https://example.com/article" /></label><div class="dialog-actions"><button id="cancelUrlBtn" type="button" class="btn secondary">Cancel</button><button type="submit" class="btn primary">Fetch & index</button></div></form></dialog>
-  <dialog id="youtubeDialog"><form method="dialog" id="youtubeForm" class="dialog-form"><h2>Add YouTube transcript</h2><label class="field"><span>YouTube URL</span><input id="youtubeDialogInput" type="url" required placeholder="https://youtube.com/watch?v=..." /></label><div class="dialog-actions"><button id="cancelYoutubeBtn" type="button" class="btn secondary">Cancel</button><button type="submit" class="btn primary">Fetch transcript</button></div></form></dialog>
+  <dialog id="youtubeDialog"><form method="dialog" id="youtubeForm" class="dialog-form"><h2>Add YouTube transcript</h2><label class="field"><span>YouTube URL</span><input id="youtubeDialogInput" type="url" required placeholder="https://youtube.com/watch?v=20260901-aiunified2" /></label><div class="dialog-actions"><button id="cancelYoutubeBtn" type="button" class="btn secondary">Cancel</button><button type="submit" class="btn primary">Fetch transcript</button></div></form></dialog>
 
   <dialog id="templateDialog">
     <form method="dialog" id="templateForm" class="dialog-form">
@@ -508,6 +508,6 @@ ollama pull embeddinggemma</code></pre>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=0.7.1-suite"></script>
+  <script type="module" src="js/app.js?v=20260901-aiunified2"></script>
 </body>
 </html>

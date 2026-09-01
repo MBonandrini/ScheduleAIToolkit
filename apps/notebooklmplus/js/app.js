@@ -104,6 +104,27 @@ const currentNotebook = () => state.notebooks.find(n => n.id === state.activeNot
 const PERFORMANCE_KEY='projectControlsNotebookPerformanceMode';
 function suitePerformanceMode(){ try{const v=localStorage.getItem(PERFORMANCE_KEY)||'balanced'; return state.settings?.modes?.[v]?v:'balanced'}catch(_){return 'balanced'} }
 const currentMode = () => state.settings.modes[state.settings.currentMode];
+function suiteNotebookRuntimeConfig(){
+  try {
+    const raw=JSON.parse(localStorage.getItem('projectControlsNotebookRuntimeConfig')||'{}');
+    if(!raw||typeof raw!=='object') return {};
+    const clamp=(value,min,max)=>Number.isFinite(Number(value))?Math.max(min,Math.min(max,Number(value))):undefined;
+    return {
+      contextTokens:clamp(raw.contextTokens,2048,131072), topK:clamp(raw.topK,2,50), maxAnswerTokens:clamp(raw.maxAnswerTokens,128,8192),
+      embedBatch:clamp(raw.embedBatch,1,128), workerCount:clamp(raw.workerCount,1,8), temperature:clamp(raw.temperature,0,2),
+      thinkingMode:['off','auto','on'].includes(raw.thinkingMode)?raw.thinkingMode:undefined, requestTimeoutSeconds:clamp(raw.requestTimeoutSeconds,5,1800),
+      firstResponseTimeoutSeconds:clamp(raw.firstResponseTimeoutSeconds,30,1800), inactivityTimeoutSeconds:clamp(raw.inactivityTimeoutSeconds,30,600),
+      keepAlive:['0','5m','15m','30m','-1'].includes(String(raw.keepAlive))?String(raw.keepAlive):undefined,
+      semanticSearch:typeof raw.semanticSearch==='boolean'?raw.semanticSearch:undefined, keywordSearch:typeof raw.keywordSearch==='boolean'?raw.keywordSearch:undefined
+    };
+  } catch { return {}; }
+}
+function applySuiteNotebookRuntime(mode){
+  const cfg=suiteNotebookRuntimeConfig();
+  for(const [key,value] of Object.entries(cfg)) if(value!==undefined) mode[key]=value;
+  if(cfg.requestTimeoutSeconds!==undefined && state.settings?.ollama) state.settings.ollama.requestTimeoutSeconds=cfg.requestTimeoutSeconds;
+  return mode;
+}
 function suiteAiSelection(){
   try {
     const value = localStorage.getItem('projectControlsSharedAIModel') || 'omniroute:auto';
@@ -117,6 +138,7 @@ function syncSuiteAiToMode(){
   if(selected.engine==='omniroute'){ mode.provider='omniroute'; mode.endpoint=core?.ai?.config?.().baseUrl||'http://localhost:20128/v1'; mode.chatModel=selected.id||'auto'; mode.embeddingModel=''; mode.semanticSearch=false; }
   else if(selected.engine==='ollama'){ const oc=core?.ai?.ollamaConfig?.()||{}; mode.provider='ollama'; mode.endpoint=oc.baseUrl||'http://localhost:11434'; mode.chatModel=oc.model||''; mode.embeddingModel=core?.ai?.ollamaEmbeddingModel?.()||''; mode.semanticSearch=!!mode.embeddingModel; state.settings.ollama.endpoint=mode.endpoint; state.settings.ollama.chatModel=mode.chatModel; state.settings.ollama.embeddingModel=mode.embeddingModel; }
   else { mode.provider='suite-core'; mode.endpoint=''; mode.chatModel=selected.value; mode.embeddingModel=''; mode.semanticSearch=false; }
+  applySuiteNotebookRuntime(mode);
   return selected;
 }
 const effectiveProvider = () => { syncSuiteAiToMode(); return currentMode().provider || 'omniroute'; };

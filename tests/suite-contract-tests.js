@@ -23,13 +23,13 @@ check('Settings contains Setup Tutorial section',/Setup Tutorial/.test(settingsH
 check('Settings persists official theme key',settingsJs.includes('projectControlsTheme'));
 check('Settings manages global AI key through core',/Core\.ai\.setPreferred/.test(settingsJs));
 check('Settings configures OmniRoute',/Core\.ai\.testConnection/.test(settingsJs)&&/OmniRoute/.test(settingsJs));
-check('Settings configures Ollama',/Core\.ai\.testOllamaConnection/.test(settingsJs)&&/Core\.ai\.listOllamaModels/.test(settingsJs));
+check('Settings configures Ollama',/Core\.ai\.testOllamaConnection/.test(settingsJs)&&/Core\.ai\.inspectOllamaModels/.test(settingsJs));
 check('Settings includes Ollama GitHub Pages origin guidance',/OLLAMA_ORIGINS/.test(settingsJs));
 check('Settings includes OmniRoute CORS guidance',/OmniRoute/.test(settingsJs)&&/CORS/.test(settingsJs));
 check('Core exposes one preferred AI selection',/function preferred\(/.test(core)&&/function setPreferred\(/.test(core)&&/preferredLabel/.test(core));
 check('Ollama is enabled in shared catalog',/value:"ollama:auto",engine:"ollama"/.test(core));
 check('OmniRoute remains available',/value:"omniroute:auto",engine:"omniroute"/.test(core));
-check('Per-module AI selectors are locked to global choice',/managed globally from the Settings tab/.test(aiOptions)&&/select\.disabled=true/.test(aiOptions));
+check('Per-module AI selectors are removed', ['contract-manager','drawing-measurement','schedule-assessment','risk-analysis','claims-forensics','schedule-builder'].every(n=>!read(`apps/${n}/index.html`).includes('data-ai-model-select')&&!read(`apps/${n}/index.html`).includes('id="modelSelect"')));
 const moduleApps=['contract-manager','drawing-measurement','schedule-assessment','risk-analysis','claims-forensics','schedule-builder'].map(n=>read(`apps/${n}/app.js`));
 check('Only Settings owns global AI selection persistence',moduleApps.every(code=>!code.includes('localStorage.setItem(\"projectControlsSharedAIModel\"'))&&!notebookApp.includes('localStorage.setItem(\"projectControlsSharedAIModel\"'));
 check('Notebook visible tabs are Workspace and Studio only',![...notebookHtml.matchAll(/<button class="tab[^>]*data-tab="([^"]+)"/g)].map(x=>x[1]).some(x=>['ollama','tutorial','settings'].includes(x)));
@@ -37,6 +37,8 @@ check('Notebook Suite Settings button removed',!notebookHtml.includes('Suite Set
 check('Notebook top performance dropdown removed',!notebookHtml.includes('id="modeSelect"'));
 check('Notebook performance is centrally sourced',/projectControlsNotebookPerformanceMode/.test(notebookApp)&&/suitePerformanceMode/.test(notebookApp));
 check('Settings owns Notebook performance selector',/notebookPerformanceSelect/.test(settingsJs)&&/projectControlsNotebookPerformanceMode/.test(settingsJs));
+check('Settings restores NotebookLM+ advanced configuration',/NotebookLM\+ advanced configuration/.test(settingsJs)&&/projectControlsNotebookRuntimeConfig/.test(settingsJs)&&/nbContextTokens/.test(settingsJs)&&/nbFirstResponse/.test(settingsJs));
+check('Notebook consumes central advanced configuration',/suiteNotebookRuntimeConfig/.test(notebookApp)&&/applySuiteNotebookRuntime/.test(notebookApp)&&/projectControlsNotebookRuntimeConfig/.test(notebookApp));
 check('Shell exposes global model selector',/id="globalModelSelect"/.test(index)&&/populateGlobalModelSelect/.test(shell)&&/setGlobalModel/.test(shell));
 check('Legacy top-right AI status pill removed',!index.includes('id="status"'));
 check('Dark theme is first-run default',/localStorage\.getItem\(key\)\|\|"dark"/.test(read('assets/js/theme.js')));
@@ -47,6 +49,14 @@ check('Notebook Ollama embedding model comes from suite settings',/ollamaEmbeddi
 check('Obsolete standalone AI app removed',!fs.existsSync(path.join(root,'apps/ai-configuration')));
 check('Obsolete standalone tutorial app removed',!fs.existsSync(path.join(root,'apps/tutorial')));
 check('Puter absent from shared core',!/\bPuter\b/i.test(core));
+
+check('Settings AI configuration is provider-contextual',/aiProviderSelect/.test(settingsJs)&&/providerEntries/.test(settingsJs)&&/aiProviderView/.test(settingsJs));
+check('Settings tutorial is provider-contextual',/tutorialProviderSelect/.test(settingsJs)&&/tutorialContent/.test(settingsJs)&&/tutorialProviderView/.test(settingsJs));
+check('Ollama settings separate chat and embedding models',/Only chat\/completion-capable models are shown/.test(settingsJs)&&/Embedding-only models belong here/.test(settingsJs));
+check('Core classifies Ollama capabilities',/inspectOllamaModels/.test(core)&&/supportsChat/.test(core)&&/supportsEmbedding/.test(core)&&/\/api\/show/.test(core));
+check('OmniRoute settings explain endpoint key',/OmniRoute dashboard/.test(settingsJs)&&/Endpoints/.test(settingsJs)&&/Endpoint API key/.test(settingsJs));
+check('All AI modules consume global preference at execution time',moduleApps.every(code=>/\.ai\.preferred\(\)/.test(code)));
+
 
 check('Bulk Information section present in shared pane',/id="bulkInformationTitle"/.test(index)&&/Bulk Information/.test(index));
 check('Bulk Information exposes folder link action',/id="bulkLinkFolder"/.test(index)&&/showDirectoryPicker/.test(shell));

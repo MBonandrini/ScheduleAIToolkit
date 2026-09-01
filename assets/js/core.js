@@ -2209,13 +2209,47 @@ function sleep(ms){
             })).filter(item=>item.name);
         }
 
+        function fallbackOllamaCapabilities(name){
+            const text=String(name||"").toLowerCase();
+            const embedding=/embedding|embed|nomic-embed|all-minilm|bge-|e5-|gte-|snowflake-arctic-embed/.test(text);
+            return {capabilities:embedding?["embedding"]:["completion"],supportsChat:!embedding,supportsEmbedding:embedding,capabilitySource:"name fallback"};
+        }
+
+        async function inspectOllamaModel(modelName){
+            const name=String(modelName||"").trim();
+            if(!name) return {name:"",model:"",capabilities:[],supportsChat:false,supportsEmbedding:false,capabilitySource:"invalid"};
+            try{
+                const response=await ollamaFetch("/api/show",{
+                    method:"POST",
+                    headers:{"Content-Type":"application/json","Accept":"application/json"},
+                    body:JSON.stringify({model:name})
+                },10000);
+                const data=await parseOllamaResponse(response);
+                const capabilities=Array.isArray(data?.capabilities)?data.capabilities.map(x=>String(x).toLowerCase()):[];
+                const fallback=fallbackOllamaCapabilities(name);
+                return {
+                    name,model:name,capabilities,
+                    supportsChat:capabilities.length?capabilities.includes("completion"):fallback.supportsChat,
+                    supportsEmbedding:capabilities.length?capabilities.includes("embedding"):fallback.supportsEmbedding,
+                    capabilitySource:capabilities.length?"/api/show":"name fallback"
+                };
+            }catch(_){
+                return {name,model:name,...fallbackOllamaCapabilities(name)};
+            }
+        }
+
+        async function inspectOllamaModels(){
+            const models=await listOllamaModels();
+            return await Promise.all(models.map(async item=>({...item,...await inspectOllamaModel(item.name)})));
+        }
+
         async function parseOmniResponse(response){
             const text=await response.text();
             let data={};
             try{data=text ? JSON.parse(text) : {};}catch(_){data={error:{message:text || `HTTP ${response.status}`}};}
             if(response.status===401 || response.status===403){
                 const detail=data?.error?.message || data?.message || `HTTP ${response.status}`;
-                const error=new Error(`OmniRoute is reachable but endpoint authentication is enabled (${detail}). Standard local OmniRoute works without a key when REQUIRE_API_KEY=false. If your installation has REQUIRE_API_KEY=true, enter the endpoint key from OmniRoute Endpoints in Advanced connection settings.`);
+                const error=new Error(`OmniRoute is reachable but rejected the endpoint key (${detail}). Open the OmniRoute dashboard → Endpoints, create or copy an API key, then enter it in Suite Settings. Some installations allow keyless local access, but current OmniRoute setups commonly use an endpoint key.`);
                 error.omniStatus=response.status;
                 error.omniCode="auth";
                 throw error;
@@ -2269,10 +2303,12 @@ function sleep(ms){
             if(entry.engine==="omniroute"){
                 runtime={type:"omniroute",model:entry.id};
             }else if(entry.engine==="ollama"){
-                const models=await listOllamaModels();
-                if(!models.length) throw new Error("Ollama is running but no local models are installed. Pull or run a model in Ollama first.");
+                const models=await inspectOllamaModels();
+                if(!models.length) throw new Error("Ollama is running but no local models are installed. Pull or run a chat model in Ollama first.");
+                const chatModels=models.filter(item=>item.supportsChat);
+                if(!chatModels.length) throw new Error("Ollama is reachable, but none of the installed models support chat/completion. Install a chat model such as gemma3 or qwen3. Embedding-only models cannot be used for chat.");
                 const saved=ollamaModel();
-                const selected=models.some(item=>item.name===saved||item.model===saved)?saved:models[0].name;
+                const selected=chatModels.some(item=>item.name===saved||item.model===saved)?saved:chatModels[0].name;
                 if(selected!==saved) configureOllama({model:selected});
                 runtime={type:"ollama",model:selected};
             }else if(entry.engine==="cpu"){
@@ -2365,10 +2401,16 @@ function sleep(ms){
             if(baseUrl||typeof requestedModel==="string"){
                 configureOllama({baseUrl:baseUrl||before.baseUrl,model:typeof requestedModel==="string"?requestedModel:before.model});
             }
-            const models=await listOllamaModels();
+            const models=await inspectOllamaModels();
             if(!models.length) return {ok:false,baseUrl:ollamaBaseUrl(),models:[],message:"Ollama is reachable but no models are installed."};
+            const chatModels=models.filter(item=>item.supportsChat);
+            if(!chatModels.length) return {ok:false,baseUrl:ollamaBaseUrl(),models,message:"Ollama is reachable, but no installed model supports chat/completion. Embedding-only models such as embeddinggemma cannot be used as the chat model."};
             const configured=ollamaModel();
-            const selected=models.find(item=>item.name===configured||item.model===configured)?.name||models[0].name;
+            const configuredInfo=models.find(item=>item.name===configured||item.model===configured);
+            if(configuredInfo && !configuredInfo.supportsChat){
+                throw new Error(`The selected Ollama model “${configured}” does not support chat/completion. Choose a chat-capable model; keep embedding-only models in the NotebookLM+ embedding-model field.`);
+            }
+            const selected=chatModels.find(item=>item.name===configured||item.model===configured)?.name||chatModels[0].name;
             configureOllama({model:selected});
             const savedRuntime=runtime,savedEngine=currentEngine,savedValue=currentValue,savedLabel=currentLabel;
             try{
@@ -2470,7 +2512,7 @@ function sleep(ms){
             return {ready:!!runtime,value:currentValue,engine:currentEngine || "shared",label:currentLabel,loading:!!loadingPromise,config:config()};
         }
 
-        return {catalog,ensure,run,release,status,config,configure,testConnection,ollamaConfig,configureOllama,listOllamaModels,testOllamaConnection,preferred,preferredLabel,setPreferred,ollamaEmbeddingModel,configureOllamaEmbedding};
+        return {catalog,ensure,run,release,status,config,configure,testConnection,ollamaConfig,configureOllama,listOllamaModels,inspectOllamaModel,inspectOllamaModels,testOllamaConnection,preferred,preferredLabel,setPreferred,ollamaEmbeddingModel,configureOllamaEmbedding};
     })();
 
     const risk = (() => {
