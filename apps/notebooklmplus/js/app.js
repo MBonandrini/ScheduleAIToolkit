@@ -114,7 +114,7 @@ function suiteNotebookRuntimeConfig(){
       embedBatch:clamp(raw.embedBatch,1,128), workerCount:clamp(raw.workerCount,1,8), temperature:clamp(raw.temperature,0,2),
       thinkingMode:['off','auto','on'].includes(raw.thinkingMode)?raw.thinkingMode:undefined, requestTimeoutSeconds:clamp(raw.requestTimeoutSeconds,30,3600),
       firstResponseTimeoutSeconds:clamp(raw.firstResponseTimeoutSeconds,30,1800), inactivityTimeoutSeconds:clamp(raw.inactivityTimeoutSeconds,30,900),
-      keepAlive:['default','0','5m','15m','30m','1h','2h','4h'].includes(String(raw.keepAlive))?String(raw.keepAlive):(String(raw.keepAlive)==='-1'?'30m':undefined),
+      keepAlive:['default','0','5m','15m','30m','1h','2h','4h'].includes(String(raw.keepAlive))?String(raw.keepAlive):(String(raw.keepAlive)==='-1'?'30m':'default'),
       semanticSearch:typeof raw.semanticSearch==='boolean'?raw.semanticSearch:undefined, keywordSearch:typeof raw.keywordSearch==='boolean'?raw.keywordSearch:undefined,
       chunkSize:clamp(raw.chunkSize,500,12000), chunkOverlap:clamp(raw.chunkOverlap,0,2000), minKeywordScore:clamp(raw.minKeywordScore,0,1),
       maxFileSizeMB:clamp(raw.maxFileSizeMB,1,2048), researchTimeoutSeconds:clamp(raw.researchTimeoutSeconds,5,1800), maxDiscoveryResults:clamp(raw.maxDiscoveryResults,1,100),

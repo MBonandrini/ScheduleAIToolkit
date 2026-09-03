@@ -45,10 +45,11 @@ export async function listModels(endpoint, timeoutSeconds=12) {
 
 
 function withKeepAlive(body, keepAlive) {
-  const value = String(keepAlive ?? '').trim();
-  if (!value || value === 'default') return body;
-  const allowed = new Set(['0','5m','15m','30m','1h','2h','4h']);
-  body.keep_alive = allowed.has(value) ? value : '30m';
+  const value = String(keepAlive ?? '').trim().toLowerCase();
+  if (!value || value === 'default') { delete body.keep_alive; return body; }
+  if (value === '-1') { body.keep_alive = '30m'; return body; }
+  if (value === '0' || /^[1-9]\d*(?:ms|s|m|h)$/.test(value)) { body.keep_alive = value; return body; }
+  delete body.keep_alive;
   return body;
 }
 

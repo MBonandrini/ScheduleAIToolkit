@@ -2063,10 +2063,14 @@ function sleep(ms){
             // Ollama duration strings must include a unit. Older suite builds stored "-1",
             // which Ollama rejects with `time: missing unit in duration "-1"` when sent as
             // a string. Migrate that legacy value to the safe suite default.
-            const rawKeepAlive=String(raw?.keepAlive ?? "30m");
+            const rawKeepAlive=String(raw?.keepAlive ?? "30m").trim().toLowerCase();
             const keepAlive=["default","0","5m","15m","30m","1h","2h","4h"].includes(rawKeepAlive)
                 ? rawKeepAlive
-                : (rawKeepAlive==="-1" ? "30m" : "30m");
+                : "30m";
+            // Persist the migration so stale legacy values cannot survive refreshes.
+            if(rawKeepAlive!==keepAlive){
+                try{localStorage.setItem("projectControlsNotebookRuntimeConfig",JSON.stringify({...raw,keepAlive}))}catch(_){}
+            }
             return {
                 contextTokens:Math.round(clamp(raw?.contextTokens,2048,131072,16384)),
                 maxAnswerTokens:Math.round(clamp(raw?.maxAnswerTokens,128,32768,2048)),
@@ -2298,9 +2302,22 @@ function sleep(ms){
         }
 
         function sleep(ms){ return new Promise(resolve=>setTimeout(resolve,Math.max(0,Number(ms)||0))); }
+        function sanitiseOllamaKeepAlive(value){
+            const raw=String(value ?? "").trim().toLowerCase();
+            // Never forward legacy/sentinel/free-text values to Ollama.
+            // The API accepts duration strings such as 5m/1h and 0 for immediate unload.
+            if(!raw || raw==="default") return null;
+            if(raw==="-1") return "30m";
+            if(raw==="0") return "0";
+            if(/^[1-9]\d*(?:ms|s|m|h)$/.test(raw)) return raw;
+            return null;
+        }
         function ollamaKeepAliveBody(body,keepAlive){
-            // "default" means let Ollama use its own configured default and omit the field.
-            if(keepAlive && keepAlive!=="default") body.keep_alive=keepAlive;
+            // Final request-boundary validation: even stale localStorage or another module
+            // cannot send an invalid duration such as "-1" to Ollama.
+            const safe=sanitiseOllamaKeepAlive(keepAlive);
+            if(safe!==null) body.keep_alive=safe;
+            else delete body.keep_alive;
             return body;
         }
         function ollamaGenerationOptions(runtimeCfg,temperature,maxTokens,testMode){
@@ -2480,7 +2497,7 @@ function sleep(ms){
             return {ready:!!runtime,value:currentValue,engine:currentEngine || "shared",label:currentLabel,loading:!!loadingPromise,config:ollamaConfig()};
         }
 
-        return {catalog,ensure,run,release,status,ollamaConfig,configureOllama,listOllamaModels,inspectOllamaModel,inspectOllamaModels,testOllamaConnection,preferred,preferredLabel,setPreferred,ollamaEmbeddingModel,configureOllamaEmbedding,aiRuntimeConfig};
+        return {catalog,ensure,run,release,status,ollamaConfig,configureOllama,listOllamaModels,inspectOllamaModel,inspectOllamaModels,testOllamaConnection,preferred,preferredLabel,setPreferred,ollamaEmbeddingModel,configureOllamaEmbedding,aiRuntimeConfig,sanitiseOllamaKeepAlive};
     })();
 
     const risk = (() => {

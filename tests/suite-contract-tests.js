@@ -39,7 +39,7 @@ check('Notebook consumes central advanced configuration',/suiteNotebookRuntimeCo
 
 check('Settings exposes expanded reasoning and reliability controls',/nbThinkingTimeout/.test(settingsJs)&&/nbFallbackThinking/.test(settingsJs)&&/nbRetryCount/.test(settingsJs)&&/nbRetryDelay/.test(settingsJs)&&/nbGenerateFallback/.test(settingsJs));
 check('Settings exposes expanded generation controls',/nbTopP/.test(settingsJs)&&/nbTopKSampling/.test(settingsJs)&&/nbRepeatPenalty/.test(settingsJs));
-check('Invalid legacy Ollama keep alive is migrated',/rawKeepAlive==="-1" \? "30m"/.test(core)&&!/<option value="-1"/.test(settingsJs));
+check('Invalid legacy Ollama keep alive is migrated',/rawKeepAlive!==keepAlive/.test(core)&&/sanitiseOllamaKeepAlive/.test(core)&&!/<option value="-1"/.test(settingsJs));
 check('Ollama keep alive supports validated durations',/"default","0","5m","15m","30m","1h","2h","4h"/.test(core)&&/ollamaKeepAliveBody/.test(core));
 check('Shared AI consumes central runtime timeouts and thinking settings',/aiRuntimeConfig/.test(core)&&/firstResponseTimeoutSeconds/.test(core)&&/requestTimeoutSeconds/.test(core)&&/thinkingMode/.test(core)&&/keepAlive/.test(core));
 check('Settings exposes original NotebookLM+ timeout and retrieval controls',/nbRequestTimeout/.test(settingsJs)&&/nbFirstResponse/.test(settingsJs)&&/nbInactivity/.test(settingsJs)&&/nbKeepAlive/.test(settingsJs)&&/nbChunkSize/.test(settingsJs)&&/nbResearchTimeout/.test(settingsJs));
