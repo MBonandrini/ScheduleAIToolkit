@@ -43,13 +43,22 @@ export async function listModels(endpoint, timeoutSeconds=12) {
   return (data.models || []).map(m => ({ name: m.name || m.model, size: m.size, modifiedAt: m.modified_at, details: m.details || {} }));
 }
 
+
+function withKeepAlive(body, keepAlive) {
+  const value = String(keepAlive ?? '').trim();
+  if (!value || value === 'default') return body;
+  const allowed = new Set(['0','5m','15m','30m','1h','2h','4h']);
+  body.keep_alive = allowed.has(value) ? value : '30m';
+  return body;
+}
+
 export async function embedTexts({ endpoint, model, texts, timeoutSeconds=120, keepAlive='5m' }) {
   if (!model) throw new Error('No embedding model selected.');
   if (!texts?.length) return [];
   const res = await fetchWithTimeout(endpoint, 'embed', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, input: texts, keep_alive: keepAlive }),
+    body: JSON.stringify(withKeepAlive({ model, input: texts }, keepAlive)),
   }, timeoutSeconds);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
@@ -76,7 +85,7 @@ export async function streamChat({ endpoint, model, messages, options={}, think=
     const req = buildRequest(`${base}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages, stream: true, keep_alive: keepAlive, options, ...(think === undefined ? {} : { think }) }),
+      body: JSON.stringify(withKeepAlive({ model, messages, stream: true, options, ...(think === undefined ? {} : { think }) }, keepAlive)),
       signal: controller.signal,
     }, endpoint);
     const res = await fetch(req);

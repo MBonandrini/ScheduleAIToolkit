@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.7.4-suite-globalai';
+export const APP_VERSION = '0.7.5-suite-airuntime';
 
 export const DEFAULT_MODES = Object.freeze({
   cpu: {

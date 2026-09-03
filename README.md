@@ -67,3 +67,7 @@ See `NOTEBOOKLM_INTEGRATION.md`.
 
 ### Bulk Information
 The shared project pane now supports collapsible linked folders under **Bulk Information**. On supported Chromium/Edge browsers, **Link folder** retains a read-only local directory handle and resolves individual files only when the user presses **Use**. A directory-selection snapshot fallback is provided for browsers without the File System Access API. Linked folders can be refreshed or unlinked without modifying files on disk.
+
+
+### Shared AI runtime settings
+Settings → General Settings contains the suite-wide AI runtime controls. These include Qwen/Ollama reasoning mode and timeout/fallback, generation sampling, token/context limits, request/model-load/streaming timeouts, retry policy, Ollama keep-alive, and empty-response recovery. The settings apply to every module using the global AI selection.

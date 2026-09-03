@@ -27,7 +27,7 @@ PORT=8768
 python -m http.server "$PORT" --bind 127.0.0.1 >/tmp/notebooklmplus-http.log 2>&1 &
 SERVER_PID=$!
 trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
-sleep 1
+sleep 2.5
 SMOKE_DIR="$(mktemp -d)"
 trap 'rm -rf "$SMOKE_DIR"; kill "$SERVER_PID" 2>/dev/null || true' EXIT
 curl --fail --silent --show-error "http://127.0.0.1:$PORT/" -o "$SMOKE_DIR/index.html"
@@ -35,7 +35,7 @@ curl --fail --silent --show-error "http://127.0.0.1:$PORT/js/app.js" -o "$SMOKE_
 curl --fail --silent --show-error "http://127.0.0.1:$PORT/sw.js" -o "$SMOKE_DIR/sw.js"
 grep -q 'NotebookLM+' "$SMOKE_DIR/index.html"
 grep -q 'sendQuestion' "$SMOKE_DIR/app.js"
-grep -q 'notebooklmplus-v0.7.4-suite-globalai' "$SMOKE_DIR/sw.js"
+grep -q 'notebooklmplus-v0.7.5-suite-airuntime' "$SMOKE_DIR/sw.js"
 rm -rf "$SMOKE_DIR"
 kill "$SERVER_PID" 2>/dev/null || true
 trap - EXIT

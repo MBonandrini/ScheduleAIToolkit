@@ -2060,15 +2060,30 @@ function sleep(ms){
             try{raw=JSON.parse(localStorage.getItem("projectControlsNotebookRuntimeConfig")||"{}");}catch(_){raw={};}
             const clamp=(value,min,max,fallback)=>{const n=Number(value);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):fallback;};
             const thinking=["off","auto","on"].includes(raw?.thinkingMode)?raw.thinkingMode:"auto";
+            // Ollama duration strings must include a unit. Older suite builds stored "-1",
+            // which Ollama rejects with `time: missing unit in duration "-1"` when sent as
+            // a string. Migrate that legacy value to the safe suite default.
+            const rawKeepAlive=String(raw?.keepAlive ?? "30m");
+            const keepAlive=["default","0","5m","15m","30m","1h","2h","4h"].includes(rawKeepAlive)
+                ? rawKeepAlive
+                : (rawKeepAlive==="-1" ? "30m" : "30m");
             return {
                 contextTokens:Math.round(clamp(raw?.contextTokens,2048,131072,16384)),
-                maxAnswerTokens:Math.round(clamp(raw?.maxAnswerTokens,128,8192,1280)),
+                maxAnswerTokens:Math.round(clamp(raw?.maxAnswerTokens,128,32768,2048)),
                 temperature:clamp(raw?.temperature,0,2,0.18),
+                topP:clamp(raw?.topP,0.05,1,0.90),
+                topKSampling:Math.round(clamp(raw?.topKSampling,0,200,40)),
+                repeatPenalty:clamp(raw?.repeatPenalty,0.5,2,1.10),
                 thinkingMode:thinking,
-                requestTimeoutSeconds:Math.round(clamp(raw?.requestTimeoutSeconds,5,1800,300)),
+                thinkingTimeoutSeconds:Math.round(clamp(raw?.thinkingTimeoutSeconds,15,1800,180)),
+                fallbackThinkingOff:raw?.fallbackThinkingOff!==false,
+                requestTimeoutSeconds:Math.round(clamp(raw?.requestTimeoutSeconds,30,3600,600)),
                 firstResponseTimeoutSeconds:Math.round(clamp(raw?.firstResponseTimeoutSeconds,30,1800,300)),
-                inactivityTimeoutSeconds:Math.round(clamp(raw?.inactivityTimeoutSeconds,30,600,180)),
-                keepAlive:["0","5m","15m","30m","-1"].includes(String(raw?.keepAlive))?String(raw.keepAlive):"5m"
+                inactivityTimeoutSeconds:Math.round(clamp(raw?.inactivityTimeoutSeconds,30,900,180)),
+                retryCount:Math.round(clamp(raw?.retryCount,0,4,1)),
+                retryDelayMs:Math.round(clamp(raw?.retryDelayMs,0,10000,1500)),
+                generateFallback:raw?.generateFallback!==false,
+                keepAlive
             };
         }
 
@@ -2282,25 +2297,43 @@ function sleep(ms){
             }).join("\n\n") + "\n\nASSISTANT:";
         }
 
+        function sleep(ms){ return new Promise(resolve=>setTimeout(resolve,Math.max(0,Number(ms)||0))); }
+        function ollamaKeepAliveBody(body,keepAlive){
+            // "default" means let Ollama use its own configured default and omit the field.
+            if(keepAlive && keepAlive!=="default") body.keep_alive=keepAlive;
+            return body;
+        }
+        function ollamaGenerationOptions(runtimeCfg,temperature,maxTokens,testMode){
+            return {
+                temperature:Number.isFinite(Number(temperature))?Number(temperature):runtimeCfg.temperature,
+                num_predict:Math.max(testMode?64:1,Number(maxTokens)||runtimeCfg.maxAnswerTokens),
+                num_ctx:runtimeCfg.contextTokens,
+                top_p:runtimeCfg.topP,
+                top_k:runtimeCfg.topKSampling,
+                repeat_penalty:runtimeCfg.repeatPenalty
+            };
+        }
+
         async function runOllama(messages,{temperature,max_tokens,onToken,thinkingMode=null,testMode=false}={}){
             const selected=runtime?.model||ollamaModel();
             if(!selected) throw new Error("No Ollama model is selected. Open Settings → Unified AI Configuration and choose an installed chat model.");
             const runtimeCfg=aiRuntimeConfig();
             const mode=testMode ? "off" : (["off","auto","on"].includes(thinkingMode)?thinkingMode:runtimeCfg.thinkingMode);
-            const timeoutMs=(testMode?runtimeCfg.firstResponseTimeoutSeconds:runtimeCfg.requestTimeoutSeconds)*1000;
+            const requestTimeoutMs=(testMode?runtimeCfg.firstResponseTimeoutSeconds:runtimeCfg.requestTimeoutSeconds)*1000;
+            const thinkingTimeoutMs=Math.min(requestTimeoutMs,runtimeCfg.thinkingTimeoutSeconds*1000);
             const makeBody=(effectiveMode)=>{
                 const body={
                     model:selected,
                     messages,
                     stream:false,
-                    keep_alive:runtimeCfg.keepAlive,
-                    options:{temperature,num_predict:Math.max(testMode?64:1,Number(max_tokens)||runtimeCfg.maxAnswerTokens),num_ctx:runtimeCfg.contextTokens}
+                    options:ollamaGenerationOptions(runtimeCfg,temperature,max_tokens,testMode)
                 };
+                ollamaKeepAliveBody(body,runtimeCfg.keepAlive);
                 if(effectiveMode==="off") body.think=false;
                 else if(effectiveMode==="on") body.think=true;
                 return body;
             };
-            const executeChat=async(effectiveMode)=>{
+            const executeChat=async(effectiveMode,timeoutMs=requestTimeoutMs)=>{
                 const response=await ollamaFetch("/api/chat",{
                     method:"POST",
                     headers:{"Content-Type":"application/json","Accept":"application/json"},
@@ -2309,46 +2342,68 @@ function sleep(ms){
                 return await parseOllamaResponse(response);
             };
             const executeGenerate=async()=>{
+                const body={
+                    model:selected,
+                    prompt:ollamaGeneratePrompt(messages),
+                    stream:false,
+                    think:false,
+                    options:ollamaGenerationOptions(runtimeCfg,temperature,max_tokens,testMode)
+                };
+                ollamaKeepAliveBody(body,runtimeCfg.keepAlive);
                 const response=await ollamaFetch("/api/generate",{
                     method:"POST",
                     headers:{"Content-Type":"application/json","Accept":"application/json"},
-                    body:JSON.stringify({
-                        model:selected,
-                        prompt:ollamaGeneratePrompt(messages),
-                        stream:false,
-                        think:false,
-                        keep_alive:runtimeCfg.keepAlive,
-                        options:{temperature,num_predict:Math.max(testMode?64:1,Number(max_tokens)||runtimeCfg.maxAnswerTokens),num_ctx:runtimeCfg.contextTokens}
-                    })
-                },timeoutMs);
+                    body:JSON.stringify(body)
+                },requestTimeoutMs);
                 return await parseOllamaResponse(response);
             };
+            const withRetries=async(fn)=>{
+                let lastError=null;
+                for(let attempt=0;attempt<=runtimeCfg.retryCount;attempt++){
+                    try{return await fn();}
+                    catch(error){
+                        lastError=error;
+                        if(attempt>=runtimeCfg.retryCount) break;
+                        await sleep(runtimeCfg.retryDelayMs);
+                    }
+                }
+                throw lastError;
+            };
 
-            let data=await executeChat(mode);
+            let data;
+            try{
+                // Reasoning requests get a separate soft timeout. If they exceed it and
+                // fallback is enabled, retry immediately with thinking disabled.
+                data=await withRetries(()=>executeChat(mode,mode==="off"?requestTimeoutMs:thinkingTimeoutMs));
+            }catch(error){
+                if(mode!=="off" && runtimeCfg.fallbackThinkingOff){
+                    data=await withRetries(()=>executeChat("off",requestTimeoutMs));
+                }else throw error;
+            }
             let content=extractOllamaText(data);
             let thinking=String(data?.message?.thinking||data?.thinking||"");
-            if(!content && mode!=="off"){
-                data=await executeChat("off");
+            if(!content && mode!=="off" && runtimeCfg.fallbackThinkingOff){
+                data=await withRetries(()=>executeChat("off",requestTimeoutMs));
                 content=extractOllamaText(data);
                 thinking=thinking || String(data?.message?.thinking||data?.thinking||"");
             }
             // Some Ollama/model combinations can return HTTP 200 from /api/chat with
             // an empty content field. Fall back to the native generate endpoint before
             // treating that as a failure.
-            if(!content){
-                const generated=await executeGenerate();
+            if(!content && runtimeCfg.generateFallback){
+                const generated=await withRetries(executeGenerate);
                 content=extractOllamaText(generated);
                 thinking=thinking || String(generated?.thinking||"");
                 data=generated;
             }
             if(!content){
                 const detail=thinking.trim()
-                    ? "The model produced reasoning but no final answer, even after retrying without thinking and falling back to /api/generate."
-                    : "Ollama returned HTTP success but no text from either /api/chat or /api/generate.";
-                throw new Error(`${detail} Try increasing Maximum answer tokens, verify the model directly in Ollama, or select another chat-capable model.`);
+                    ? "The model produced reasoning but no final answer. Increase Maximum answer tokens, increase the reasoning timeout, or turn Reasoning / thinking Off."
+                    : "Ollama returned a successful response but no assistant text. Increase Maximum answer tokens or select another chat model.";
+                throw new Error(detail);
             }
-            if(onToken) onToken(content);
-            return {choices:[{message:{content,thinking:thinking||undefined}}],model:data?.model||selected};
+            if(typeof onToken==="function") onToken(content);
+            return {choices:[{message:{role:"assistant",content,thinking}}],model:selected,raw:data};
         }
 
         async function testOllamaConnection({baseUrl,model:requestedModel}={}){

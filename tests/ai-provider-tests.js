@@ -33,7 +33,7 @@ async function makeCore(mode="ok"){
     sandbox.window=sandbox;sandbox.globalThis=sandbox;
     vm.createContext(sandbox);
     vm.runInContext(fs.readFileSync(corePath,"utf8"),sandbox);
-    return {ai:sandbox.ProjectControlsCore.ai,calls};
+    return {ai:sandbox.ProjectControlsCore.ai,calls,localStorage};
 }
 let failures=[];
 function check(name,value){console.log((value?"PASS ":"FAIL ")+name);if(!value)failures.push(name)}
@@ -77,6 +77,15 @@ function check(name,value){console.log((value?"PASS ":"FAIL ")+name);if(!value)f
         ai.configureOllama({baseUrl:"http://localhost:11434",model:"gemma3:4b"});
         const result=await ai.testOllamaConnection({baseUrl:"http://localhost:11434",model:"gemma3:4b"});
         check("Empty /api/chat response falls back to /api/generate",result.ok===true&&result.content==="OK"&&calls.some(x=>x.url.endsWith("/api/generate")));
+    }
+    {
+        const {ai,calls,localStorage}=await makeCore();
+        localStorage.setItem("projectControlsNotebookRuntimeConfig",JSON.stringify({keepAlive:"-1",retryCount:0}));
+        ai.configureOllama({baseUrl:"http://localhost:11434",model:"gemma3:4b"});
+        await ai.ensure("ollama:auto");
+        await ai.run([{role:"user",content:"hello"}],{max_tokens:32});
+        const body=JSON.parse(calls.filter(x=>x.url.endsWith("/api/chat")).at(-1)?.body||"{}");
+        check("Legacy -1 keep alive is never sent to Ollama",body.keep_alive==="30m"&&body.keep_alive!=="-1");
     }
     {
         const {ai}=await makeCore("nomodels");

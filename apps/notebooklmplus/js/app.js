@@ -110,11 +110,11 @@ function suiteNotebookRuntimeConfig(){
     if(!raw||typeof raw!=='object') return {};
     const clamp=(value,min,max)=>Number.isFinite(Number(value))?Math.max(min,Math.min(max,Number(value))):undefined;
     return {
-      contextTokens:clamp(raw.contextTokens,2048,131072), topK:clamp(raw.topK,2,50), maxAnswerTokens:clamp(raw.maxAnswerTokens,128,8192),
+      contextTokens:clamp(raw.contextTokens,2048,131072), topK:clamp(raw.topK,2,50), maxAnswerTokens:clamp(raw.maxAnswerTokens,128,32768),
       embedBatch:clamp(raw.embedBatch,1,128), workerCount:clamp(raw.workerCount,1,8), temperature:clamp(raw.temperature,0,2),
-      thinkingMode:['off','auto','on'].includes(raw.thinkingMode)?raw.thinkingMode:undefined, requestTimeoutSeconds:clamp(raw.requestTimeoutSeconds,5,1800),
-      firstResponseTimeoutSeconds:clamp(raw.firstResponseTimeoutSeconds,30,1800), inactivityTimeoutSeconds:clamp(raw.inactivityTimeoutSeconds,30,600),
-      keepAlive:['0','5m','15m','30m','-1'].includes(String(raw.keepAlive))?String(raw.keepAlive):undefined,
+      thinkingMode:['off','auto','on'].includes(raw.thinkingMode)?raw.thinkingMode:undefined, requestTimeoutSeconds:clamp(raw.requestTimeoutSeconds,30,3600),
+      firstResponseTimeoutSeconds:clamp(raw.firstResponseTimeoutSeconds,30,1800), inactivityTimeoutSeconds:clamp(raw.inactivityTimeoutSeconds,30,900),
+      keepAlive:['default','0','5m','15m','30m','1h','2h','4h'].includes(String(raw.keepAlive))?String(raw.keepAlive):(String(raw.keepAlive)==='-1'?'30m':undefined),
       semanticSearch:typeof raw.semanticSearch==='boolean'?raw.semanticSearch:undefined, keywordSearch:typeof raw.keywordSearch==='boolean'?raw.keywordSearch:undefined,
       chunkSize:clamp(raw.chunkSize,500,12000), chunkOverlap:clamp(raw.chunkOverlap,0,2000), minKeywordScore:clamp(raw.minKeywordScore,0,1),
       maxFileSizeMB:clamp(raw.maxFileSizeMB,1,2048), researchTimeoutSeconds:clamp(raw.researchTimeoutSeconds,5,1800), maxDiscoveryResults:clamp(raw.maxDiscoveryResults,1,100),

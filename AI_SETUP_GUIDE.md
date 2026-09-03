@@ -18,3 +18,10 @@ Do not embed paid-provider API keys in public GitHub Pages source.
 
 ## Deterministic Analysis
 AI is explanatory. Schedule calculations and forensic metrics are generated independently.
+
+
+## Advanced AI runtime controls
+
+The Settings workspace now centralises reasoning, generation and reliability controls for the whole suite. Key controls include reasoning mode, a reasoning timeout with optional fallback to thinking-off, total request timeout, first-response/model-load timeout, streaming inactivity timeout, retry count and retry delay, maximum answer tokens, context tokens, temperature, Top P, Top K sampling, repeat penalty, Ollama keep-alive, and the `/api/generate` empty-response fallback.
+
+Ollama keep-alive is restricted to validated values (`default`, `0`, `5m`, `15m`, `30m`, `1h`, `2h`, `4h`). Older saved `-1` string values are migrated to `30m` and are never sent to Ollama.
