@@ -37,14 +37,14 @@ node tests/ai-provider-tests.js
 echo '[5/9] XER parser regression + 10k/50k performance'
 node tests/parser-tests.js
 echo '[6/9] XER malformed/random fuzzing'
-node tests/parser-fuzz-tests.js >/tmp/pcai_fuzz.log
-tail -1 /tmp/pcai_fuzz.log
+node tests/parser-fuzz-tests.js >"${TMPDIR:-/tmp}/pcai_fuzz_$$.log"
+tail -1 "${TMPDIR:-/tmp}/pcai_fuzz_$$.log"
 echo '[7/9] XER 25k/100k stress'
 node tests/parser-stress-extra.js | tail -2
 echo '[8/9] NotebookLM+ full non-browser suite'
 (cd apps/notebooklmplus && bash tests/run_tests.sh)
 echo '[9/9] Static HTTP routes'
-python -m http.server 8899 --bind 127.0.0.1 >/tmp/pcai_http.log 2>&1 &
+python -m http.server 8899 --bind 127.0.0.1 >${TMPDIR:-/tmp}/pcai_http_$$.log 2>&1 &
 PID=$!
 trap 'kill "$PID" 2>/dev/null || true' EXIT
 sleep .5

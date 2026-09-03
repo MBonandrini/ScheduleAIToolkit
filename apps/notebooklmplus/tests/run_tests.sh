@@ -23,8 +23,8 @@ echo "[7/8] Static application contract tests"
 python -m pytest -q tests/contract_test.py
 
 echo "[8/8] GitHub Pages static-server smoke test"
-PORT=8768
-python -m http.server "$PORT" --bind 127.0.0.1 >/tmp/notebooklmplus-http.log 2>&1 &
+PORT=18768
+python -m http.server "$PORT" --bind 127.0.0.1 >${TMPDIR:-/tmp}/notebooklmplus-http_$$.log 2>&1 &
 SERVER_PID=$!
 trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
 sleep 2.5
