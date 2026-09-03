@@ -6,6 +6,7 @@ const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const index=read('index.html'), shell=read('assets/js/shell.js'), core=read('assets/js/core.js'), aiOptions=read('assets/js/ai-options.js');
 const settingsHtml=read('apps/settings/index.html'), settingsJs=read('apps/settings/app.js');
 const notebookHtml=read('apps/notebooklmplus/index.html'), notebookApp=read('apps/notebooklmplus/js/app.js'), notebookAi=read('apps/notebooklmplus/js/ai.js');
+const notebookCss=read('apps/notebooklmplus/css/styles.css'), assessmentApp=read('apps/schedule-assessment/app.js'), assessmentCss=read('apps/schedule-assessment/style.css');
 const tabs=[...index.matchAll(/data-tool="([^"]+)"/g)].map(x=>x[1]);
 const cfg={}; for(const m of shell.matchAll(/^\s*(\w+): \{ name: "([^"]+)", url: "([^"]+)" \}/gm)) cfg[m[1]]={name:m[2],url:m[3]};
 check('all shell tabs have route configs',tabs.every(t=>cfg[t]),`tabs=${tabs.length} routes=${Object.keys(cfg).length}`);
@@ -81,4 +82,13 @@ check('Bulk linked folders can refresh without reimporting all content',/refresh
 check('Bulk folders can be safely unlinked',/unlinkBulkFolder/.test(shell)&&/No files on your computer will be deleted/.test(shell));
 check('Bulk folders show a header cross remove control',/class=\"bulk-folder-remove\"/.test(shell)&&/data-bulk-unlink/.test(shell)&&/Remove linked folder/.test(shell));
 check('Bulk files route through shared Use action',/data-bulk-use/.test(shell)&&/resolveBulkFile/.test(shell)&&/pc-use-shared-file/.test(shell));
+
+check("NotebookLM+ Studio tab removed", !notebookHtml.includes('data-tab="studio"') && !notebookHtml.includes('id="tab-studio"'));
+check("NotebookLM+ exposes shared repository source action", notebookHtml.includes('useSharedRepositoryBtn') && notebookApp.includes('addSharedRepositorySources'));
+check("NotebookLM+ follows suite theme", notebookApp.includes("dataset.theme = value") && notebookCss.includes("--accent:#084B73"));
+check("Schedule Assessment never prompts to restore last project", !assessmentApp.includes("Restore the last saved project"));
+check("Schedule Assessment PDF uses automatic blob download", assessmentApp.includes('worker.outputPdf("blob")') && assessmentApp.includes("anchor.click()"));
+check("Schedule Assessment export footer uses requested site address", assessmentApp.includes("https://mbonandrini.githib.io/ScheduleAIToolkit"));
+check("Schedule Assessment Gantt export forced light", assessmentCss.includes(".pdf-export .gantt-pro") && assessmentCss.includes("background:#fff!important"));
+
 if(failures.length){console.error('FAILURES:',failures);process.exit(1)}

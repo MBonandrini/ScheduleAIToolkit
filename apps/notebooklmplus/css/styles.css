@@ -258,3 +258,30 @@ dialog::backdrop { background: rgba(0,0,0,.62); backdrop-filter: blur(3px); }
 :root[data-pc-theme="light"] .composer textarea, :root[data-pc-theme="light"] select, :root[data-pc-theme="light"] input, :root[data-pc-theme="light"] textarea { background:#FFFFFF; }
 :root[data-pc-theme="light"] .citation-chip, :root[data-pc-theme="light"] .progress-widget { background:#FFFFFF; }
 :root[data-pc-theme="light"] pre { background:#F5F8FA; }
+
+/* Suite unified colour system */
+:root{
+  color-scheme:light;
+  --bg:#F8FAFC;--bg-soft:#F1F5F8;--panel:#FFFFFF;--panel-2:#F5F8FA;
+  --line:#D2DEE6;--line-2:#B9CFDC;--text:#17212B;--muted:#667985;
+  --accent:#084B73;--accent-2:#0A6A9D;--good:#24734A;--warn:#9A6500;--bad:#A92D25;
+  --shadow:0 10px 30px rgba(11,45,74,.08);
+}
+html[data-theme="dark"],html.dark-mode{
+  color-scheme:dark;
+  --bg:#071521;--bg-soft:#091A27;--panel:#0B2030;--panel-2:#102C3F;
+  --line:#1D4058;--line-2:#28526D;--text:#EDF8FF;--muted:#8BA8B9;
+  --accent:#2F9BFF;--accent-2:#52B8FF;--good:#54D39A;--warn:#F4BD61;--bad:#FF7474;
+  --shadow:0 10px 30px rgba(0,0,0,.24);
+}
+html,body{background:var(--bg)!important;color:var(--text)!important}
+.topbar{background:var(--bg-soft)!important;border-bottom-color:var(--line)!important}
+.tabs{background:var(--bg-soft)!important;border-bottom-color:var(--line)!important}
+.panel,.composer{background:var(--panel)!important;border-color:var(--line)!important}
+.brand-mark{background:#EDF3F7!important;color:#084B73!important;border:1px solid #AFC9D9!important}
+html[data-theme="dark"] .brand-mark,html.dark-mode .brand-mark{background:#102C3F!important;color:#52B8FF!important;border-color:#1D4058!important}
+.btn.primary{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important}
+.btn.secondary,.message-bubble,.list-item{background:var(--panel-2)!important;color:var(--text)!important}
+.composer textarea,input,select,textarea{background:var(--panel)!important;color:var(--text)!important;border-color:var(--line-2)!important}
+.shared-repository-source{margin-top:auto;padding:12px;border-top:1px solid var(--line);display:grid;gap:8px;background:var(--bg-soft)}
+.shared-repository-source strong{font-size:.86rem}

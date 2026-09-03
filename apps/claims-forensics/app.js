@@ -3791,11 +3791,11 @@ async function initialiseApp(){
     renderSourcesForSelectedFolder();
     updateProjectMeta();
     switchWorkspace(currentWorkspace, true);
+    // Keep AI lazy. Opening or switching tabs must not initialise/load Ollama.
+    aiReady = true;
+    engineMode = "shared";
+    setEngineStatus("shared","Shared AI ready — model loads on first use","ready");
     updateSendButton();
-    initialiseAssistant().catch(error=>{
-        console.error(error);
-        setEngineStatus(null,"AI available on demand","error");
-    });
 }
 
 

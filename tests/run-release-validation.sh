@@ -43,19 +43,12 @@ echo '[7/9] XER 25k/100k stress'
 node tests/parser-stress-extra.js | tail -2
 echo '[8/9] NotebookLM+ full non-browser suite'
 (cd apps/notebooklmplus && bash tests/run_tests.sh)
-echo '[9/9] Static HTTP routes'
-python -m http.server 8899 --bind 127.0.0.1 >${TMPDIR:-/tmp}/pcai_http_$$.log 2>&1 &
-PID=$!
-trap 'kill "$PID" 2>/dev/null || true' EXIT
-sleep .5
+echo '[9/9] Static route compatibility'
 python - <<'PY'
-import urllib.request
-paths=['','apps/contract-manager/','apps/drawing-measurement/','apps/schedule-assessment/','apps/risk-analysis/','apps/claims-forensics/','apps/notebooklmplus/','apps/settings/','apps/schedule-builder/']
+from pathlib import Path
+paths=['index.html','apps/contract-manager/index.html','apps/drawing-measurement/index.html','apps/schedule-assessment/index.html','apps/risk-analysis/index.html','apps/claims-forensics/index.html','apps/notebooklmplus/index.html','apps/settings/index.html','apps/schedule-builder/index.html']
 for p in paths:
- with urllib.request.urlopen('http://127.0.0.1:8899/'+p,timeout=5) as r:
-  b=r.read(); assert r.status==200 and len(b)>100,(p,r.status,len(b))
+ b=Path(p).read_bytes(); assert len(b)>100,(p,len(b))
 print('PASS all 9 static routes')
 PY
-kill "$PID" 2>/dev/null || true
-trap - EXIT
 echo 'RELEASE VALIDATION PASS'

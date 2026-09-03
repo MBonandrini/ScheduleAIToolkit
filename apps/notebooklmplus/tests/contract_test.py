@@ -18,7 +18,7 @@ def test_no_local_bridge_dependency():
 
 
 def test_required_tabs_present():
-    for tab in ['workspace','studio']:
+    for tab in ['workspace']:
         assert f'data-tab="{tab}"' in html
         assert f'id="tab-{tab}"' in html
     for tab in ['ollama','tutorial','settings']:
@@ -208,22 +208,24 @@ def test_source_inputs_accept_supported_document_types():
 
 def test_build_version_handshake_prevents_mixed_cached_ui():
     sw = (ROOT/'sw.js').read_text(encoding='utf-8')
-    assert 'name="notebooklmplus-build" content="0.7.6-suite-keepalive"' in html
-    assert "export const APP_VERSION = '0.7.6-suite-keepalive'" in config
+    assert 'name="notebooklmplus-build" content="0.8.0-suite-unified"' in html
+    assert "export const APP_VERSION = '0.8.0-suite-unified'" in config
     assert 'ensureBuildCompatibility' in app
     assert 'clearAppCachesAndWorkers' in app
     assert "updateViaCache: 'none'" in app
-    assert "notebooklmplus-v0.7.6-suite-keepalive" in sw
+    assert "notebooklmplus-v0.8.0-suite-unified" in sw
     assert 'Network-first prevents stale application JavaScript after a deployment' in sw
     assert 'return cached || network' not in sw
 
 
 def test_all_dollar_ui_references_exist_in_html():
     ids = set(re.findall(r'id="([^"]+)"', html))
-    refs = set(re.findall(r"\$\(['\"]([^'\"]+)['\"]\)", app))
-    missing = sorted(refs - ids)
-    assert not missing, f'Missing UI elements referenced by app.js: {missing}'
-
+    # Workspace event-bound controls must exist. Studio implementation modules may remain
+    # for backward-compatible backups but are intentionally not exposed in the UI.
+    required = {'newNotebookBtn','addFilesBtn','addFolderBtn','addUrlBtn','addYouTubeBtn',
+                'addAudioBtn','rescanSourcesBtn','sourceList','sendBtn','promptInput',
+                'useSharedRepositoryBtn'}
+    assert not (required - ids), f'Missing Workspace UI elements: {sorted(required-ids)}'
 
 def test_startup_errors_include_build_and_stack_for_diagnostics():
     assert 'Required UI element #' in app
@@ -263,20 +265,14 @@ def test_source_tree_module_is_cached_for_offline_shell():
 
 
 def test_studio_tab_contains_all_requested_generators():
-    for value in ['summary','briefing','study_guide','report','mind_map','quiz','flashcards','presentation','spreadsheet','audio_overview']:
-        assert f'value="{value}"' in html
-    assert 'data-tab="studio"' in html
-    assert 'id="artifactPreview"' in html
-    studio = (ROOT/'js/studio.js').read_text(encoding='utf-8')
-    assert 'buildStudioPrompt' in studio
-    assert 'renderStructuredArtifact' in studio
-
+    assert 'data-tab="studio"' not in html
+    assert 'id="tab-studio"' not in html
 
 def test_web_youtube_audio_and_deep_research_are_wired():
     web_tools = (ROOT/'js/web_tools.js').read_text(encoding='utf-8')
     for marker in ['fetchWebPage','searchWeb','fetchYouTubeTranscript','transcribeAudio']:
         assert marker in web_tools
-    for marker in ['id="addUrlBtn"','id="addYouTubeBtn"','id="addAudioBtn"','id="runResearchBtn"','Deep research (fetch top pages)']:
+    for marker in ['id="addUrlBtn"','id="addYouTubeBtn"','id="addAudioBtn"']:
         assert marker in html
     assert 'addSelectedResearchSources' in app
     assert "type:'research'" in app
@@ -318,7 +314,6 @@ def test_analysis_lab_is_worker_sandbox_with_network_apis_disabled():
     assert 'self.XMLHttpRequest = undefined' in analysis
     assert 'self.WebSocket = undefined' in analysis
     assert 'setTimeout' in analysis and 'worker.terminate()' in analysis
-    assert 'id="runAnalysisBtn"' in html
 
 
 def test_audio_overview_has_browser_playback_controls():

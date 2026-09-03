@@ -464,6 +464,16 @@ bulkFolderFallbackInput?.addEventListener("change",async()=>{try{await addBulkFa
 let sharedRepoReadyPromise=loadSharedRepo().then(()=>{notifyBulkSchedulesChanged();});
 window.ProjectControlsSharedRepository={
  getSnapshot:()=>({projectName:sharedProject,files:sharedFiles.slice(),folders:sharedFolders.map(({handle,...folder})=>folder)}),
+ async getResolvedFiles(){
+   const resolved=[];
+   for(const record of sharedFiles){
+     try{
+       const blob=record.bulkFolderId?await resolveBulkFile(record):record.blob;
+       if(blob) resolved.push({...record,blob});
+     }catch(error){ resolved.push({...record,resolutionError:error?.message||String(error)}); }
+   }
+   return resolved;
+ },
  useFile:useSharedFile,
  getBulkScheduleEntries
 };

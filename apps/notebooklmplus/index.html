@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdn.sheetjs.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https:; worker-src 'self' blob: https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <meta name="theme-color" content="#111827" />
-  <meta name="notebooklmplus-build" content="0.7.6-suite-keepalive" />
+  <meta name="notebooklmplus-build" content="0.8.0-suite-unified" />
   <title>NotebookLM+</title>
   <meta name="description" content="NotebookLM+ — browser-first notebook research with local Ollama, remote Ollama, or hosted AI." />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="css/styles.css?v=20260903-keepalive-boundary2" />
+  <link rel="stylesheet" href="css/styles.css?v=20260903-unified-rebuild" />
 </head>
 <body>
   <div id="appShell" class="app-shell">
@@ -28,7 +28,6 @@
 
     <nav class="tabs" aria-label="Main navigation">
       <button class="tab active" data-tab="workspace">Workspace</button>
-      <button class="tab" data-tab="studio">Studio</button>
     </nav>
 
     <main>
@@ -110,44 +109,19 @@
             <input id="audioSourceInput" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac" hidden />
             <div id="sourceList" class="list-stack source-list"></div>
             <div class="source-tree-hint">Expand sources and folders to include/exclude individual files. Changing a checkbox automatically switches chat scope to Selected files/folders.</div>
-          </aside>
-        </div>
-      </section>
-
-      <section id="tab-studio" class="tab-panel">
-        <div class="studio-grid">
-          <aside class="panel studio-generator-panel">
-            <div class="panel-header"><div><h2>Studio</h2><p>Turn notebook evidence into reusable outputs.</p></div></div>
-            <div class="studio-generator-body">
-              <div class="profile-chip">Profile: <strong id="studioProfileLabel">General Research</strong></div>
-              <label class="field"><span>Artifact</span><select id="studioTypeSelect">
-                <option value="summary">Executive Summary</option><option value="briefing">Briefing Document</option><option value="study_guide">Study Guide</option><option value="report">Detailed Report</option><option value="mind_map">Mind Map</option><option value="quiz">Quiz</option><option value="flashcards">Flashcards</option><option value="presentation">Presentation</option><option value="spreadsheet">Spreadsheet / Data Analysis</option><option value="audio_overview">Audio Overview</option>
-              </select></label>
-              <label class="field"><span>Source scope</span><select id="studioScopeSelect"><option value="all">Entire notebook</option><option value="selected">Selected files/folders</option><option value="general">General model knowledge only</option></select></label>
-              <label class="field"><span>Focus / instructions</span><textarea id="studioTopicInput" rows="5" placeholder="Optional: focus this output on a topic, decision, audience or question."></textarea></label>
-              <button id="generateStudioBtn" class="btn primary">Generate artifact</button>
-              <div class="muted">Generated artifacts are stored separately from source evidence unless you explicitly add them back as a source.</div>
-            </div>
-          </aside>
-
-          <section class="panel studio-preview-panel">
-            <div class="panel-header studio-preview-header"><div><h2 id="artifactTitle">No artifact selected</h2><p id="artifactMeta">Generate or select an artifact.</p></div><div class="button-row compact"><select id="artifactExportFormat"><option value="md">Markdown</option><option value="txt">Text</option><option value="html">HTML</option><option value="pdf">PDF</option><option value="docx">Word (.docx)</option><option value="json">JSON</option><option value="csv">CSV</option><option value="xlsx">Excel (.xlsx)</option><option value="pptx">PowerPoint (.pptx)</option></select><button id="exportArtifactBtn" class="btn secondary small">Export</button><button id="deleteArtifactBtn" class="btn danger small">Delete</button></div></div>
-            <div id="artifactPreview" class="artifact-preview"><div class="empty-state">Studio outputs will appear here.</div></div>
-          </section>
-
-          <aside class="panel studio-tools-panel">
-            <div class="studio-tools-scroll">
-              <section class="studio-tool-section"><h3>Saved artifacts</h3><div id="artifactList" class="artifact-list"></div></section>
-              <section class="studio-tool-section"><h3>Web / source tools</h3>
-                <label class="field"><span>Web page URL</span><input id="webUrlInput" type="url" placeholder="https://example.com/article" /></label><button id="studioAddWebBtn" class="btn secondary small">Add web page</button>
-                <label class="field"><span>YouTube URL</span><input id="youtubeUrlInput" type="url" placeholder="https://youtube.com/watch?v=VIDEO_ID" /></label><button id="studioAddYouTubeBtn" class="btn secondary small">Add transcript</button>
-              </section>
-              <section class="studio-tool-section"><h3>Source discovery / Deep Research</h3><label class="field"><span>Research question</span><textarea id="researchQueryInput" rows="3" placeholder="What should NotebookLM+ research?"></textarea></label><label class="field"><span>Depth</span><select id="researchModeSelect"><option value="quick">Quick discovery</option><option value="deep">Deep research (fetch top pages)</option></select></label><button id="runResearchBtn" class="btn primary small">Find sources</button><div id="researchResults" class="research-results"></div><button id="addResearchSelectedBtn" class="btn secondary small hidden">Add selected sources</button></section>
-              <section class="studio-tool-section"><h3>Analysis Lab</h3><label class="field"><span>Input</span><select id="analysisInputSelect"><option value="documents">Indexed documents</option><option value="chunks">Selected source chunks</option><option value="artifact">Current Studio artifact</option></select></label><label class="field"><span>Starter</span><select id="analysisStarterSelect"><option value="summary">Inspect/sample data</option><option value="numeric">Numeric statistics</option><option value="custom">Custom code</option></select></label><textarea id="analysisCodeInput" rows="9" spellcheck="false" placeholder="JavaScript. Return a JSON-serialisable result."></textarea><button id="runAnalysisBtn" class="btn secondary small">Run sandboxed analysis</button><pre id="analysisResult" class="analysis-result">No analysis run.</pre></section>
+            <div class="shared-repository-source">
+              <div>
+                <strong>Shared Project Repository</strong>
+                <div class="muted">Use files already held by the rest of the Project Controls AI Suite in addition to NotebookLM+ sources.</div>
+              </div>
+              <button id="useSharedRepositoryBtn" class="btn secondary" type="button">＋ Add from shared repository</button>
+              <div id="sharedRepositoryStatus" class="muted">No shared repository files added to this notebook yet.</div>
             </div>
           </aside>
         </div>
       </section>
+
+
 
       <section id="tab-ollama" class="tab-panel" hidden aria-hidden="true">
         <div class="settings-layout">
@@ -489,6 +463,6 @@ ollama pull embeddinggemma</code></pre>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" crossorigin="anonymous"></script>
-  <script type="module" src="js/app.js?v=20260903-keepalive-boundary2"></script>
+  <script type="module" src="js/app.js?v=20260903-unified-rebuild"></script>
 </body>
 </html>

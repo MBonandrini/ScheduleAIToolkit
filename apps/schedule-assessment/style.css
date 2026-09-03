@@ -2272,3 +2272,31 @@ html.dark-mode .compare-schedules-pane,html.dark-mode .saved-comparison-item,htm
 .file-header{padding-right:28px}
 .file-remove{position:absolute;right:5px;top:6px;width:21px;height:21px;border:0;border-radius:6px;background:transparent;color:var(--muted,#8395a3);font-size:13px;line-height:1;cursor:pointer;z-index:2}
 .file-remove:hover{background:rgba(190,40,40,.12);color:#b3261e}
+
+/* Professional export surface: downloads are always light, regardless of application theme. */
+.pdf-export{
+  --bg:#fff;--panel:#fff;--soft:#F7F9FA;--soft2:#F2F6F8;--border:#D5E0E7;
+  --text:#17212B;--muted:#667985;--accent:#084B73;--accent-dark:#052F4B;--accent-soft:#EAF2F6;
+  background:#fff!important;color:#17212B!important;font-family:Arial,"Segoe UI",sans-serif!important;
+  line-height:1.35!important;
+}
+.pdf-export *{box-sizing:border-box}
+.pdf-export .pdf-report-header{break-after:avoid-page;page-break-after:avoid}
+.pdf-export .pdf-report-body{width:100%!important;overflow:visible!important}
+.pdf-export .grid2,.pdf-export .grid3,.pdf-export .metrics{align-items:stretch!important}
+.pdf-export table{width:100%!important;border-collapse:collapse!important;table-layout:auto!important}
+.pdf-export th,.pdf-export td{padding:4px 5px!important;vertical-align:top!important;overflow-wrap:anywhere!important}
+.pdf-export thead{display:table-header-group!important}
+.pdf-export tr{break-inside:avoid!important;page-break-inside:avoid!important}
+.pdf-export img,.pdf-export svg,.pdf-export canvas{max-width:100%!important;height:auto!important}
+.pdf-export .gantt-pro,.pdf-export .gantt-pro-grid,.pdf-export .gantt-pro-scroll,
+.pdf-export .gantt-pro-left-head,.pdf-export .gantt-pro-time-head,.pdf-export .gantt-pro-left-row,
+.pdf-export .gantt-pro-time-row,.pdf-export .gantt-month-label,.pdf-export .gantt-week-label{
+  background:#fff!important;color:#17212B!important;border-color:#D5E0E7!important;
+}
+.pdf-export .gantt-pro-scroll{max-height:none!important;overflow:visible!important}
+.pdf-export .gantt-pro-grid{min-width:0!important;width:100%!important}
+.pdf-export .gantt-pro-left-head,.pdf-export .gantt-pro-time-head,.pdf-export .gantt-pro-left-row{position:relative!important;left:auto!important;top:auto!important}
+.pdf-export .gantt-pro-toolbar{background:#EDF3F6!important;color:#17212B!important}
+.pdf-export .gantt-pro-actions{display:none!important}
+.pdf-export .gantt-bar{box-shadow:none!important}

@@ -11162,7 +11162,7 @@ async function downloadReport(
                     );
 
                     pdf.text(
-                        "Schedule AI Toolkit",
+                        "https://mbonandrini.githib.io/ScheduleAIToolkit",
                         width - 10,
                         height - 6,
                         {
@@ -11173,7 +11173,16 @@ async function downloadReport(
             }
         );
 
-        await worker.save();
+        const pdfBlob = await worker.outputPdf("blob");
+        const downloadUrl = URL.createObjectURL(pdfBlob);
+        const anchor = document.createElement("a");
+        anchor.href = downloadUrl;
+        anchor.download = filename;
+        anchor.style.display = "none";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(()=>URL.revokeObjectURL(downloadUrl), 30000);
 
     }catch(error){
 
@@ -12230,374 +12239,38 @@ function restoreChat(){
 }
 
 async function initialise(){
-
     initialiseTheme();
-
     renderReportList();
     renderScheduleTree();
     renderRightPane();
     updateWorkspaceMeta();
 
-    let restoredProject =
-        null;
+    // Open cleanly. Saved Schedule Assessment packages remain available through
+    // Backup & portability, but opening this tab never prompts to restore one.
+    state.projectId = null;
+    state.projectName = "Untitled project";
+    state.files = [];
+    state.schedules = [];
+    state.activeSchedules = new Set();
+    state.reports = {};
+    state.currentReport = "health";
+    state.recommendations = [];
+    state.recommendationsBySchedule = {};
+    state.comparisonScheduleBySchedule = {};
+    state.weekComparisonBySchedule = {};
+    state.delayBaselineBySchedule = {};
+    state.forensicBaselineBySchedule = {};
+    state.monteSettingsBySchedule = {};
+    state.comparisonSequenceIds = [];
+    state.savedComparisonReports = [];
+    state.chat = [];
 
-    try{
+    renderNoScheduleReport();
+    restoreChat();
 
-        const db =
-            await dbOpen();
-
-        const projects =
-            await new Promise(
-                (resolve,reject)=>{
-
-                    const request =
-                        db
-                            .transaction(
-                                STORE,
-                                "readonly"
-                            )
-                            .objectStore(
-                                STORE
-                            )
-                            .getAll();
-
-                    request.onsuccess =
-                        () =>
-                            resolve(
-                                request.result
-                            );
-
-                    request.onerror =
-                        () =>
-                            reject(
-                                request.error
-                            );
-                }
-            );
-
-        db.close();
-
-        const meaningfulProjects =
-            projects.filter(
-                project =>
-                    (
-                        project.files?.length ||
-                        project.schedules?.length ||
-                        Object.keys(
-                            project.reports ||
-                            {}
-                        ).length ||
-                        (
-                            project.chat ||
-                            []
-                        ).some(
-                            message =>
-                                message &&
-                                message.role ===
-                                    "user" &&
-                                String(
-                                    message.content ||
-                                    ""
-                                ).trim()
-                        )
-                    )
-            );
-
-        if(meaningfulProjects.length){
-
-            meaningfulProjects.sort(
-                (a,b)=>
-                    b.updatedAt -
-                    a.updatedAt
-            );
-
-            const project =
-                meaningfulProjects[0];
-
-            if(
-                project &&
-                confirm(
-                    `Restore the last saved project "${project.name}"?`
-                )
-            ){
-
-                restoredProject =
-                    project;
-
-                state.projectId =
-                    project.id;
-
-                state.projectName =
-                    project.name ||
-                    "Untitled project";
-
-                state.files =
-                    project.files ||
-                    [];
-
-                state.schedules =
-                    project.schedules ||
-                    [];
-
-                const restoredActive =
-                    (
-                        project.activeSchedules ||
-                        []
-                    )
-                        .find(
-                            id =>
-                                state.schedules.some(
-                                    schedule =>
-                                        schedule.id ===
-                                        id
-                                )
-                        ) ||
-                    state.schedules[0]?.id ||
-                    null;
-
-                state.activeSchedules =
-                    restoredActive
-                        ? new Set([
-                            restoredActive
-                        ])
-                        : new Set();
-
-                const restoredReports =
-                    project.reports ||
-                    {};
-
-                const looksFlat =
-                    Object.keys(
-                        restoredReports
-                    )
-                        .some(
-                            key =>
-                                REPORTS.some(
-                                    report =>
-                                        report.id ===
-                                        key
-                                )
-                        );
-
-                if(
-                    looksFlat &&
-                    restoredActive
-                ){
-
-                    state.reports = {
-                        [restoredActive]:
-                            restoredReports
-                    };
-
-                    Object.values(
-                        state.reports[
-                            restoredActive
-                        ]
-                    )
-                        .forEach(
-                            report=>{
-
-                                if(report){
-                                    report.scheduleId =
-                                        restoredActive;
-                                }
-                            }
-                        );
-
-                }else{
-
-                    state.reports =
-                        restoredReports;
-                }
-
-                state.currentReport =
-                    project.currentReport ||
-                    "health";
-
-                state.recommendations =
-                    project.recommendations ||
-                    [];
-
-                state.recommendationsBySchedule =
-                    project.recommendationsBySchedule ||
-                    (
-                        restoredActive
-                            ? {
-                                [restoredActive]:
-                                    state.recommendations
-                              }
-                            : {}
-                    );
-
-                state.comparisonScheduleBySchedule =
-                    project.comparisonScheduleBySchedule ||
-                    {};
-
-                state.weekComparisonBySchedule =
-                    project.weekComparisonBySchedule ||
-                    {};
-
-                state.delayBaselineBySchedule =
-                    project.delayBaselineBySchedule ||
-                    {};
-
-                state.forensicBaselineBySchedule =
-                    project.forensicBaselineBySchedule ||
-                    {};
-
-                state.monteSettingsBySchedule =
-                    project.monteSettingsBySchedule ||
-                    {};
-                state.comparisonSequenceIds = project.comparisonSequenceIds || [];
-                state.savedComparisonReports = project.savedComparisonReports || [];
-
-                state.chat =
-                    project.chat ||
-                    [];
-
-                if(
-                    project.aiModelValue &&
-                    MODEL_CATALOG.some(
-                        model =>
-                            model.value ===
-                            project.aiModelValue
-                    )
-                ){
-
-                    localStorage.setItem(
-                        "scheduleIntelligenceAIModel",
-                        project.aiModelValue
-                    );
-                }
-
-                const active =
-                    getActiveSchedule();
-
-                if(active){
-
-                    state.recommendations =
-                        state.recommendationsBySchedule[
-                            active.id
-                        ] ||
-                        state.recommendations ||
-                        [];
-                }
-
-                renderScheduleTree();
-                renderReportList();
-                renderRightPane();
-                updateWorkspaceMeta();
-                restoreChat();
-
-                const report =
-                    active
-                        ? getReportForSchedule(
-                            active.id,
-                            state.currentReport
-                        ) ||
-                          getReportForSchedule(
-                              active.id,
-                              "health"
-                          )
-                        : null;
-
-                if(report){
-
-                    state.currentReport =
-                        report.id;
-
-                    renderReportList();
-                    renderReport(
-                        report
-                    );
-
-                    document.getElementById(
-                        "workspaceTitle"
-                    ).textContent =
-                        REPORTS.find(
-                            item =>
-                                item.id ===
-                                report.id
-                        )?.name ||
-                        report.title;
-
-                }else if(active){
-
-                    renderBuildPlaceholder(
-                        REPORTS.find(
-                            report =>
-                                report.id ===
-                                "health"
-                        )
-                    );
-
-                }else{
-
-                    renderNoScheduleReport();
-                }
-            }
-        }
-
-    }catch(error){
-
-        console.warn(
-            "Could not restore saved project:",
-            error
-        );
-    }
-
+    // AI is configured globally and remains lazy: opening the tab must not load
+    // or execute a model. initialiseAI only synchronises UI/configuration.
     await initialiseAI();
-
-    if(restoredProject){
-
-        for(const schedule of state.schedules){
-
-            const store =
-                ensureReportStore(
-                    schedule.id
-                );
-
-            const missing =
-                REPORTS.some(
-                    report =>
-                        AUTO_REPORT_IDS.has(
-                            report.id
-                        ) &&
-                        !store[
-                            report.id
-                        ]
-                );
-
-            if(missing){
-
-                document.getElementById(
-                    "autoReportStatus"
-                ).textContent =
-                    `Updating reports: ${schedule.name}...`;
-
-                await buildAllReportsForSchedule(
-                    schedule.id
-                );
-            }
-        }
-
-        document.getElementById(
-            "autoReportStatus"
-        ).textContent =
-            "All automatic reports complete.";
-
-        const active =
-            getActiveSchedule();
-
-        if(active){
-
-            await openReport(
-                state.currentReport ||
-                "health"
-            );
-        }
-    }
-
     await queueBulkInformationScheduleSync();
 
     renderRightPane();

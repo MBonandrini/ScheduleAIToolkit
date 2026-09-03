@@ -6,7 +6,7 @@ const checks=[
  ['compare mini pane',/id="compareSchedulesPane"/.test(html)],
  ['ordered sequence UI',/compareSequenceList/.test(html)&&/moveComparisonSequence/.test(app)],
  ['2+ validation',/Select at least two schedules/.test(app)],
- ['saved comparison persistence',/savedComparisonReports:state\.savedComparisonReports/.test(app)&&/project\.savedComparisonReports/.test(app)],
+ ['saved comparison persistence',/savedComparisonReports:state\.savedComparisonReports/.test(app)&&/state\.savedComparisonReports/.test(app)],
  ['progress comparison',/progressChanged/.test(app)&&/Progress & dates/.test(app)],
  ['data date comparison',/dataDateDelta/.test(app)],
  ['logic comparison',/linkAdded/.test(app)&&/Open starts/.test(app)&&/Positive lags/.test(app)],

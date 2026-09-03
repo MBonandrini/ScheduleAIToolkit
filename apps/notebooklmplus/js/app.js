@@ -2,6 +2,8 @@
 function applyParentTheme(theme){
   const value = theme === 'dark' ? 'dark' : 'light';
   document.documentElement.dataset.pcTheme = value;
+  document.documentElement.dataset.theme = value;
+  document.documentElement.classList.toggle('dark-mode', value === 'dark');
   document.documentElement.style.colorScheme = value;
 }
 window.addEventListener('message', event => {
@@ -167,9 +169,6 @@ function setBusy(value) {
   $('addFolderBtn').disabled = value;
   $('rescanSourcesBtn').disabled = value;
   $('addUrlBtn').disabled = value; $('addYouTubeBtn').disabled = value; $('addAudioBtn').disabled = value;
-  $('generateStudioBtn').disabled = value;
-  $('runResearchBtn').disabled = value;
-  $('runAnalysisBtn').disabled = value;
 }
 
 async function init() {
@@ -309,7 +308,6 @@ function openTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
   if (name === 'ollama') applySettingsToUi();
-  if (name === 'studio') refreshStudio().catch(err => console.error('Studio refresh failed', err));
 }
 
 function bindTutorial() {
@@ -318,6 +316,40 @@ function bindTutorial() {
     document.querySelectorAll('.tutorial-link').forEach(x => x.classList.toggle('active', x.dataset.step === step));
     document.querySelectorAll('.tutorial-step').forEach(x => x.classList.toggle('active', x.dataset.step === step));
   }));
+}
+
+
+async function addSharedRepositorySources(){
+  if(!state.activeNotebookId){ alert('Create or select a notebook first.'); return; }
+  const repo=window.parent?.ProjectControlsSharedRepository;
+  if(!repo?.getSnapshot){ alert('The shared project repository is not available in this view.'); return; }
+  const snapshot=repo.getSnapshot();
+  const resolved=repo.getResolvedFiles ? await repo.getResolvedFiles() : (snapshot.files||[]);
+  const candidates=(resolved||[]).filter(record=>record?.blob instanceof Blob);
+  if(!candidates.length){ alert('There are no directly stored files in the shared repository to add. Linked Bulk Information files can still be added from the shared pane using Use.'); return; }
+  setBusy(true); beginProgress('Adding shared repository','Indexing shared project evidence…',250);
+  let added=0, skipped=0;
+  try{
+    const existing=await getAllByIndex('sources','notebookId',state.activeNotebookId);
+    for(let i=0;i<candidates.length;i++){
+      const record=candidates[i];
+      const key=`shared:${record.id}`;
+      if(existing.some(s=>s.sharedRepositoryKey===key)){ skipped++; continue; }
+      const file=new File([record.blob],record.name,{type:record.type||record.blob.type||'',lastModified:record.lastModified||Date.now()});
+      const source={id:crypto.randomUUID(),notebookId:state.activeNotebookId,type:'file',name:record.name,createdAt:Date.now(),updatedAt:Date.now(),sharedRepositoryKey:key,sharedCategory:record.category||'',size:file.size};
+      await put('sources',source);
+      const result=await indexSourceEntries({source,entries:[{file,path:record.name}],settings:state.settings,mode:currentMode(),onProgress:(pct,label,detail)=>setProgress(Math.min(99,Math.round(((i+pct/100)/candidates.length)*100)),label,detail)});
+      state.selectedSourceIds.add(source.id);
+      const docs=await getAllByIndex('documents','sourceId',source.id);
+      docs.forEach(d=>state.selectedDocumentIds.add(d.id));
+      added++;
+    }
+    endProgress('Shared repository added');
+    await renderSources();
+    const status=document.getElementById('sharedRepositoryStatus');
+    if(status) status.textContent=`${added} shared file${added===1?'':'s'} added${skipped?` · ${skipped} already present`:''}.`;
+  }catch(err){ endProgress(); alert(`Could not add shared repository files: ${err.message||err}`); }
+  finally{ setBusy(false); }
 }
 
 function bindEvents() {
@@ -368,6 +400,7 @@ function bindEvents() {
   $('fileFallbackInput').addEventListener('change', e => indexFallbackFiles(e.target.files, 'files'));
   $('directoryFallbackInput').addEventListener('change', e => indexFallbackFiles(e.target.files, 'folder'));
   $('rescanSourcesBtn').addEventListener('click', rescanSources);
+  $('useSharedRepositoryBtn').addEventListener('click', addSharedRepositorySources);
   $('sourceList').addEventListener('change', async e => {
     const target = e.target;
     if (target.matches('[data-source-check]')) {
@@ -404,19 +437,6 @@ function bindEvents() {
       if (!state.busy) sendQuestion();
     }
   });
-
-  $('generateStudioBtn').addEventListener('click', generateStudioArtifact);
-  $('artifactList').addEventListener('click', e => { const btn=e.target.closest('[data-artifact-id]'); if (btn) selectArtifact(btn.dataset.artifactId); });
-  $('artifactPreview').addEventListener('click', e => { const card=e.target.closest('[data-flashcard]'); if (card) card.classList.toggle('flipped'); if (e.target.closest('[data-audio-play]')) playCurrentAudioOverview(); if (e.target.closest('[data-audio-stop]')) stopAudioOverview(); });
-  $('exportArtifactBtn').addEventListener('click', exportCurrentArtifact);
-  $('deleteArtifactBtn').addEventListener('click', deleteCurrentArtifact);
-  $('studioAddWebBtn').addEventListener('click', () => addWebUrlSource($('webUrlInput').value));
-  $('studioAddYouTubeBtn').addEventListener('click', () => addYouTubeSource($('youtubeUrlInput').value));
-  $('runResearchBtn').addEventListener('click', runResearch);
-  $('addResearchSelectedBtn').addEventListener('click', addSelectedResearchSources);
-  $('researchResults').addEventListener('change', () => updateResearchAddButton());
-  $('analysisStarterSelect').addEventListener('change', updateAnalysisStarter);
-  $('runAnalysisBtn').addEventListener('click', runAnalysisLab);
   $('saveResearchSettingsBtn').addEventListener('click', saveResearchSettings);
 
   $('exportBackupBtn').addEventListener('click', exportBackup);
@@ -464,19 +484,16 @@ async function activateNotebook(id, rescan=true) {
     $('conversationSelect').innerHTML = '';
     $('sourceList').innerHTML = '<div class="empty-state">No notebook selected.</div>';
     $('chatMessages').innerHTML = '<div class="empty-state">Create or select a notebook.</div>';
-    $('studioProfileLabel').textContent = 'No notebook'; state.artifacts=[]; state.activeArtifactId=null; renderArtifactList(); renderArtifactPreview();
     return;
   }
   $('activeNotebookTitle').textContent = notebook.name;
   $('activeNotebookMeta').textContent = `${notebook.description || 'Local knowledge notebook'} • ${profileFor(notebook.profile || 'general').label}`;
-  $('studioProfileLabel').textContent = profileFor(notebook.profile || 'general').label;
   const initialSources = await getAllByIndex('sources', 'notebookId', id);
   const initialDocs = await getAllByIndex('documents', 'notebookId', id);
   state.selectedSourceIds = new Set(initialSources.map(s => s.id));
   state.selectedDocumentIds = new Set(initialDocs.map(d => d.id));
   await renderConversations();
   await renderSources();
-  await reloadArtifacts();
   if (rescan && state.settings.retrieval.rescanOnOpen && !state.busy) {
     const sources = await getAllByIndex('sources', 'notebookId', id);
     if (sources.some(s => s.handle)) rescanSources(true);
