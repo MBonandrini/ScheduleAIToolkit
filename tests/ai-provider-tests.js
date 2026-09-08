@@ -104,5 +104,17 @@ function check(name,value){console.log((value?"PASS ":"FAIL ")+name);if(!value)f
         try{await ai.listOllamaModels();}catch(e){text=String(e.message||e)}
         check("Ollama network/CORS error is actionable",/OLLAMA_ORIGINS/i.test(text)&&/Ollama/i.test(text));
     }
-    if(failures.length){console.error("FAILURES",failures);process.exit(1)}
+    
+    {
+        const {ai,calls,localStorage}=await makeCore();
+        localStorage.setItem("projectControlsNotebookRuntimeConfig",JSON.stringify({temperature:0.37,retryCount:0,thinkingMode:"off"}));
+        ai.configureOllama({model:"gemma3:4b"});
+        ai.setPreferred("ollama:auto");
+        await ai.run([{role:"user",content:"temperature default"}],{thinkingMode:"off"});
+        const chat=calls.filter(x=>x.url.endsWith("/api/chat")).pop();
+        const payload=JSON.parse(chat.body);
+        check("Default run uses configured temperature",payload.options.temperature===0.37);
+    }
+
+if(failures.length){console.error("FAILURES",failures);process.exit(1)}
 })().catch(error=>{console.error(error);process.exit(1)});

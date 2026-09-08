@@ -2516,8 +2516,10 @@ async function load(value){
         async function run(messages,{temperature=null,max_tokens=null,stream=false,onToken=null,thinkingMode=null}={}){
             await ensure(currentValue || preferred());
             const runtimeCfg=aiRuntimeConfig();
-            temperature=Number.isFinite(Number(temperature))?Number(temperature):runtimeCfg.temperature;
-            max_tokens=Number.isFinite(Number(max_tokens))?Number(max_tokens):runtimeCfg.maxAnswerTokens;
+            const hasTemperature=temperature!==null&&temperature!==undefined&&temperature!=="";
+            const hasMaxTokens=max_tokens!==null&&max_tokens!==undefined&&max_tokens!=="";
+            temperature=hasTemperature&&Number.isFinite(Number(temperature))?Number(temperature):runtimeCfg.temperature;
+            max_tokens=hasMaxTokens&&Number.isFinite(Number(max_tokens))?Number(max_tokens):runtimeCfg.maxAnswerTokens;
             const enrichedMessages=await augmentSharedRepositoryContext(messages);
             aiProgress({title:"Generating AI response",detail:`${currentLabel} is analysing the selected context…`,indeterminate:true});
             try{

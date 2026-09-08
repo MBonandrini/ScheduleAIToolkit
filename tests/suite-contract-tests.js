@@ -105,6 +105,6 @@ check('No module-level local AI loading consent dialog remains', !core.includes(
 check('Modules do not directly call shared ai.ensure', !/ProjectControlsCore\.ai\.ensure|Core\.ai\.ensure/.test(moduleAiSource));
 check('NotebookLM+ chat uses parent shared AI runtime', notebookApp.includes('streamSuiteAiChat') && notebookApp.includes('core.ai.run(messages'));
 check('NotebookLM+ dark theme is first-paint default', /<html[^>]+data-theme="dark"[^>]+dark-mode/.test(notebookHtml));
-check('NotebookLM+ build cache bumped for shared AI correction', notebookHtml.includes('0.8.2-suite-context-themes'));
+check('NotebookLM+ build cache bumped for shared AI correction', notebookHtml.includes('0.8.3-suite-ui-cleanup'));
 
 if(failures.length){console.error('FAILURES:',failures);process.exit(1)}

@@ -2,7 +2,7 @@
 (function(){
 const key="projectControlsTheme";
 const isShell=window.parent===window;
-const allowed=["dark","light","slate","midnight","sand"];
+const allowed=["dark","light","navy"];
 function saved(){try{const v=localStorage.getItem(key)||"dark";return allowed.includes(v)?v:"dark"}catch(_){return "dark"}}
 function paint(theme){
  if(!isShell)return;
@@ -11,7 +11,7 @@ function paint(theme){
 function apply(theme,notify){
  const x=allowed.includes(theme)?theme:"dark";
  document.documentElement.dataset.theme=x;
- document.documentElement.classList.toggle("dark-mode",x==="dark"||x==="midnight");
+ document.documentElement.classList.toggle("dark-mode",x==="dark");
  paint(x);
  if(notify&&isShell){
    try{localStorage.setItem(key,x)}catch(_){}

@@ -1,14 +1,14 @@
 "use strict";
 
 const TOOL_CONFIG = {
-    contracts: { name: "Contract Manager", url: "./apps/contract-manager/index.html?sharedPane=1&v=20260908-schedule-reports-context1" },
-    drawing: { name: "Drawing Measurement", url: "./apps/drawing-measurement/index.html?sharedPane=1&v=20260908-schedule-reports-context1" },
-    assessment: { name: "Schedule Assessment", url: "./apps/schedule-assessment/index.html?sharedPane=1&v=20260908-schedule-reports-context1" },
-    risk: { name: "Risk Analysis", url: "./apps/risk-analysis/index.html?sharedPane=1&v=20260908-schedule-reports-context1" },
-    claims: { name: "Claims & Forensics", url: "./apps/claims-forensics/index.html?sharedPane=1&v=20260908-schedule-reports-context1" },
-    notebook: { name: "NotebookLM+", url: "./apps/notebooklmplus/index.html?v=20260908-schedule-reports-context1" },
-    settings: { name: "Settings", url: "./apps/settings/index.html?v=20260908-schedule-reports-context1" },
-    builder: { name: "Schedule Builder", url: "./apps/schedule-builder/index.html?v=20260908-schedule-reports-context1" }
+    contracts: { name: "Contract Manager", url: "./apps/contract-manager/index.html?sharedPane=1&v=20260908-ollama-validated1" },
+    drawing: { name: "Drawing Measurement", url: "./apps/drawing-measurement/index.html?sharedPane=1&v=20260908-ollama-validated1" },
+    assessment: { name: "Schedule Assessment", url: "./apps/schedule-assessment/index.html?sharedPane=1&v=20260908-ollama-validated1" },
+    risk: { name: "Risk Analysis", url: "./apps/risk-analysis/index.html?sharedPane=1&v=20260908-ollama-validated1" },
+    claims: { name: "Claims & Forensics", url: "./apps/claims-forensics/index.html?sharedPane=1&v=20260908-ollama-validated1" },
+    notebook: { name: "NotebookLM+", url: "./apps/notebooklmplus/index.html?v=20260908-ollama-validated1" },
+    settings: { name: "Settings", url: "./apps/settings/index.html?v=20260908-ollama-validated1" },
+    builder: { name: "Schedule Builder", url: "./apps/schedule-builder/index.html?v=20260908-ollama-validated1" }
 };
 
 const host = document.getElementById("host");
