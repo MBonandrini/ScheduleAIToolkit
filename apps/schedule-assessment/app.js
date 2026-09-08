@@ -421,23 +421,8 @@ let webllmClient = null;
 let mlcClient = null;
 let cpuGenerator = null;
 
-function setEngine(text,status="loading"){
-
-    const dot =
-        document.getElementById("engineDot");
-
-    if(dot){
-        dot.className =
-            "engine-dot " + status;
-    }
-
-    const textElement =
-        document.getElementById("engineText");
-
-    if(textElement){
-        textElement.textContent =
-            text;
-    }
+function setEngine(){
+    /* AI status is owned exclusively by the suite header and Settings. */
 }
 
 async function disposeAIEngines(){
@@ -477,13 +462,13 @@ async function initialiseAI(){
         state.aiReady=false;
         state.aiMode="shared";
         state.aiModelValue=null;
-        setEngine("AI configuration unavailable · reload the suite","error");
+        setEngine("","error");
         return;
     }
     state.aiReady=true;
     state.aiMode=core.ai.status().engine || "shared";
     state.aiModelValue=core.ai.preferred();
-    setEngine(`${core.ai.preferredLabel()} · configured in Settings`,"ready");
+    setEngine("","ready");
 }
 
 async function changeModel(value,initial=false){
@@ -492,7 +477,7 @@ async function changeModel(value,initial=false){
         state.aiReady=true;
         state.aiMode="heuristic";
         state.aiModelValue="heuristic";
-        setEngine("Deterministic analysis ready","ready");
+        setEngine("","ready");
         return;
     }
     const core=window.parent?.ProjectControlsCore;
@@ -501,7 +486,7 @@ async function changeModel(value,initial=false){
     state.aiReady=true;
     state.aiMode=core.ai.status().engine || "shared";
     state.aiModelValue=core.ai.preferred();
-    setEngine(`${core.ai.preferredLabel()} · configured in Settings`,"ready");
+    setEngine("","ready");
 }
 
 async function runLocalAI(messages,options={}){
@@ -512,7 +497,7 @@ async function runLocalAI(messages,options={}){
     const result=await core.ai.run(messages,options);
     state.aiMode=core.ai.status().engine;
     state.aiReady=true;
-    setEngine(core.ai.status().label,"ready");
+    setEngine("","ready");
     return result;
 }
 

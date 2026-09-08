@@ -26,7 +26,7 @@ echo "[8/8] GitHub Pages static-route smoke test"
 python - <<'PY'
 from pathlib import Path
 root=Path('.')
-for rel,marker in [('index.html','NotebookLM+'),('js/app.js','sendQuestion'),('sw.js','notebooklmplus-v0.8.2-suite-context-themes')]:
+for rel,marker in [('index.html','NotebookLM+'),('js/app.js','sendQuestion'),('sw.js','notebooklmplus-v0.8.3-suite-ui-cleanup')]:
     data=(root/rel).read_text(errors='ignore')
     assert marker in data,(rel,marker)
 print('PASS NotebookLM+ static route assets')

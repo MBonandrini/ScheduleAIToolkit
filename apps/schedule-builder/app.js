@@ -64,24 +64,7 @@ const sendButton =
 const createScheduleButton =
     document.getElementById("createScheduleButton");
 
-function setEngineStatus(
-    mode,
-    statusText,
-    state="loading"
-){
-
-    const dot =
-        document.getElementById("engineDot");
-
-    const status =
-        document.getElementById("engineStatus");
-
-    dot.className =
-        `engine-dot ${state}`;
-
-    status.textContent =
-        statusText;
-}
+function setEngineStatus(){ /* AI status is owned exclusively by the suite header and Settings. */ }
 
 const DB_NAME = "ScheduleBuilderDB";
 
@@ -668,7 +651,6 @@ async function initialiseAssistant(){
     currentModelValue=preferred;
     aiReady=true;
     engineMode=core.ai.status().engine || "shared";
-    setEngineStatus("shared", `${core.ai.preferredLabel()} · configured in Settings`, "ready");
     updateSendButton?.();
 }
 
@@ -680,7 +662,6 @@ window.changeModel = async function(value){
     currentModelValue=value;
     aiReady=true;
     engineMode="shared";
-    setEngineStatus("shared",`${core.ai.preferredLabel()} · configured in Settings`,"ready");
     updateSendButton?.();
 };
 
@@ -691,7 +672,6 @@ async function runAI(messages,options={}){
     const result=await core.ai.run(messages,options);
     engineMode=core.ai.status().engine;
     aiReady=true;
-    setEngineStatus(engineMode,core.ai.status().label,"ready");
     return result;
 }
 
@@ -704,7 +684,6 @@ async function switchToCPU(){
     currentModelValue=cpu;
     aiReady=true;
     engineMode="shared";
-    setEngineStatus("shared",`${core.ai.preferredLabel()} · configured in Settings`,"ready");
     updateSendButton?.();
 }
 
@@ -714,7 +693,6 @@ async function initialiseApp(){
 
     aiReady = true;
     engineMode = "shared";
-    setEngineStatus("shared", "Shared AI ready — model loads on first use", "ready");
     createScheduleButton.disabled = false;
     updateSendButton();
 }
@@ -810,7 +788,7 @@ function renderSources(){
 
         container.innerHTML = `
             <div class="source-empty">
-                Your project documents will appear here.
+                Module-specific sources will appear here. Checked Project Repository files are already available to AI chat.
             </div>
         `;
     }
@@ -964,7 +942,7 @@ function updateProjectMeta(){
     if(!sources.length){
 
         meta.textContent =
-            "Upload project information to begin";
+            "Use checked Project Repository files, or add module-specific sources";
 
         return;
     }
@@ -1037,14 +1015,7 @@ function trimConversation(){
 
 function buildSourceContext(){
 
-    if(!sources.length){
-
-        return `
-No project documents have been uploaded.
-
-Do not invent project-specific information.
-`;
-    }
+    if(!sources.length){ return ""; }
 
     const MAX_PER_SOURCE =
         18000;
@@ -1109,14 +1080,7 @@ END SOURCE ${index + 1}
 
 function buildCPUSourceContext(){
 
-    if(!sources.length){
-
-        return `
-No project documents have been uploaded.
-
-Do not invent project-specific information.
-`;
-    }
+    if(!sources.length){ return ""; }
 
     let total =
         0;
@@ -1437,19 +1401,7 @@ The selected AI service encountered an error.
 window.startScheduleCreation =
 async function(){
 
-    if(!sources.length){
-
-        addMessage(
-            "assistant",
-            `
-**Please upload some project information first.**
-
-I need the project documents before I can build a meaningful schedule.
-`
-        );
-
-        return;
-    }
+    
 
     try{
         await ensureAssistantReady();

@@ -1,11 +1,11 @@
 
 function applyParentTheme(theme){
-  const allowed=['dark','light','slate','midnight','sand'];
+  const allowed=['dark','light','navy'];
   const value=allowed.includes(theme)?theme:'dark';
   document.documentElement.dataset.pcTheme=value;
   document.documentElement.dataset.theme=value;
-  document.documentElement.classList.toggle('dark-mode', value==='dark'||value==='midnight');
-  document.documentElement.style.colorScheme=(value==='dark'||value==='midnight')?'dark':'light';
+  document.documentElement.classList.toggle('dark-mode', value==='dark');
+  document.documentElement.style.colorScheme=(value==='dark')?'dark':'light';
 }
 window.addEventListener('message', event => {
   if (event.data?.type === 'pc-theme') applyParentTheme(event.data.theme);
@@ -783,7 +783,7 @@ async function refreshAiStatus(showResult=true) {
   const provider = $('providerSelect').value || effectiveProvider();
   const endpoint = $('ollamaEndpointInput').value.trim() || effectiveEndpoint();
   const apiKey = $('hostedApiKeyInput').value.trim() || getSessionApiKey();
-  const pill = $('ollamaStatusPill');
+  const pill = $('ollamaStatusPill'); if(!pill) return;
   pill.className = 'status-pill offline'; pill.textContent = provider === 'ollama' ? 'Testing Ollama…' : 'Testing hosted AI…';
   if (showResult) { $('ollamaTestResult').className = 'test-result neutral'; $('ollamaTestResult').textContent = 'Testing connection…'; }
   try {

@@ -99,28 +99,7 @@ const messageInput =
 const sendButton =
     document.getElementById("sendButton");
 
-function setEngineStatus(
-    mode,
-    statusText,
-    state="loading"
-){
-
-    const dot =
-        document.getElementById(
-            "engineDot"
-        );
-
-    const status =
-        document.getElementById(
-            "engineStatus"
-        );
-
-    dot.className =
-        `engine-dot ${state}`;
-
-    status.textContent =
-        statusText;
-}
+function setEngineStatus(){ /* AI status is owned exclusively by the suite header and Settings. */ }
 
 const DB_NAME =
     "ScheduleContractManagementDB";
@@ -929,7 +908,7 @@ function renderSourcesForSelectedFolder(){
             `;
 
         empty.textContent =
-            "No documents in this folder yet.";
+            "No module-specific documents in this folder. Checked Project Repository files remain available to AI chat.";
 
         section.appendChild(
             empty
@@ -1161,11 +1140,7 @@ function trimAIConversation(){
 
 function buildSourceContext(){
     if(!sources.length){
-        return `
-No project documents have been uploaded.
-
-Do not invent project-specific facts.
-`;
+        return "";
     }
     const MAX_PER_SOURCE=14000;
     const MAX_TOTAL=60000;
@@ -1196,14 +1171,7 @@ END SOURCE ${index+1}
 
 function buildCPUSourceContext(){
 
-    if(!sources.length){
-
-        return `
-No project documents have been uploaded.
-
-Do not invent project-specific facts.
-`;
-    }
+    if(!sources.length){ return ""; }
 
     let total = 0;
 
@@ -1293,7 +1261,6 @@ async function initialiseAssistant(){
     currentModelValue=preferred;
     aiReady=true;
     engineMode=core.ai.status().engine || "shared";
-    setEngineStatus("shared", `${core.ai.preferredLabel()} · configured in Settings`, "ready");
     updateSendButton?.();
 }
 
@@ -1305,7 +1272,6 @@ window.changeModel = async function(value){
     currentModelValue=value;
     aiReady=true;
     engineMode="shared";
-    setEngineStatus("shared",`${core.ai.preferredLabel()} · configured in Settings`,"ready");
     updateSendButton?.();
 };
 
@@ -1316,7 +1282,6 @@ async function runAI(messages,options={}){
     const result=await core.ai.run(messages,options);
     engineMode=core.ai.status().engine;
     aiReady=true;
-    setEngineStatus(engineMode,core.ai.status().label,"ready");
     return result;
 }
 
@@ -1329,7 +1294,6 @@ async function switchToCPU(){
     currentModelValue=cpu;
     aiReady=true;
     engineMode="shared";
-    setEngineStatus("shared",`${core.ai.preferredLabel()} · configured in Settings`,"ready");
     updateSendButton?.();
 }
 
@@ -1640,26 +1604,13 @@ async function(){
 
         addMessage(
             "assistant",
-            "**The local AI engine is still loading. Please wait a moment.**"
+            "**AI is configured globally. If a request fails, test the selected model in Settings → Unified AI Configuration.**"
         );
 
         return;
     }
 
-    if(!sources.length){
-
-        addMessage(
-            "assistant",
-            `
-**Upload the project information first.**
-
-For a useful contractual review, start with the contract,
-baseline programme, updated programme and relevant correspondence.
-`
-        );
-
-        return;
-    }
+    
 
     if(aiBusy)
         return;
@@ -3179,7 +3130,6 @@ async function initialiseApp(){
 
     aiReady = true;
     engineMode = "shared";
-    setEngineStatus("shared", "Shared AI ready — model loads on first use", "ready");
     updateSendButton();
 }
 

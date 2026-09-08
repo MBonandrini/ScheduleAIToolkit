@@ -104,28 +104,7 @@ const sendButton =
 
 
 
-function setEngineStatus(
-    mode,
-    statusText,
-    state="loading"
-){
-
-    const dot =
-        document.getElementById(
-            "engineDot"
-        );
-
-    const status =
-        document.getElementById(
-            "engineStatus"
-        );
-
-    dot.className =
-        `engine-dot ${state}`;
-
-    status.textContent =
-        statusText;
-}
+function setEngineStatus(){ /* AI status is owned exclusively by the suite header and Settings. */ }
 
 
 
@@ -966,7 +945,7 @@ function renderSourcesForSelectedFolder(){
             `;
 
         empty.textContent =
-            "No documents in this folder yet.";
+            "No module-specific documents in this folder. Checked Project Repository files remain available to AI chat.";
 
         section.appendChild(
             empty
@@ -1215,14 +1194,7 @@ function(event){
 
 function buildSourceContext(){
 
-    if(!sources.length){
-
-        return `
-No project documents have been uploaded.
-
-Do not invent project-specific facts.
-`;
-    }
+    if(!sources.length){ return ""; }
 
 
     const MAX_PER_SOURCE =
@@ -1257,14 +1229,7 @@ END SOURCE ${index + 1}
 
 function buildCPUSourceContext(){
 
-    if(!sources.length){
-
-        return `
-No project documents have been uploaded.
-
-Do not invent project-specific facts.
-`;
-    }
+    if(!sources.length){ return ""; }
 
 
     let total = 0;
@@ -1353,7 +1318,6 @@ async function initialiseAssistant(){
     currentModelValue=core.ai.preferred();
     aiReady=true;
     engineMode=core.ai.status().engine || "shared";
-    setEngineStatus("shared",`${core.ai.preferredLabel()} · configured in Settings`,"ready");
     updateSendButton();
 }
 
@@ -1368,7 +1332,6 @@ window.changeModel = async function(value){
     currentModelValue=value;
     aiReady=true;
     engineMode="shared";
-    setEngineStatus("shared",`${core.ai.preferredLabel()} · configured in Settings`,"ready");
     updateSendButton();
 };
 
@@ -1384,7 +1347,6 @@ async function runAI(messages,options={}){
     const result=await core.ai.run(messages,options);
     engineMode=core.ai.status().engine;
     aiReady=true;
-    setEngineStatus(engineMode,core.ai.status().label,"ready");
     return result;
 }
 
@@ -1397,7 +1359,6 @@ async function switchToCPU(){
     currentModelValue=cpu;
     aiReady=true;
     engineMode="shared";
-    setEngineStatus("shared",`${core.ai.preferredLabel()} · configured in Settings`,"ready");
     updateSendButton?.();
 }
 
@@ -1660,7 +1621,7 @@ async function(){
             `
 **I couldn't complete the analysis.**
 
-The local AI engine encountered an error.
+The selected AI service encountered an error.
 
 \`${escapeHtml(
                 error?.message ||
@@ -1684,17 +1645,11 @@ window.analyseContract =
 async function(){
 
     if(!aiReady){
-        addMessage("assistant","**The local AI engine is still loading. Please wait a moment.**");
+        addMessage("assistant","**AI is configured globally. If a request fails, test the selected model in Settings → Unified AI Configuration.**");
         return;
     }
 
-    if(!sources.length){
-        addMessage("assistant",
-            currentWorkspace === "claims"
-            ? "**Upload project records first.**\\n\\nFor forensic work, start with the executed contract, baseline programme, available updates/revisions, notices and contemporaneous records."
-            : "**Upload project information first.**");
-        return;
-    }
+    
 
     if(aiBusy) return;
 
@@ -3787,7 +3742,6 @@ async function initialiseApp(){
     // Keep AI lazy. Opening or switching tabs must not initialise/load Ollama.
     aiReady = true;
     engineMode = "shared";
-    setEngineStatus("shared","Shared AI ready — model loads on first use","ready");
     updateSendButton();
 }
 
@@ -3818,7 +3772,7 @@ function renderTakeoff(){
  norms.forEach((n,i)=>{nh+='<tr>'+['discipline','category','item','size','unit','hoursPerUnit'].map(k=>`<td style="padding:4px;border:1px solid var(--border)"><input value="${escapeHtml(String(n[k]??''))}" onchange="updateNorm(${i},'${k}',this.value)" style="width:100%;padding:5px"></td>`).join('')+`<td><button class="modal-close" onclick="deleteNorm(${i})">×</button></td></tr>`}); nt.innerHTML=nh+'</tbody>';
 }
 window.aiAssistTakeoff=async function(){
- if(!aiReady){addMessage('assistant','**The selected local AI engine is not ready yet.**');return;}
+ if(!aiReady){addMessage('assistant','**The selected AI is configured globally. Test it in Settings → Unified AI Configuration if required.**');return;}
  const loadingId=addLoading(); try{ const result=await runAI([{role:'system',content:buildContractSystemPrompt()},{role:'user',content:`Review the uploaded documents and current take-off register. Recommend concrete take-off classifications, BOQ matches, schedule activity mappings, missing norms, variances and checks. Do not invent geometric measurements. If a quantity is not explicitly supported, label it as requiring measurement. Keep recommendations concise and auditable.`}],{temperature:.1,max_tokens:1400,stream:false}); removeLoading(loadingId); const answer=result?.choices?.[0]?.message?.content||'No recommendation returned.'; addMessage('assistant',answer); conversation.push({role:'assistant',content:answer}); workspaceConversations[currentWorkspace]=conversation; }catch(e){removeLoading(loadingId);addMessage('assistant','AI take-off review failed: '+escapeHtml(e.message||String(e)));}
 };
 function xmlEscape(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}

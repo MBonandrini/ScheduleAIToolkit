@@ -40,6 +40,7 @@ node tests/shared-ai-architecture-tests.js
 node tests/schedule-report-enhancement-tests.js
 node tests/context-theme-progress-tests.js
 node tests/ui-cleanup-theme-tests.js
+node tests/central-ai-ui-context-regression.js
 node tests/shared-context-ai-integration.js
 echo '[5/9] XER parser regression + 10k/50k performance'
 node tests/parser-tests.js

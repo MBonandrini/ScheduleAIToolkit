@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.8.2-suite-context-themes';
+export const APP_VERSION = '0.8.3-suite-ui-cleanup';
 
 export const DEFAULT_MODES = Object.freeze({
   cpu: {
