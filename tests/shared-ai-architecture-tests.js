@@ -16,7 +16,7 @@ const checks=[
  ['Notebook chat uses shared runtime',notebook.includes('streamSuiteAiChat')&&notebook.includes('core.ai.run(messages')],
  ['Notebook does not require local chat model before send',!notebook.includes("openTab('ollama')")],
  ['Notebook first paint is dark',/<html[^>]+data-theme="dark"[^>]+dark-mode/.test(notebookHtml)],
- ['Notebook follows parent theme messages',notebook.includes("event.data?.type === 'pc-theme'")&&notebook.includes("dataset.theme = value")]
+ ['Notebook follows parent theme messages',notebook.includes("event.data?.type === 'pc-theme'")&&notebook.includes("dataset.theme=value")]
 ];
 let bad=0;for(const [name,ok] of checks){console.log(`${ok?'PASS':'FAIL'} ${name}`);if(!ok)bad++}
 if(bad)process.exit(1);

@@ -1,14 +1,14 @@
 "use strict";
 
 const TOOL_CONFIG = {
-    contracts: { name: "Contract Manager", url: "./apps/contract-manager/index.html?sharedPane=1&v=20260904-shared-ai2" },
-    drawing: { name: "Drawing Measurement", url: "./apps/drawing-measurement/index.html?sharedPane=1&v=20260904-shared-ai2" },
-    assessment: { name: "Schedule Assessment", url: "./apps/schedule-assessment/index.html?sharedPane=1&v=20260904-shared-ai2" },
-    risk: { name: "Risk Analysis", url: "./apps/risk-analysis/index.html?sharedPane=1&v=20260904-shared-ai2" },
-    claims: { name: "Claims & Forensics", url: "./apps/claims-forensics/index.html?sharedPane=1&v=20260904-shared-ai2" },
-    notebook: { name: "NotebookLM+", url: "./apps/notebooklmplus/index.html?v=20260904-shared-ai2" },
-    settings: { name: "Settings", url: "./apps/settings/index.html?v=20260904-shared-ai2" },
-    builder: { name: "Schedule Builder", url: "./apps/schedule-builder/index.html?v=20260904-shared-ai2" }
+    contracts: { name: "Contract Manager", url: "./apps/contract-manager/index.html?sharedPane=1&v=20260908-schedule-reports-context1" },
+    drawing: { name: "Drawing Measurement", url: "./apps/drawing-measurement/index.html?sharedPane=1&v=20260908-schedule-reports-context1" },
+    assessment: { name: "Schedule Assessment", url: "./apps/schedule-assessment/index.html?sharedPane=1&v=20260908-schedule-reports-context1" },
+    risk: { name: "Risk Analysis", url: "./apps/risk-analysis/index.html?sharedPane=1&v=20260908-schedule-reports-context1" },
+    claims: { name: "Claims & Forensics", url: "./apps/claims-forensics/index.html?sharedPane=1&v=20260908-schedule-reports-context1" },
+    notebook: { name: "NotebookLM+", url: "./apps/notebooklmplus/index.html?v=20260908-schedule-reports-context1" },
+    settings: { name: "Settings", url: "./apps/settings/index.html?v=20260908-schedule-reports-context1" },
+    builder: { name: "Schedule Builder", url: "./apps/schedule-builder/index.html?v=20260908-schedule-reports-context1" }
 };
 
 const host = document.getElementById("host");
@@ -29,16 +29,12 @@ function setTabs(key) {
 
 function destroyCurrent() {
     if (frame) {
-        try {
-            frame.src = "about:blank";
-        } catch (_) {}
+        try { frame.src = "about:blank"; } catch (_) {}
         frame.remove();
         frame = null;
     }
-    const aiState = ProjectControlsCore.ai.status();
-    if (aiState.engine === "cpu" || aiState.engine === "mlc") {
-        Promise.resolve(ProjectControlsCore.ai.release()).catch(()=>{});
-    }
+    // Keep the globally selected AI runtime alive across tab navigation.
+    // A model/provider change still releases the old runtime through setGlobalModel().
 }
 
 async function activateTool(key) {
@@ -119,12 +115,14 @@ let suiteProgressHideTimer=null;
 function updateSuiteProgress(payload={}){
   if(!suiteProgress)return;
   clearTimeout(suiteProgressHideTimer);
+  const indeterminate=!!payload.indeterminate;
   const percent=Math.max(0,Math.min(100,Number(payload.percent)||0));
   suiteProgress.hidden=false;
-  suiteProgressTitle.textContent=payload.title||"Processing schedules";
-  suiteProgressPercent.textContent=`${Math.round(percent)}%`;
+  suiteProgress.querySelector(".suite-progress-track")?.classList.toggle("indeterminate",indeterminate);
+  suiteProgressTitle.textContent=payload.title||"Processing";
+  suiteProgressPercent.textContent=indeterminate?"Working…":`${Math.round(percent)}%`;
   suiteProgressDetail.textContent=payload.detail||"Working…";
-  suiteProgressBar.style.width=`${percent}%`;
+  suiteProgressBar.style.width=indeterminate?"35%":`${percent}%`;
   if(payload.done){suiteProgressHideTimer=setTimeout(()=>{suiteProgress.hidden=true},1800);}
 }
 
@@ -254,8 +252,9 @@ function renderSharedRepo(){
  sharedRepoList.innerHTML=groups.map(group=>{
   const files=sharedFiles.filter(f=>f.category===group&&!f.bulkFolderId);
   const safeGroup=escapeShellHTML(group);
-  return `<section class="shared-section"><div class="shared-section-title"><span>${safeGroup}</span><span>${files.length}</span></div>${files.length?files.map(f=>{const safeName=escapeShellHTML(f.name);const safeId=escapeShellHTML(f.id);return `<div class="shared-file"><div class="shared-file-icon">${escapeShellHTML(sharedIcon(f.name))}</div><div><div class="shared-file-name" title="${safeName}">${safeName}</div><div class="shared-file-meta">${bytes(f.size||0)}</div></div><button class="shared-use" data-shared-use="${safeId}" type="button">Use</button><button class="shared-remove" data-shared-remove="${safeId}" type="button" title="Remove file" aria-label="Remove ${safeName}">×</button></div>`}).join(""):`<div class="shared-empty">No ${safeGroup.toLowerCase()} files</div>`}</section>`;
+  return `<section class="shared-section"><div class="shared-section-title"><span>${safeGroup}</span><span>${files.length}</span></div>${files.length?files.map(f=>{const safeName=escapeShellHTML(f.name);const safeId=escapeShellHTML(f.id);return `<div class="shared-file"><input class="shared-file-context" type="checkbox" data-context-file="${safeId}" ${isContextSelected(f.id)?"checked":""} title="Include in chat context"><div class="shared-file-icon">${escapeShellHTML(sharedIcon(f.name))}</div><div><div class="shared-file-name" title="${safeName}">${safeName}</div><div class="shared-file-meta">${bytes(f.size||0)}</div></div><button class="shared-use" data-shared-use="${safeId}" type="button">Use</button><button class="shared-remove" data-shared-remove="${safeId}" type="button" title="Remove file" aria-label="Remove ${safeName}">×</button></div>`}).join(""):`<div class="shared-empty">No ${safeGroup.toLowerCase()} files</div>`}</section>`;
  }).join("");
+ sharedRepoList.querySelectorAll("[data-context-file]").forEach(input=>input.addEventListener("change",()=>toggleContextFile(input.dataset.contextFile,input.checked)));
  sharedRepoList.querySelectorAll("[data-shared-use]").forEach(button=>button.addEventListener("click",()=>useSharedFile(button.dataset.sharedUse)));
  sharedRepoList.querySelectorAll("[data-shared-remove]").forEach(button=>button.addEventListener("click",()=>removeSharedFileReference(button.dataset.sharedRemove)));
 }
@@ -272,7 +271,7 @@ function bulkTree(records){
 }
 function renderBulkNode(node){
  const dirs=[...node.dirs.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([name,child])=>`<details class="bulk-tree-dir"><summary>${escapeShellHTML(name)}</summary><div class="bulk-tree-children">${renderBulkNode(child)}</div></details>`).join("");
- const files=node.files.sort((a,b)=>a.displayName.localeCompare(b.displayName)).map(f=>`<div class="bulk-file"><div class="bulk-file-icon">${escapeShellHTML(sharedIcon(f.name))}</div><div class="bulk-file-name" title="${escapeShellHTML(f.relativePath||f.name)}">${escapeShellHTML(f.displayName)}</div><button class="shared-use" data-bulk-use="${escapeShellHTML(f.id)}" type="button">Use</button><button class="shared-remove" data-shared-remove="${escapeShellHTML(f.id)}" type="button" title="Remove file reference" aria-label="Remove ${escapeShellHTML(f.displayName)}">×</button></div>`).join("");
+ const files=node.files.sort((a,b)=>a.displayName.localeCompare(b.displayName)).map(f=>`<div class="bulk-file"><input class="bulk-file-context" type="checkbox" data-context-file="${escapeShellHTML(f.id)}" ${isContextSelected(f.id)?"checked":""} title="Include in chat context"><div class="bulk-file-icon">${escapeShellHTML(sharedIcon(f.name))}</div><div class="bulk-file-name" title="${escapeShellHTML(f.relativePath||f.name)}">${escapeShellHTML(f.displayName)}</div><button class="shared-use" data-bulk-use="${escapeShellHTML(f.id)}" type="button">Use</button><button class="shared-remove" data-shared-remove="${escapeShellHTML(f.id)}" type="button" title="Remove file reference" aria-label="Remove ${escapeShellHTML(f.displayName)}">×</button></div>`).join("");
  return dirs+files;
 }
 function renderBulkFolders(){
@@ -285,6 +284,7 @@ function renderBulkFolders(){
   const mode=folder.handle?"linked":"local snapshot";
   return `<details class="bulk-folder" data-bulk-folder="${escapeShellHTML(folder.id)}"><summary><span class="bulk-folder-name" title="${escapeShellHTML(folder.name)}">${escapeShellHTML(folder.name)}</span><span class="bulk-folder-meta">${records.length} · ${mode}</span><button class="bulk-folder-remove" data-bulk-unlink="${escapeShellHTML(folder.id)}" type="button" title="Remove linked folder" aria-label="Remove linked folder ${escapeShellHTML(folder.name)}">×</button></summary><div class="bulk-folder-body">${renderBulkNode(tree)}<div class="bulk-folder-tools">${folder.handle?`<button type="button" data-bulk-refresh="${escapeShellHTML(folder.id)}">↻ Refresh</button>`:""}</div></div></details>`;
  }).join("");
+ bulkFolderList.querySelectorAll('[data-context-file]').forEach(input=>input.addEventListener('change',()=>toggleContextFile(input.dataset.contextFile,input.checked)));
  bulkFolderList.querySelectorAll('[data-bulk-use]').forEach(button=>button.addEventListener('click',()=>useSharedFile(button.dataset.bulkUse)));
  bulkFolderList.querySelectorAll('[data-shared-remove]').forEach(button=>button.addEventListener('click',()=>removeSharedFileReference(button.dataset.sharedRemove)));
  bulkFolderList.querySelectorAll('[data-bulk-refresh]').forEach(button=>button.addEventListener('click',()=>refreshBulkFolder(button.dataset.bulkRefresh)));
@@ -293,7 +293,7 @@ function renderBulkFolders(){
 async function removeSharedFileReference(fileId){
  const record=sharedFiles.find(file=>file.id===fileId);if(!record)return;
  if(!confirm(`Remove ${record.name} from the project repository? The source file on your computer will not be deleted.`))return;
- await sharedDelete("files",fileId);sharedFiles=sharedFiles.filter(file=>file.id!==fileId);renderSharedRepo();renderBulkFolders();
+ await sharedDelete("files",fileId);sharedFiles=sharedFiles.filter(file=>file.id!==fileId);sharedContextSelection.delete(fileId);saveSharedContextSelection();renderSharedRepo();renderBulkFolders();
  if(["xer","xml"].includes((record.name.split(".").pop()||"").toLowerCase()))notifyBulkSchedulesChanged();
 }
 async function collectDirectoryHandle(handle,folderId,pathPrefix=""){
@@ -313,7 +313,7 @@ async function replaceBulkFolderRecords(folderId,records){
  await sharedDeleteFolderFiles(folderId);
  sharedFiles=sharedFiles.filter(f=>f.bulkFolderId!==folderId);
  await sharedPutMany('files',records);
- sharedFiles.push(...records);
+ sharedFiles.push(...records);records.forEach(r=>sharedContextSelection.add(r.id));saveSharedContextSelection();
  renderBulkFolders();renderSharedRepo();
  notifyBulkSchedulesChanged();
 }
@@ -426,6 +426,7 @@ async function loadSharedRepo(){
   sharedFolders=await sharedGetAll("folders");
   const meta=await sharedGetAll("meta");
   sharedProject=meta.find(x=>x.key==="projectName")?.value||"Untitled project";
+  try{if(localStorage.getItem(CHAT_CONTEXT_KEY)===null){sharedContextSelection=new Set(sharedFiles.map(f=>f.id));saveSharedContextSelection()}}catch(_){}
  }catch(error){console.warn("Shared repository unavailable",error);sharedFiles=[];sharedFolders=[]}
  renderSharedRepo();
  renderBulkFolders();
@@ -437,7 +438,7 @@ async function addSharedFiles(fileList){
   if(file.size>75*1024*1024 && !confirm(`${file.name} is ${bytes(file.size)}. Very large browser-held files can increase RAM use and slow the suite. Add it anyway?`))continue;
   const record={id:crypto.randomUUID(),name:file.name,type:file.type,size:file.size,lastModified:file.lastModified,category:sharedCategory(file.name),blob:file};
   await sharedPut("files",record);
-  sharedFiles.push(record);
+  sharedFiles.push(record);sharedContextSelection.add(record.id);saveSharedContextSelection();
  }
  renderSharedRepo();
 }
@@ -462,8 +463,45 @@ bulkLinkFolder?.addEventListener("click",async()=>{
 });
 bulkFolderFallbackInput?.addEventListener("change",async()=>{try{await addBulkFallbackFiles(bulkFolderFallbackInput.files)}finally{bulkFolderFallbackInput.value=""}});
 let sharedRepoReadyPromise=loadSharedRepo().then(()=>{notifyBulkSchedulesChanged();});
+
+async function selectedContextFiles(){
+ const selected=sharedFiles.filter(f=>sharedContextSelection.has(f.id));
+ const resolved=[];
+ for(const record of selected){
+  try{
+   const blob=record.bulkFolderId?await resolveBulkFile(record):record.blob;
+   if(blob)resolved.push({...record,blob});
+  }catch(error){resolved.push({...record,resolutionError:error?.message||String(error)})}
+ }
+ return resolved;
+}
+async function selectedContextText({maxFileChars=1500000,maxTotalChars=6000000}={}){
+ const files=await selectedContextFiles();
+ const blocks=[];let total=0;
+ const textExt=new Set(["txt","md","csv","tsv","json","xml","xer","html","htm","log","ini","yaml","yml","sql"]);
+ for(const record of files){
+  if(total>=maxTotalChars)break;
+  const ext=(record.name.split(".").pop()||"").toLowerCase();
+  if(!textExt.has(ext)){
+   blocks.push(`[SHARED FILE: ${record.name}] Selected for context. This binary file is available to the active tool's native parser; the shared text layer does not fabricate its contents.`);
+   continue;
+  }
+  try{
+   const raw=await record.blob.text();
+   const text=raw.slice(0,Math.min(maxFileChars,maxTotalChars-total));
+   blocks.push(`SHARED PROJECT REPOSITORY FILE\nNAME: ${record.name}\nCATEGORY: ${record.category||""}\nPATH: ${record.relativePath||record.name}\n\n${text}\n\nEND SHARED FILE`);
+   total+=text.length;
+  }catch(error){blocks.push(`[SHARED FILE: ${record.name}] Could not read text: ${error?.message||error}`)}
+ }
+ return {text:blocks.join("\n\n"),files:files.map(f=>({id:f.id,name:f.name,category:f.category,relativePath:f.relativePath||f.name,size:f.size||0})),selectedIds:[...sharedContextSelection]};
+}
+
 window.ProjectControlsSharedRepository={
  getSnapshot:()=>({projectName:sharedProject,files:sharedFiles.slice(),folders:sharedFolders.map(({handle,...folder})=>folder)}),
+ getSelectedContextIds(){return [...sharedContextSelection]},
+ setContextSelected(id,selected){toggleContextFile(id,!!selected);renderSharedRepo();renderBulkFolders()},
+ async getSelectedContextFiles(){return await selectedContextFiles()},
+ async getSelectedContextText(options){return await selectedContextText(options)},
  async getResolvedFiles(){
    const resolved=[];
    for(const record of sharedFiles){

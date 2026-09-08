@@ -21,8 +21,8 @@
   },
   {
     "path": "REBUILD_TEST_REPORT.md",
-    "bytes": 3700,
-    "sha256": "4c2b7fbd98db530167eab3c16d9e0e13a5d7b367f4fa9b616e3e056c7bac732d"
+    "bytes": 4153,
+    "sha256": "b8370a5c17c7e36ee6c5b3920f0f5576fe80352d60a1789023e229b6b455642a"
   },
   {
     "path": "SOFTWARE_VALIDATION_REPORT.md",
@@ -51,8 +51,8 @@
   },
   {
     "path": "apps/claims-forensics/index.html",
-    "bytes": 11593,
-    "sha256": "e13a431e5a62cb918ec108273db2a4cc9b30b305b80794c065d5e6005ee55660"
+    "bytes": 11698,
+    "sha256": "da469f7ebc136dab66ce3e6604450dea162b5533e86765018301ae941d554474"
   },
   {
     "path": "apps/claims-forensics/style.css",
@@ -76,8 +76,8 @@
   },
   {
     "path": "apps/contract-manager/index.html",
-    "bytes": 10964,
-    "sha256": "58c147a193cc955af029c0586fef303d357c9df6e0ff96e2d1a0cf106f62f996"
+    "bytes": 11069,
+    "sha256": "0dbc3aeb689af182c82787bfb5551844cfdc44860ad4b2e178021009cc73377d"
   },
   {
     "path": "apps/contract-manager/style.css",
@@ -101,8 +101,8 @@
   },
   {
     "path": "apps/drawing-measurement/index.html",
-    "bytes": 12731,
-    "sha256": "081dc5e63e03dff0c851e72c67906228d658eac6be9131ef5b09637b732fde9d"
+    "bytes": 12836,
+    "sha256": "76ff88a5bba24b7792d10a624799405abe63b77bb7b275dc028f9f60ace70c45"
   },
   {
     "path": "apps/drawing-measurement/style.css",
@@ -166,8 +166,8 @@
   },
   {
     "path": "apps/notebooklmplus/css/styles.css",
-    "bytes": 24404,
-    "sha256": "31c567208285343e35d6a5ee26bf9026b18e0a352c30ec0ab2524ba3a6c20fc1"
+    "bytes": 25333,
+    "sha256": "535362ba7bfca44a0a003daf758fe15567c6f97f8e2b16a2676f5f484ff81a82"
   },
   {
     "path": "apps/notebooklmplus/downloads/NotebookLMPlus-Ollama-Setup.zip",
@@ -176,8 +176,8 @@
   },
   {
     "path": "apps/notebooklmplus/index.html",
-    "bytes": 35155,
-    "sha256": "a4b55cd82c6369f56288c0da6d402527418c54f8ea312835cf1ed9058e2f2b1a"
+    "bytes": 35190,
+    "sha256": "f68cb7b3347f6fe012ce4fa29dcb9c66d110efcb0b4260da91fc80284ef07ff8"
   },
   {
     "path": "apps/notebooklmplus/js/ai.js",
@@ -191,8 +191,8 @@
   },
   {
     "path": "apps/notebooklmplus/js/app.js",
-    "bytes": 88416,
-    "sha256": "8b3b4819d0641b5997975bd875943b3ea9bf0a5306387c8b7d1c3746fe4c4ead"
+    "bytes": 88533,
+    "sha256": "5a7a3df4b5e9f18b294ad1cabe1145ecfbdc50dc90920048f5b133b490e2a6d3"
   },
   {
     "path": "apps/notebooklmplus/js/chunking.js",
@@ -201,8 +201,8 @@
   },
   {
     "path": "apps/notebooklmplus/js/config.js",
-    "bytes": 9466,
-    "sha256": "d115952c7a312ee2a6be779085e8760dc1399a907f062628ca38e2472a27d755"
+    "bytes": 9471,
+    "sha256": "41f15116ec9a71b7b3d97c4548b2ced362f6577aed5102bbc9d731891ed67f2f"
   },
   {
     "path": "apps/notebooklmplus/js/db.js",
@@ -281,13 +281,13 @@
   },
   {
     "path": "apps/notebooklmplus/sw.js",
-    "bytes": 1955,
-    "sha256": "317a9d7a9664bd724accf56c1b5bb4ec054b65b7e91240d4945f9c73661aa722"
+    "bytes": 1970,
+    "sha256": "817ce712065424120d5a566bfa7db2285cb1fa40a6b3f4b75a6052e4e92fb0d8"
   },
   {
     "path": "apps/notebooklmplus/tests/__pycache__/contract_test.cpython-313-pytest-9.0.2.pyc",
-    "bytes": 112186,
-    "sha256": "6dbec8b2668f908d72b56b80a80a5fa21d331542ab05e44f2c2d802ba8d84b09"
+    "bytes": 112205,
+    "sha256": "d96b43ba5322087c569f3ca921645d6bf10080292c29f2f2f89317cd4d0bbd8c"
   },
   {
     "path": "apps/notebooklmplus/tests/browser_e2e.py",
@@ -296,8 +296,8 @@
   },
   {
     "path": "apps/notebooklmplus/tests/contract_test.py",
-    "bytes": 15140,
-    "sha256": "aacbcaa34617dc46a17a80f50a075a6ba23119876ab41c7ffd5b8ce849a05099"
+    "bytes": 15155,
+    "sha256": "46a3fe9aa9ef6edde1a8ecbde7c24fd64472504dbc17570176dc0ac05488a766"
   },
   {
     "path": "apps/notebooklmplus/tests/hosted-ai.integration.mjs",
@@ -316,8 +316,8 @@
   },
   {
     "path": "apps/notebooklmplus/tests/run_tests.sh",
-    "bytes": 1078,
-    "sha256": "926f727bfa92ba19699acac87604c9fc0bca2d44d77a975a0af0e6bab9eb0c06"
+    "bytes": 1083,
+    "sha256": "5f0f7ba7eb21db98076277125560a8bd4a9b5719700c2f8bebcbbe4db94a5066"
   },
   {
     "path": "apps/notebooklmplus/tests/unit.test.mjs",
@@ -346,8 +346,8 @@
   },
   {
     "path": "apps/risk-analysis/index.html",
-    "bytes": 1849,
-    "sha256": "1d4eb20e5df74cb4351c9a8f8ea38cf79c6ca9b16fcf0b4f8e960a9af04220ad"
+    "bytes": 1939,
+    "sha256": "b08b402888033d840fd0af8ca6d65905ad047975b959edb0203ebbc8d5e1b08e"
   },
   {
     "path": "apps/risk-analysis/style.css",
@@ -356,8 +356,8 @@
   },
   {
     "path": "apps/schedule-assessment/app.js",
-    "bytes": 428041,
-    "sha256": "0ac566f3e3d5356553844dfd39194af00f299ba931f95f6eefd08405b429e1d2"
+    "bytes": 444388,
+    "sha256": "0edbc22d1d36da1ed1c24e99cf24113ed9d2aedb9c4e4976e3d43f3ce8ce89ff"
   },
   {
     "path": "apps/schedule-assessment/cleanup.js",
@@ -366,13 +366,13 @@
   },
   {
     "path": "apps/schedule-assessment/index.html",
-    "bytes": 10013,
-    "sha256": "270100e05125634b2c4fbcd27c3d994d5f1ce47e2e5999b2e05e56d2863ba75d"
+    "bytes": 10118,
+    "sha256": "f0db57c0b970a01e20e19e2d34596c9f4f54b84b8f47245fe34c9f6c90fcd204"
   },
   {
     "path": "apps/schedule-assessment/style.css",
-    "bytes": 47583,
-    "sha256": "2dadbaf580838d340c328036cc624ec1193cfea1395f42df2e55ab40331906ce"
+    "bytes": 54883,
+    "sha256": "4b7c17a18c31e9aaaa5e9c0a867f153afbcc909299f57c7c7a9910f88a96d30b"
   },
   {
     "path": "apps/schedule-builder/app.js",
@@ -391,8 +391,8 @@
   },
   {
     "path": "apps/schedule-builder/index.html",
-    "bytes": 10150,
-    "sha256": "ae1b5c9d719d86ad0a20dc05405b3c55a3ba9c3f40f892d73f40229a5534999a"
+    "bytes": 10255,
+    "sha256": "2e6d1b5eedfd2ee59f7b44b3c4fb6cd4317ca7a74aa45235ea838a6f0d0066fa"
   },
   {
     "path": "apps/schedule-builder/style.css",
@@ -401,13 +401,13 @@
   },
   {
     "path": "apps/settings/app.js",
-    "bytes": 31644,
-    "sha256": "fc069ab702e91554c99033191c18307eb32d10dd98bdff8f1deb26db38ad6c53"
+    "bytes": 32173,
+    "sha256": "94673627281b174f799781b82ee12e8ade8ce188e452eb6596aa2956efabbe34"
   },
   {
     "path": "apps/settings/index.html",
-    "bytes": 1076,
-    "sha256": "1fb2fbe73c89ec30b8678c11524d5c9eb91c1966f2a6b60294b5efd2b9f599df"
+    "bytes": 1151,
+    "sha256": "c94e41e8cfcc8a5b14d9ff66edae07953891ca15d2ec966c6cad52e8bffd3015"
   },
   {
     "path": "apps/settings/style.css",
@@ -421,13 +421,13 @@
   },
   {
     "path": "assets/css/shell.css",
-    "bytes": 18021,
-    "sha256": "4072188f5422d1be39ae7b4f84cdca7f8914ea823477d5f0976a950f91613b29"
+    "bytes": 19562,
+    "sha256": "2da8c2d4ab7e94b43c3d7294f15b9e0c3bb9475f50305caf64715e09436e417b"
   },
   {
     "path": "assets/css/theme.css",
-    "bytes": 7577,
-    "sha256": "7358efa4249587edf421dd1ce5a8a8c54f6885920f9e08d3677192a3c827c279"
+    "bytes": 9537,
+    "sha256": "6f9adb6ca05d669ad8356b810cb877f16dd015ee9a715db09f576e0e0cb641b4"
   },
   {
     "path": "assets/js/ai-options.js",
@@ -436,23 +436,23 @@
   },
   {
     "path": "assets/js/core.js",
-    "bytes": 99984,
-    "sha256": "fa37b2db99e67ff0cd4459178a09d3a8aac87438f31c333d25d264ce01a173ab"
+    "bytes": 103390,
+    "sha256": "2e3ced6afbbc066ce18f9a9e8da874ddf7e1262bd829e371b0a60848ac48b3fb"
   },
   {
     "path": "assets/js/shell.js",
-    "bytes": 27422,
-    "sha256": "4f4fa982e23977dfc669cc441b72cb94bfd78da57cb3bcb6a01bd6c32c34dff9"
+    "bytes": 30686,
+    "sha256": "b7cc8401db1ec12111668f894657ecfac13808ef03b30031f1773fad12110f55"
   },
   {
     "path": "assets/js/theme.js",
-    "bytes": 2376,
-    "sha256": "7183fb7a376a9638b0d2ef6cd45b86e733d34c727e6882388f6404580c3f7d8b"
+    "bytes": 2084,
+    "sha256": "aa872ca5bcca0574551d22d7ad1f808b5cd62686333f9c87b431377bc75d65db"
   },
   {
     "path": "index.html",
-    "bytes": 5092,
-    "sha256": "3c25982419851edfff066c9c9897cfab02f58b003d0b85b8b5b40de8f935250b"
+    "bytes": 5527,
+    "sha256": "438771954d2fd2f5deb65675fcf52d67a5e13b16935cfb54c938b4da7cfbcf81"
   },
   {
     "path": "tests/ai-provider-tests.js",
@@ -463,6 +463,11 @@
     "path": "tests/comparison-ui-contract-tests.js",
     "bytes": 1495,
     "sha256": "18afa2ec1083a3962f5c0b4019989e0aa1513e5aad526124aab7c61d98bb8997"
+  },
+  {
+    "path": "tests/context-theme-progress-tests.js",
+    "bytes": 2282,
+    "sha256": "9c3956a9f4b6fa212dfb52454cd494bd6ed5f9afba199057c279a967f84bbbef"
   },
   {
     "path": "tests/parser-fuzz-tests.js",
@@ -481,8 +486,8 @@
   },
   {
     "path": "tests/run-release-validation.sh",
-    "bytes": 2311,
-    "sha256": "d9ae234bda06280f695b07abd65550e8ac8659bbad6746878da29f17b1a14bd5"
+    "bytes": 2446,
+    "sha256": "35403a0486d85b8962bc64e6dbe79ba4fc3088e38a552e83780381d23af83566"
   },
   {
     "path": "tests/schedule-comparison-tests.js",
@@ -490,14 +495,24 @@
     "sha256": "f9f265a776ba36ce825e4bb5c3d0df46c556c02562757d02abd285608c41ad5a"
   },
   {
+    "path": "tests/schedule-report-enhancement-tests.js",
+    "bytes": 2056,
+    "sha256": "bcf75b9ea17a2d82b9f3373b2aac57a0837db5842e8056e98c91f02d13153ca2"
+  },
+  {
     "path": "tests/shared-ai-architecture-tests.js",
-    "bytes": 1493,
-    "sha256": "7f9c918a3a3eca8d35c30d78353bb6aa61823039a9598e2b8de029dd7da3b03b"
+    "bytes": 1491,
+    "sha256": "76cda82ae5f41799d9ca629a6da4d492b39b9b5fbdf618a7f3272998ed667bff"
+  },
+  {
+    "path": "tests/shared-context-ai-integration.js",
+    "bytes": 2895,
+    "sha256": "2fc43e81e9abe118a9c5562cfac9454c83e2cfe50eea353dd38aa85663b34f3d"
   },
   {
     "path": "tests/suite-contract-tests.js",
-    "bytes": 12512,
-    "sha256": "0773504cfa14f9e3a4358fe469b5c2cc4eab21447de9de12e108a162d7592b5d"
+    "bytes": 12515,
+    "sha256": "09838a345b07fba969eaa91381178cafe2a64f1e664f692ed75999cbacf52c8c"
   },
   {
     "path": "tests/synthetic-simple.xer",

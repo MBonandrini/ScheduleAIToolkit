@@ -2300,3 +2300,109 @@ html.dark-mode .compare-schedules-pane,html.dark-mode .saved-comparison-item,htm
 .pdf-export .gantt-pro-toolbar{background:#EDF3F6!important;color:#17212B!important}
 .pdf-export .gantt-pro-actions{display:none!important}
 .pdf-export .gantt-bar{box-shadow:none!important}
+
+
+/* ===== vNext professional schedule-report enhancements ===== */
+
+/* Gantt is intentionally light in both application themes and PDF exports. */
+.gantt-light-panel,
+.gantt-light-panel .gantt-pro,
+.gantt-light-panel .gantt-pro-scroll,
+.gantt-light-panel .gantt-pro-grid,
+.gantt-light-panel .gantt-pro-left-head,
+.gantt-light-panel .gantt-pro-time-head,
+.gantt-light-panel .gantt-pro-left-row,
+.gantt-light-panel .gantt-pro-time-row,
+.gantt-light-panel .gantt-pro-toolbar{
+    background:#FFFFFF !important;
+    color:#17212B !important;
+    border-color:#D5E0E7 !important;
+}
+.gantt-light-panel{background:#FFFFFF!important;color:#17212B!important}
+.gantt-light-panel .panel-title{color:#18384B!important}
+.gantt-light-panel .panel-subtitle{color:#667985!important}
+.gantt-light-panel .gantt-pro{--gantt-time-min:1050px}
+.gantt-light-panel .gantt-pro-grid{grid-template-columns:var(--gantt-left) minmax(var(--gantt-time-min),1fr)!important}
+.gantt-light-panel .gantt-pro-left-head>div,
+.gantt-light-panel .gantt-month-label,
+.gantt-light-panel .gantt-week-label{color:#314652!important;border-color:#D8E2E8!important}
+.gantt-light-panel .gantt-pro-left-row>div{color:#17212B!important;border-color:#E1E8ED!important}
+.gantt-light-panel .gantt-pro-left-row.wbs-row,
+.gantt-light-panel .gantt-pro-time-row.wbs-row{background:#F5F8FA!important}
+.gantt-light-panel .gantt-gridline{border-color:#E5EBEF!important}
+.gantt-light-panel .gantt-gridline.month{border-color:#C9D7E0!important}
+.gantt-light-panel .gantt-data-date{background:#C43D32!important}
+.gantt-light-panel .gantt-tree-toggle,
+.gantt-light-panel .gantt-pro-actions button,
+.gantt-light-panel .gantt-control-group select{
+    background:#FFFFFF!important;color:#17212B!important;border-color:#BCCDD8!important
+}
+.gantt-control-group{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.gantt-control-group label{display:flex;gap:6px;align-items:center;font-size:7px;font-weight:800;color:#516976}
+.gantt-control-group select{padding:5px 7px;border:1px solid #BCCDD8;border-radius:6px;font:inherit}
+.gantt-legend{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:7px;color:#667985}
+.gantt-legend i{display:inline-block;width:22px;margin-right:4px;vertical-align:middle}
+.gantt-legend i.baseline{height:5px;background:#8B8F97;border-radius:999px}
+.gantt-legend i.current{height:8px;background:#1F6FA8;border-radius:3px}
+.gantt-legend i.critical{height:8px;background:#C43D32;border-radius:3px}
+.gantt-legend i.summary{border-top:3px solid #17212B}
+.gantt-legend .data-date-key{color:#C43D32}
+.gantt-current-bar{background:#1F6FA8!important}
+.gantt-current-progress{background:rgba(255,255,255,.28)!important}
+.gantt-critical-bar,.critical-gantt .gantt-current-bar{background:#C43D32!important}
+.critical-gantt .gantt-current-progress{background:rgba(255,255,255,.24)!important}
+.gantt-summary-bar.force-red,.critical-gantt .gantt-summary-bar{border-color:#C43D32!important;background:#C43D32!important}
+
+/* Calendar analyser: year-by-year printable calendars. */
+.calendar-detail-panel{background:var(--panel)}
+.calendar-legend{display:flex;gap:14px;flex-wrap:wrap;margin:7px 0 12px;font-size:7px;color:var(--muted)}
+.calendar-legend span{display:flex;gap:5px;align-items:center}
+.calendar-legend-box{width:12px;height:12px;border:1px solid #CBD7DE;border-radius:2px;background:#fff}
+.calendar-legend-box.nonwork{background:#F2C7C4;border-color:#D88E88}
+.calendar-legend-box.exception{background:#F5D79B;border-color:#D6A849}
+.calendar-year{margin:12px 0 18px;break-inside:avoid-page}
+.calendar-year-title{font-size:12px;font-weight:900;color:var(--accent-dark);padding:6px 0;border-bottom:2px solid var(--accent);margin-bottom:8px}
+.calendar-year-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.calendar-month{border:1px solid var(--border);border-radius:8px;padding:7px;background:var(--panel);break-inside:avoid}
+.calendar-month-name{text-align:center;font-size:8px;font-weight:900;color:var(--text);margin-bottom:5px}
+.calendar-week-head,.calendar-month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.calendar-week-head span{text-align:center;font-size:5.8px;font-weight:800;color:var(--muted)}
+.calendar-day{display:flex;align-items:center;justify-content:center;min-height:18px;border-radius:3px;font-size:6.5px;background:var(--soft2);color:var(--text);border:1px solid transparent}
+.calendar-day.blank{background:transparent}
+.calendar-day.nonwork{background:#F2C7C4!important;color:#6F201B!important;border-color:#E6AAA5!important}
+.calendar-day.exception{background:#F5D79B!important;color:#694A00!important;border-color:#D6A849!important;font-weight:900}
+.pdf-export .calendar-month,.pdf-export .calendar-day{background:#fff!important;color:#17212B!important}
+.pdf-export .calendar-day.nonwork{background:#F2C7C4!important;color:#6F201B!important}
+.pdf-export .calendar-day.exception{background:#F5D79B!important;color:#694A00!important}
+@media(max-width:1100px){.calendar-year-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Narrative executive graphics. */
+.narrative-progress-graphic{margin:10px 0 16px}
+.narrative-progress-labels{display:flex;justify-content:space-between;gap:10px;font-size:7px;color:var(--muted);margin-bottom:5px}
+.narrative-progress-track{display:flex;height:15px;overflow:hidden;border-radius:999px;background:var(--soft2);border:1px solid var(--border)}
+.narrative-progress-track .complete{background:#3C9662}
+.narrative-progress-track .inprogress{background:#3A78B7}
+.narrative-progress-track .notstarted{background:#CBD4DA}
+.narrative-outlook-chart{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 14px}
+.narrative-week{border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--panel);break-inside:avoid}
+.narrative-week-title{font-size:8px;font-weight:900;color:var(--text);display:flex;justify-content:space-between;gap:6px}
+.narrative-week-title small{font-size:6px;color:var(--muted);font-weight:700}
+.narrative-bars{display:grid;gap:6px;margin-top:8px}
+.narrative-bars>div{display:grid;grid-template-columns:38px 1fr 22px;gap:5px;align-items:center;font-size:6px;color:var(--muted)}
+.narrative-bars i{display:block;height:7px;min-width:2px;border-radius:999px}
+.narrative-bars i.starts{background:#3A78B7}
+.narrative-bars i.finishes{background:#3C9662}
+.narrative-bars b{text-align:right;color:var(--text)}
+.narrative-week-critical{margin-top:7px;font-size:6px;color:#A92D25;font-weight:800}
+.narrative-movement-table{margin:8px 0 14px}
+.pdf-export .narrative-week,.pdf-export .narrative-progress-track{background:#fff!important}
+@media(max-width:900px){.narrative-outlook-chart{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Weekly S-curve data table is intentionally spreadsheet-friendly. */
+.scurve-weekly-table{max-height:520px;overflow:auto}
+.copyable-data-table{white-space:nowrap}
+.copyable-data-table th{position:sticky;top:0;z-index:2}
+.copyable-data-table td,.copyable-data-table th{user-select:text}
+
+.gantt-light-panel .gantt-pro-left-row,.gantt-light-panel .gantt-pro-time-row{min-height:var(--gantt-row-h,32px)!important;height:var(--gantt-row-h,32px)!important}
+.gantt-light-panel .gantt-pro-left-row>div{min-height:var(--gantt-row-h,32px)!important}

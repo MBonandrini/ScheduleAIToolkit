@@ -1,7 +1,7 @@
-const CACHE = 'notebooklmplus-v0.8.1-suite-shared-ai';
+const CACHE = 'notebooklmplus-v0.8.2-suite-context-themes';
 const SHELL = [
-  './', './index.html', './css/styles.css?v=0.8.1-suite-shared-ai', './manifest.webmanifest',
-  './js/app.js?v=0.8.1-suite-shared-ai', './js/config.js', './js/db.js', './js/utils.js', './js/progress.js',
+  './', './index.html', './css/styles.css?v=0.8.2-suite-context-themes', './manifest.webmanifest',
+  './js/app.js?v=0.8.2-suite-context-themes', './js/config.js', './js/db.js', './js/utils.js', './js/progress.js',
   './js/ai.js', './js/ollama.js', './js/parsers.js', './js/chunking.js', './js/retrieval.js', './js/indexer.js',
   './js/sources.js', './js/source_tree.js', './js/markdown.js', './js/notebook_profiles.js', './js/studio.js', './js/exports.js', './js/web_tools.js', './js/analysis_lab.js'
 ];

@@ -221,6 +221,7 @@ const state = {
     delayBaselineBySchedule:{},
     forensicBaselineBySchedule:{},
     monteSettingsBySchedule:{},
+    narrativeComparisonBySchedule:{},
     comparisonSequenceIds:[],
     savedComparisonReports:[],
     chat:[],
@@ -322,6 +323,7 @@ async function saveProject(){
             delayBaselineBySchedule:state.delayBaselineBySchedule,
             forensicBaselineBySchedule:state.forensicBaselineBySchedule,
             monteSettingsBySchedule:state.monteSettingsBySchedule,
+            narrativeComparisonBySchedule:state.narrativeComparisonBySchedule,
             comparisonSequenceIds:state.comparisonSequenceIds,
             savedComparisonReports:state.savedComparisonReports,
             aiModelValue:state.aiModelValue,
@@ -2488,9 +2490,18 @@ function buildWhatChangedReport(schedules){
 
 function criticalActivities(schedule){return (schedule?.activities||[]).filter(a=>a.critical||Number(a.totalFloat)<=0).sort((a,b)=>new Date(a.currentFinish||a.finish||0)-new Date(b.currentFinish||b.finish||0))}
 
+
 function buildCriticalPathIntelligenceReport(schedules){
-    const current=schedules[0],previous=getPreviousRevision(current),path=criticalActivities(current),old=criticalActivities(previous),oldIds=new Set(old.map(a=>a.id)),newIds=new Set(path.map(a=>a.id)),entered=path.filter(a=>!oldIds.has(a.id)),left=old.filter(a=>!newIds.has(a.id)),near=current.activities.filter(a=>!newIds.has(a.id)&&Number(a.totalFloat)>0&&Number(a.totalFloat)<=10).sort((a,b)=>a.totalFloat-b.totalFloat);
-    return {id:"critical",title:"Critical path intelligence",subtitle:"Critical, near-critical and path-migration analysis",html:`<div class="metrics">${metric("Critical activities",path.length,"Current revision","danger")}${metric("Entered critical path",entered.length,previous?"Since previous revision":"No previous revision",entered.length?"warning":"good")}${metric("Left critical path",left.length,"Since previous revision",left.length?"blue":"good")}${metric("Near critical",near.length,"1–10 days float","warning")}</div><div class="grid2"><div class="panel"><div class="panel-title">Current controlling sequence</div><table><thead><tr><th>Activity</th><th>WBS</th><th>TF</th><th>Finish</th></tr></thead><tbody>${path.slice(0,250).map(a=>`<tr><td>${escapeHTML(a.id)} · ${escapeHTML(a.name)}</td><td>${escapeHTML(a.wbsPath||"—")}</td><td>${formatNumber(a.totalFloat)}</td><td>${formatDate(a.currentFinish||a.finish)}</td></tr>`).join("")}</tbody></table></div><div><div class="panel"><div class="panel-title">Path migration</div>${previous?`<p><strong>${entered.length}</strong> activities entered and <strong>${left.length}</strong> left the critical path.</p>`:`<p>Import a previous revision to calculate path migration.</p>`}<table><tbody>${entered.slice(0,12).map(a=>`<tr><td>Entered</td><td>${escapeHTML(a.id)} · ${escapeHTML(a.name)}</td></tr>`).join("")}${left.slice(0,12).map(a=>`<tr><td>Left</td><td>${escapeHTML(a.id)} · ${escapeHTML(a.name)}</td></tr>`).join("")}</tbody></table></div><div class="panel"><div class="panel-title">Near-critical watchlist</div><table><tbody>${near.slice(0,15).map(a=>`<tr><td>${escapeHTML(a.id)}</td><td>${escapeHTML(a.name)}</td><td>${formatNumber(a.totalFloat)}d</td></tr>`).join("")}</tbody></table></div></div></div>`};
+    const current=schedules[0],previous=getPreviousRevision(current),path=criticalActivities(current),old=criticalActivities(previous),
+        oldIds=new Set(old.map(a=>a.id)),newIds=new Set(path.map(a=>a.id)),entered=path.filter(a=>!oldIds.has(a.id)),
+        left=old.filter(a=>!newIds.has(a.id)),near=current.activities.filter(a=>!newIds.has(a.id)&&Number(a.totalFloat)>0&&Number(a.totalFloat)<=10).sort((a,b)=>a.totalFloat-b.totalFloat);
+    setTimeout(initialiseGanttInteractions,0);
+    return {id:"critical",title:"Critical path intelligence",subtitle:"Critical, near-critical and path-migration analysis with red-bar critical-path Gantt",html:`
+        <div class="metrics">${metric("Critical activities",path.length,"Current revision","danger")}${metric("Entered critical path",entered.length,(previous?"Since previous revision":"No previous revision"),entered.length?"warning":"good")}${metric("Left critical path",left.length,(previous?"Since previous revision":"No previous revision"),left.length?"blue":"good")}${metric("Near critical",near.length,"1–10 days float","warning")}</div>
+        ${buildGanttMarkup(current,{timescale:"weekly",compression:"compact",criticalOnly:true,forceRed:true,showControls:false,title:"Critical path Gantt"})}
+        <div class="grid2"><div class="panel"><div class="panel-title">Current controlling sequence</div><table><thead><tr><th>Activity</th><th>WBS</th><th>TF</th><th>Finish</th></tr></thead><tbody>${path.slice(0,250).map(a=>`<tr><td>${escapeHTML(a.id)} · ${escapeHTML(a.name)}</td><td>${escapeHTML(a.wbsPath||"—")}</td><td>${formatNumber(a.totalFloat)}</td><td>${formatDate(a.currentFinish||a.finish)}</td></tr>`).join("")}</tbody></table></div>
+        <div><div class="panel"><div class="panel-title">Path migration</div>${previous?`<p><strong>${entered.length}</strong> activities entered and <strong>${left.length}</strong> left the critical path.</p>`:`<p>Import a previous revision to calculate path migration.</p>`}<table><tbody>${entered.slice(0,12).map(a=>`<tr><td>Entered</td><td>${escapeHTML(a.id)} · ${escapeHTML(a.name)}</td></tr>`).join("")}${left.slice(0,12).map(a=>`<tr><td>Left</td><td>${escapeHTML(a.id)} · ${escapeHTML(a.name)}</td></tr>`).join("")}</tbody></table></div>
+        <div class="panel"><div class="panel-title">Near-critical watchlist</div><table><tbody>${near.slice(0,15).map(a=>`<tr><td>${escapeHTML(a.id)}</td><td>${escapeHTML(a.name)}</td><td>${formatNumber(a.totalFloat)}d</td></tr>`).join("")}</tbody></table></div></div></div>`};
 }
 
 function buildFloatAnalysisReport(schedules){
@@ -2546,9 +2557,117 @@ function buildResourceEVMReport(schedules){
     return {id:"resources",title:"Resources, EVM & productivity",subtitle:"Resource/cost intelligence using only data present in the imported XER",html:`<div class="metrics">${metric("Budget cost",formatNumber(budget),"BAC where available","blue")}${metric("Actual cost",formatNumber(actual),"AC where available","blue")}${metric("Forecast cost",formatNumber(forecast),"EAC-style forecast","blue")}${metric("SPI",spi===null?"Insufficient data":formatNumber(spi),"EV/PV",spi!==null&&spi<1?"warning":"good")}${metric("CPI",cpi===null?"Insufficient data":formatNumber(cpi),"EV/AC",cpi!==null&&cpi<1?"warning":"good")}</div><div class="grid2"><div class="panel"><div class="panel-title">Units</div><table><tbody><tr><td>Budget Units</td><td>${formatNumber(budgetUnits)}</td></tr><tr><td>Actual Units</td><td>${formatNumber(actualUnits)}</td></tr><tr><td>Remaining Units</td><td>${formatNumber(remainingUnits)}</td></tr><tr><td>Earned Units proxy</td><td>${formatNumber(a.reduce((s,x)=>s+Number(x.budgetUnits||0)*Number(x.percent||0)/100,0))}</td></tr></tbody></table></div><div class="panel"><div class="panel-title">Highest forecast cost activities</div><table><tbody>${a.filter(x=>x.forecastCost).sort((x,y)=>y.forecastCost-x.forecastCost).slice(0,20).map(x=>`<tr><td>${escapeHTML(x.id)} · ${escapeHTML(x.name)}</td><td>${formatNumber(x.forecastCost)}</td></tr>`).join("")}</tbody></table></div></div><div class="panel"><div class="panel-title">Data integrity note</div><div class="panel-subtitle">EV/PV and productivity metrics are only shown from fields present in the source. Missing Actual Cost or resource-unit data is reported as insufficient rather than fabricated.</div></div>`};
 }
 
+
+function calendarProjectYears(schedule){
+    const dates=(schedule.activities||[]).flatMap(a=>[
+        a.baselineStart,a.baselineFinish,a.currentStart,a.currentFinish,a.actualStart,a.actualFinish,a.start,a.finish
+    ]).filter(Boolean).map(v=>new Date(v)).filter(d=>Number.isFinite(d.getTime()));
+    if(!dates.length){
+        const year=(schedule.statusDate?new Date(schedule.statusDate):new Date()).getFullYear();
+        return [year];
+    }
+    const min=Math.min(...dates.map(d=>d.getFullYear()));
+    const max=Math.max(...dates.map(d=>d.getFullYear()));
+    const years=[];
+    for(let y=min;y<=max;y++) years.push(y);
+    return years;
+}
+
+function calendarStandardWorkingDays(calendar){
+    const hpd=Math.max(.1,Number(calendar?.hoursPerDay)||8);
+    const hpw=Math.max(hpd,Number(calendar?.hoursPerWeek)||40);
+    const days=Math.max(1,Math.min(7,Math.round(hpw/hpd)));
+    if(days>=7) return new Set([0,1,2,3,4,5,6]);
+    if(days===6) return new Set([1,2,3,4,5,6]);
+    return new Set([1,2,3,4,5]);
+}
+
+function parseCalendarExceptionDates(calendar){
+    const raw=String(calendar?.raw?.clndr_data||calendar?.raw?.calendar_data||"");
+    if(!raw) return new Set();
+    const exceptionIndex=raw.toLowerCase().indexOf("exception");
+    const source=exceptionIndex>=0 ? raw.slice(exceptionIndex) : raw;
+    const dates=new Set();
+    const add=(y,m,d)=>{
+        const dt=new Date(y,m-1,d);
+        if(Number.isFinite(dt.getTime())&&dt.getFullYear()===y&&dt.getMonth()===m-1&&dt.getDate()===d){
+            dates.add(`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`);
+        }
+    };
+    const months={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+    for(const m of source.matchAll(/\b(\d{1,2})[- ](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[- ](\d{2,4})\b/gi)){
+        let y=Number(m[3]); if(y<100) y+=y>=70?1900:2000; add(y,months[m[2].toLowerCase()],Number(m[1]));
+    }
+    for(const m of source.matchAll(/\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b/g)) add(Number(m[1]),Number(m[2]),Number(m[3]));
+    for(const m of source.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g)) add(Number(m[3]),Number(m[1]),Number(m[2]));
+    return dates;
+}
+
+function calendarMonthHtml(calendar,year,month){
+    const working=calendarStandardWorkingDays(calendar);
+    const exceptions=parseCalendarExceptionDates(calendar);
+    const first=new Date(year,month,1);
+    const days=new Date(year,month+1,0).getDate();
+    const mondayOffset=(first.getDay()+6)%7;
+    const cells=[];
+    for(let i=0;i<mondayOffset;i++) cells.push(`<span class="calendar-day blank"></span>`);
+    for(let d=1;d<=days;d++){
+        const date=new Date(year,month,d);
+        const key=`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+        const standardNonWork=!working.has(date.getDay());
+        const exception=exceptions.has(key);
+        const cls=exception?"calendar-day nonwork exception":standardNonWork?"calendar-day nonwork":"calendar-day work";
+        const title=exception?"Calendar exception / non-work day":standardNonWork?"Standard non-work day":"Standard working day";
+        cells.push(`<span class="${cls}" title="${title}">${d}</span>`);
+    }
+    return `<div class="calendar-month"><div class="calendar-month-name">${new Date(year,month,1).toLocaleDateString(undefined,{month:"long"})}</div><div class="calendar-week-head">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(x=>`<span>${x}</span>`).join("")}</div><div class="calendar-month-grid">${cells.join("")}</div></div>`;
+}
+
+function calendarYearHtml(calendar,year){
+    return `<section class="calendar-year"><div class="calendar-year-title">${year}</div><div class="calendar-year-grid">${Array.from({length:12},(_,m)=>calendarMonthHtml(calendar,year,m)).join("")}</div></section>`;
+}
+
 function buildCalendarAnalysisReport(schedules){
-    const s=schedules[0],prev=getPreviousRevision(s),usage=new Map();s.activities.forEach(a=>usage.set(a.calendar,(usage.get(a.calendar)||0)+1));const oldUsage=new Map();prev?.activities.forEach(a=>oldUsage.set(a.id,a.calendar));const changed=prev?s.activities.filter(a=>oldUsage.has(a.id)&&oldUsage.get(a.id)!==a.calendar):[];
-    return {id:"calendars",title:"Calendar analyser",subtitle:"Human-readable calendar usage and revision change screening",html:`<div class="metrics">${metric("Calendars",s.calendars?.length||usage.size,"Available calendars","blue")}${metric("Calendar changes",changed.length,prev?"Since previous revision":"Previous revision required",changed.length?"warning":"good")}</div><div class="grid2"><div class="panel"><div class="panel-title">Calendar definitions</div><table><thead><tr><th>Calendar</th><th>Type</th><th>Hours/day</th><th>Hours/week</th><th>Activities</th></tr></thead><tbody>${(s.calendars||[]).map(c=>`<tr><td>${escapeHTML(c.name)}</td><td>${escapeHTML(c.type||"—")}</td><td>${formatNumber(c.hoursPerDay)}</td><td>${formatNumber(c.hoursPerWeek)}</td><td>${usage.get(c.name)||0}</td></tr>`).join("")}</tbody></table></div><div class="panel"><div class="panel-title">Calendar assignment changes</div><table><tbody>${changed.slice(0,100).map(a=>`<tr><td>${escapeHTML(a.id)} · ${escapeHTML(a.name)}</td><td>${escapeHTML(oldUsage.get(a.id)||"—")} → ${escapeHTML(a.calendar||"—")}</td></tr>`).join("")||"<tr><td>No comparable changes found.</td></tr>"}</tbody></table></div></div>`};
+    const s=schedules[0],prev=getPreviousRevision(s),usage=new Map();
+    s.activities.forEach(a=>usage.set(a.calendar,(usage.get(a.calendar)||0)+1));
+    const oldUsage=new Map();prev?.activities.forEach(a=>oldUsage.set(a.id,a.calendar));
+    const changed=prev?s.activities.filter(a=>oldUsage.has(a.id)&&oldUsage.get(a.id)!==a.calendar):[];
+    const years=calendarProjectYears(s);
+    const used=(s.calendars||[]).filter(c=>(usage.get(c.name)||0)>0);
+    const calendarSections=used.map(c=>`
+        <div class="panel calendar-detail-panel">
+            <div class="panel-title">${escapeHTML(c.name)} · ${usage.get(c.name)||0} activities</div>
+            <div class="calendar-legend">
+                <span><i class="calendar-legend-box working"></i>Working day</span>
+                <span><i class="calendar-legend-box nonwork"></i>Non-work day</span>
+                <span><i class="calendar-legend-box exception"></i>Calendar exception</span>
+            </div>
+            ${years.map(y=>calendarYearHtml(c,y)).join("")}
+        </div>`).join("");
+    return {
+        id:"calendars",
+        title:"Calendar analyser",
+        subtitle:"Calendar usage, assignment changes and year-by-year non-work day calendars",
+        html:`<div class="metrics">
+            ${metric("Calendars",s.calendars?.length||usage.size,"Available calendars","blue")}
+            ${metric("Used calendars",used.length,"Assigned to project activities","blue")}
+            ${metric("Calendar changes",changed.length,prev?"Since previous revision":"Previous revision required",changed.length?"warning":"good")}
+            ${metric("Calendar years",years.length,`${years[0]}–${years[years.length-1]}`,"blue")}
+        </div>
+        <div class="grid2">
+            <div class="panel"><div class="panel-title">Calendar definitions</div>
+                <table><thead><tr><th>Calendar</th><th>Type</th><th>Hours/day</th><th>Hours/week</th><th>Activities</th></tr></thead>
+                <tbody>${(s.calendars||[]).map(c=>`<tr><td>${escapeHTML(c.name)}</td><td>${escapeHTML(c.type||"—")}</td><td>${formatNumber(c.hoursPerDay)}</td><td>${formatNumber(c.hoursPerWeek)}</td><td>${usage.get(c.name)||0}</td></tr>`).join("")}</tbody></table>
+            </div>
+            <div class="panel"><div class="panel-title">Calendar assignment changes</div>
+                <table><tbody>${changed.slice(0,100).map(a=>`<tr><td>${escapeHTML(a.id)} · ${escapeHTML(a.name)}</td><td>${escapeHTML(oldUsage.get(a.id)||"—")} → ${escapeHTML(a.calendar||"—")}</td></tr>`).join("")||"<tr><td>No comparable changes found.</td></tr>"}</tbody></table>
+            </div>
+        </div>
+        <div class="panel"><div class="panel-title">Calendar interpretation</div><div class="panel-subtitle">
+            Standard working weekdays are inferred from Hours/Day and Hours/Week. P6 exception dates are decoded from the raw calendar definition where identifiable and highlighted separately. The raw P6 calendar definition remains preserved for audit.
+        </div></div>
+        ${calendarSections||`<div class="panel"><div class="panel-subtitle">No activity-assigned calendars were found.</div></div>`}`
+    };
 }
 
 function buildConstraintAnalysisReport(schedules){
@@ -2566,9 +2685,136 @@ function buildLookaheadReport(schedules){
     return {id:"lookahead",title:`${weeks}-week lookahead`,subtitle:`Activities forecast to start from ${formatDate(start)} to ${formatDate(end)}`,html:`<div class="report-parameter-panel"><label>Lookahead period <select id="lookaheadWeeks" onchange="localStorage.setItem('pcLookaheadWeeks',this.value);runSelectedReport()"><option value="2" ${weeks===2?"selected":""}>2 weeks</option><option value="4" ${weeks===4?"selected":""}>4 weeks</option><option value="6" ${weeks===6?"selected":""}>6 weeks</option><option value="12" ${weeks===12?"selected":""}>12 weeks</option></select></label></div><div class="metrics">${metric("Activities",rows.length,"Starting in window","blue")}${metric("Critical",rows.filter(a=>a.critical||a.totalFloat<=0).length,"Critical/zero float","danger")}</div><div class="panel"><table><thead><tr><th>ID</th><th>Activity</th><th>WBS</th><th>Status</th><th>Start</th><th>Finish</th><th>TF</th><th>%</th></tr></thead><tbody>${rows.map(a=>`<tr><td>${escapeHTML(a.id)}</td><td>${escapeHTML(a.name)}</td><td>${escapeHTML(a.wbsPath||"—")}</td><td>${escapeHTML(a.status)}</td><td>${formatDate(a.currentStart)}</td><td>${formatDate(a.currentFinish)}</td><td>${formatNumber(a.totalFloat)}</td><td>${formatPercent(a.percent)}</td></tr>`).join("")}</tbody></table></div>`};
 }
 
+
+function narrativeComparisonOptions(schedule){
+    return state.schedules
+        .filter(x=>x.id!==schedule.id)
+        .slice()
+        .sort((a,b)=>new Date(b.statusDate||0)-new Date(a.statusDate||0));
+}
+
+function narrativeWeeklyMovement(previous,current){
+    if(!previous) return {newStarts:[],newFinishes:[],progressed:[],slipped:[]};
+    const old=activityMap(previous);
+    const newStarts=[],newFinishes=[],progressed=[],slipped=[];
+    for(const a of current.activities||[]){
+        const p=old.get(a.id); if(!p) continue;
+        if(!p.actualStart && a.actualStart) newStarts.push(a);
+        if(Number(p.percent||0)<100 && Number(a.percent||0)>=100) newFinishes.push(a);
+        if(Number(a.percent||0)>Number(p.percent||0)) progressed.push({activity:a,delta:Number(a.percent||0)-Number(p.percent||0)});
+        const pf=p.currentFinish||p.finish,cf=a.currentFinish||a.finish;
+        if(pf&&cf){
+            const delta=daysBetween(pf,cf);
+            if(delta>0) slipped.push({activity:a,delta});
+        }
+    }
+    slipped.sort((a,b)=>b.delta-a.delta);
+    progressed.sort((a,b)=>b.delta-a.delta);
+    return {newStarts,newFinishes,progressed,slipped};
+}
+
+function narrativeLookahead(schedule,weeks=4){
+    const dataDate=schedule.statusDate?new Date(schedule.statusDate):new Date();
+    dataDate.setHours(0,0,0,0);
+    const buckets=[];
+    for(let i=0;i<weeks;i++){
+        const start=new Date(dataDate);start.setDate(start.getDate()+i*7);
+        const end=new Date(start);end.setDate(end.getDate()+7);
+        const starts=(schedule.activities||[]).filter(a=>Number(a.percent||0)<100&&(a.currentStart||a.start)&&new Date(a.currentStart||a.start)>=start&&new Date(a.currentStart||a.start)<end);
+        const finishes=(schedule.activities||[]).filter(a=>Number(a.percent||0)<100&&(a.currentFinish||a.finish)&&new Date(a.currentFinish||a.finish)>=start&&new Date(a.currentFinish||a.finish)<end);
+        buckets.push({index:i+1,start,end,starts,finishes,critical:starts.filter(a=>a.critical||Number(a.totalFloat)<=0)});
+    }
+    return buckets;
+}
+
+window.setNarrativeComparison=function(value){
+    const schedule=getActiveSchedule();
+    if(!schedule) return;
+    state.narrativeComparisonBySchedule[schedule.id]=value||"";
+    scheduleSave();
+    runSelectedReport();
+};
+
 function buildScheduleNarrativeReport(schedules){
-    const s=schedules[0],h=calculateHealth([s]),prev=getPreviousRevision(s),changes=compareActivitiesDeterministic(prev,s),crit=criticalActivities(s),near=s.activities.filter(a=>!a.critical&&a.totalFloat>0&&a.totalFloat<=10),completed=s.activities.filter(a=>a.percent>=100),inprog=s.activities.filter(a=>a.percent>0&&a.percent<100),finish=latestDate(s.activities.map(a=>a.currentFinish||a.finish)),finishMove=prev?daysBetween(latestDate(prev.activities.map(a=>a.currentFinish||a.finish)),finish):null;
-    return {id:"narrative",title:"Automatic schedule narrative",subtitle:"Draft narrative generated solely from deterministic schedule evidence",html:`<div class="panel narrative"><h2>Executive Summary</h2><p>The current schedule contains <strong>${s.activities.length}</strong> activities with a forecast completion of <strong>${formatDate(finish)}</strong>. Automated schedule-health screening scores the update <strong>${h.score}/100 (${h.label})</strong>.</p><h2>Schedule Status</h2><p>${completed.length} activities are complete, ${inprog.length} are in progress and ${s.activities.length-completed.length-inprog.length} have not started. ${crit.length} activities are critical/zero-float and ${near.length} are near critical within 10 days total float.</p>${prev?`<h2>Movement Since Previous Revision</h2><p>Forecast completion moved <strong>${finishMove>=0?"+":""}${finishMove} days</strong>. ${changes.filter(x=>x.criticality==="Critical").length} critical and ${changes.filter(x=>x.criticality==="Material").length} material changes were identified.</p>`:"<h2>Movement Since Previous Revision</h2><p>No previous comparable revision is currently available.</p>"}<h2>Critical Path</h2><p>The current critical/zero-float path contains ${crit.length} activities. The first five controlling activities are: ${crit.slice(0,5).map(a=>`${escapeHTML(a.id)} ${escapeHTML(a.name)}`).join("; ")||"none identified"}.</p><h2>Schedule Quality</h2><ul>${h.reasons.map(x=>`<li>${escapeHTML(x)}</li>`).join("")}</ul><h2>Planner Attention</h2><ul>${changes.slice(0,5).map(x=>`<li><strong>${escapeHTML(x.id)}</strong>: ${escapeHTML(x.type)} — ${escapeHTML(x.difference)} (${x.criticality}).</li>`).join("")||"<li>Review critical path, progress integrity and near-critical float before issue.</li>"}</ul><div class="evidence-note">Every statement above is generated from parsed schedule data and deterministic calculations. Where prior-revision evidence is unavailable, no cause is asserted.</div></div>`};
+    const s=schedules[0],h=calculateHealth([s]);
+    const options=narrativeComparisonOptions(s);
+    const fallback=getPreviousRevision(s);
+    const selectedId=state.narrativeComparisonBySchedule[s.id]||fallback?.id||"";
+    const prev=state.schedules.find(x=>x.id===selectedId)||fallback||null;
+    const movement=narrativeWeeklyMovement(prev,s);
+    const crit=criticalActivities(s),near=s.activities.filter(a=>!a.critical&&a.totalFloat>0&&a.totalFloat<=10);
+    const completed=s.activities.filter(a=>a.percent>=100),inprog=s.activities.filter(a=>a.percent>0&&a.percent<100),notStarted=s.activities.filter(a=>a.percent<=0);
+    const finish=latestDate(s.activities.map(a=>a.currentFinish||a.finish));
+    const finishMove=prev?daysBetween(latestDate(prev.activities.map(a=>a.currentFinish||a.finish)),finish):null;
+    const progress=weightedProgress(s.activities||[]);
+    const previousProgress=prev?weightedProgress(prev.activities||[]):null;
+    const progressDelta=prev!==null?progress-previousProgress:null;
+    const lookahead=narrativeLookahead(s,4);
+    const maxStarts=Math.max(1,...lookahead.map(x=>x.starts.length));
+    const maxFinishes=Math.max(1,...lookahead.map(x=>x.finishes.length));
+    const dataDate=s.statusDate?new Date(s.statusDate):new Date();
+    const selectHtml=`<select id="narrativeComparisonSelect" onchange="setNarrativeComparison(this.value)">
+        <option value="">No comparison programme</option>
+        ${options.map(x=>`<option value="${escapeHTML(x.id)}" ${x.id===prev?.id?"selected":""}>${escapeHTML(x.name)} · DD ${formatDate(x.statusDate)}</option>`).join("")}
+    </select>`;
+    const progressGraphic=`<div class="narrative-progress-graphic">
+        <div class="narrative-progress-labels"><span>Complete ${completed.length}</span><span>In progress ${inprog.length}</span><span>Not started ${notStarted.length}</span></div>
+        <div class="narrative-progress-track">
+            <span class="complete" style="width:${s.activities.length?completed.length/s.activities.length*100:0}%"></span>
+            <span class="inprogress" style="width:${s.activities.length?inprog.length/s.activities.length*100:0}%"></span>
+            <span class="notstarted" style="width:${s.activities.length?notStarted.length/s.activities.length*100:0}%"></span>
+        </div>
+    </div>`;
+    const outlookGraphic=`<div class="narrative-outlook-chart">${lookahead.map(w=>`
+        <div class="narrative-week">
+            <div class="narrative-week-title">Week ${w.index}<small>${formatDate(w.start)}</small></div>
+            <div class="narrative-bars">
+                <div><span>Starts</span><i class="starts" style="width:${w.starts.length/maxStarts*100}%"></i><b>${w.starts.length}</b></div>
+                <div><span>Finishes</span><i class="finishes" style="width:${w.finishes.length/maxFinishes*100}%"></i><b>${w.finishes.length}</b></div>
+            </div>
+            <div class="narrative-week-critical">${w.critical.length} critical starts</div>
+        </div>`).join("")}</div>`;
+    const weeklySummary=prev?`
+        <p>Compared with <strong>${escapeHTML(prev.name)}</strong> (data date <strong>${formatDate(prev.statusDate)}</strong>), overall weighted progress moved from <strong>${formatPercent(previousProgress)}</strong> to <strong>${formatPercent(progress)}</strong> (${progressDelta>=0?"+":""}${formatNumber(progressDelta)} percentage points). Forecast completion moved <strong>${finishMove>=0?"+":""}${finishMove} days</strong>.</p>
+        <p>During the comparison period, <strong>${movement.newStarts.length}</strong> activities recorded new actual starts, <strong>${movement.newFinishes.length}</strong> activities completed and <strong>${movement.progressed.length}</strong> activities advanced in reported progress. <strong>${movement.slipped.length}</strong> comparable activities show later forecast finishes.</p>`
+        :`<p>No comparative programme is selected. Choose another imported revision above to expand the narrative with weekly progress, new starts/completions and forecast movement.</p>`;
+    const watchItems=[
+        ...movement.slipped.slice(0,3).map(x=>`${x.activity.id} ${x.activity.name}: forecast finish moved +${x.delta}d`),
+        ...lookahead.flatMap(w=>w.critical.slice(0,2).map(a=>`${a.id} ${a.name}: critical start in week ${w.index}`))
+    ].slice(0,6);
+
+    return {
+        id:"narrative",
+        title:"Schedule narrative",
+        subtitle:"High-level weekly progress, status and four-week forward outlook",
+        html:`<div class="report-parameter-panel"><label>Comparative programme ${selectHtml}</label><div class="panel-subtitle">Select the prior/update programme that represents the comparison period you want the narrative to describe.</div></div>
+        <div class="metrics">
+            ${metric("Data date",formatDate(dataDate),"Current update","blue")}
+            ${metric("Weighted progress",formatPercent(progress),prev&&progressDelta!==null?`${progressDelta>=0?"+":""}${formatNumber(progressDelta)} pts vs comparison`:"Current schedule","good")}
+            ${metric("Forecast finish",formatDate(finish),prev&&finishMove!==null?`${finishMove>=0?"+":""}${finishMove}d vs comparison`:"Current forecast",finishMove>0?"danger":"blue")}
+            ${metric("Critical / zero float",crit.length,`${near.length} near critical`,"danger")}
+        </div>
+        <div class="panel narrative"><h2>Executive Schedule Position</h2>
+            <p>As at <strong>${formatDate(dataDate)}</strong>, the programme contains <strong>${s.activities.length}</strong> activities and is <strong>${formatPercent(progress)}</strong> complete on an activity-weighted basis. Forecast completion is <strong>${formatDate(finish)}</strong>. The schedule-health screen is <strong>${h.score}/100 (${h.label})</strong>, with <strong>${crit.length}</strong> critical/zero-float activities and <strong>${near.length}</strong> near-critical activities.</p>
+            ${progressGraphic}
+            <h2>Progress During the Comparison Period</h2>${weeklySummary}
+            ${prev?`<table class="narrative-movement-table"><thead><tr><th>Indicator</th><th>Comparison</th><th>Current</th><th>Movement</th></tr></thead><tbody>
+                <tr><td>Data date</td><td>${formatDate(prev.statusDate)}</td><td>${formatDate(s.statusDate)}</td><td>${daysBetween(prev.statusDate,s.statusDate)} days</td></tr>
+                <tr><td>Weighted progress</td><td>${formatPercent(previousProgress)}</td><td>${formatPercent(progress)}</td><td>${progressDelta>=0?"+":""}${formatNumber(progressDelta)} pts</td></tr>
+                <tr><td>Forecast finish</td><td>${formatDate(latestDate(prev.activities.map(a=>a.currentFinish||a.finish)))}</td><td>${formatDate(finish)}</td><td>${finishMove>=0?"+":""}${finishMove}d</td></tr>
+                <tr><td>Completed activities</td><td>${prev.activities.filter(a=>a.percent>=100).length}</td><td>${completed.length}</td><td>+${movement.newFinishes.length}</td></tr>
+            </tbody></table>`:""}
+            <h2>Next Four Weeks</h2>
+            <p>The forward-looking window runs from the current data date through <strong>${formatDate(new Date(dataDate.getTime()+28*86400000))}</strong>. The graphic below shows forecast starts and finishes by week; critical starts are called out separately.</p>
+            ${outlookGraphic}
+            <table><thead><tr><th>Week</th><th>Period</th><th>Starts</th><th>Finishes</th><th>Critical starts</th><th>Key upcoming activities</th></tr></thead><tbody>
+                ${lookahead.map(w=>`<tr><td>Week ${w.index}</td><td>${formatDate(w.start)} – ${formatDate(new Date(w.end.getTime()-86400000))}</td><td>${w.starts.length}</td><td>${w.finishes.length}</td><td>${w.critical.length}</td><td>${w.starts.slice(0,4).map(a=>`${escapeHTML(a.id)} ${escapeHTML(a.name)}`).join("; ")||"—"}</td></tr>`).join("")}
+            </tbody></table>
+            <h2>Management Watch Items</h2>
+            <ul>${watchItems.length?watchItems.map(x=>`<li>${escapeHTML(x)}</li>`).join(""):`<li>No material watch items were generated from the selected comparison and four-week outlook.</li>`}</ul>
+            <div class="evidence-note">Narrative statements are generated from parsed schedule dates, progress, float and revision differences. They are management-level observations, not assertions of contractual cause or entitlement.</div>
+        </div>`
+    };
 }
 
 function buildExecutiveDashboardReport(schedules){
@@ -5592,244 +5838,78 @@ function buildForensicReport(
     };
 }
 
+
 function buildSCurveReport(schedules){
-
-    const a =
-        schedules.flatMap(
-            s=>s.activities
-        );
-
-    const points =
-        buildTimeSeries(a);
-
-    const chartId =
-        "chart-" + crypto.randomUUID();
-
-    setTimeout(
-        ()=>drawSCurve(
-            chartId,
-            points
-        ),
-        50
-    );
-
+    const a=schedules.flatMap(s=>s.activities);
+    const points=buildTimeSeries(a);
+    const chartId="chart-"+crypto.randomUUID();
+    setTimeout(()=>drawSCurve(chartId,points),50);
+    const totalBudgetHours=a.reduce((n,x)=>n+Number(x.budgetUnits||0),0);
+    const totalActualHours=a.reduce((n,x)=>n+Number(x.actualUnits||0),0);
     return {
         id:"scurve",
         title:"S-Curve & histogram",
-        subtitle:
-            "Planned, actual and forecast progress",
-        html:`
-
-            <div class="metrics">
-
-                ${metric(
-                    "Planned value",
-                    currency(
-                        a.reduce(
-                            (n,x)=>n+(x.budget||0),
-                            0
-                        )
-                    ),
-                    "Parsed schedule budget",
-                    "blue"
-                )}
-
-                ${metric(
-                    "Actual cost",
-                    currency(
-                        a.reduce(
-                            (n,x)=>n+(x.actualCost||0),
-                            0
-                        )
-                    ),
-                    "Where supplied",
-                    "blue"
-                )}
-
-                ${metric(
-                    "Actual progress",
-                    formatPercent(
-                        weightedProgress(a)
-                    ),
-                    "Activity-weighted",
-                    "good"
-                )}
-
-                ${metric(
-                    "Forecast finish",
-                    formatDate(
-                        latestDate(
-                            a.map(x=>x.finish)
-                        )
-                    ),
-                    "Current forecast",
-                    "warning"
-                )}
-
-                ${metric(
-                    "Data points",
-                    points.length,
-                    "Time periods",
-                    "blue"
-                )}
-
+        subtitle:"Weekly planned, actual and forecast progress with copyable time-phased tables",
+        html:`<div class="metrics">
+            ${metric("Budget hours",formatNumber(totalBudgetHours),"Activity/resource units where supplied","blue")}
+            ${metric("Actual hours",formatNumber(totalActualHours),"Cumulative actual units where supplied","blue")}
+            ${metric("Actual progress",formatPercent(weightedProgress(a)),"Activity-weighted","good")}
+            ${metric("Forecast finish",formatDate(latestDate(a.map(x=>x.finish))),"Current forecast","warning")}
+            ${metric("Weekly periods",points.length,"Monday–Sunday axis","blue")}
+        </div>
+        <div class="panel"><div class="panel-title">Weekly cumulative progress</div>
+            <div class="chart-controls">
+                <button class="chart-control active" onclick="toggleChartMode(this,'scurve')">S-Curve</button>
+                <button class="chart-control" onclick="toggleChartMode(this,'histogram')">Weekly histogram</button>
             </div>
-
-            <div class="panel">
-
-                <div class="panel-title">
-                    Cumulative progress
-                </div>
-
-                <div class="chart-controls">
-                    <button
-                        class="chart-control active"
-                        onclick="toggleChartMode(this,'scurve')"
-                    >
-                        S-Curve
-                    </button>
-
-                    <button
-                        class="chart-control"
-                        onclick="toggleChartMode(this,'histogram')"
-                    >
-                        Histogram
-                    </button>
-                </div>
-
-                <div class="chart-wrap">
-                    <canvas id="${chartId}"></canvas>
-                </div>
-
-            </div>
-
-            <div class="panel">
-
-                <div class="panel-title">
-                    Time-phased data
-                </div>
-
-                ${timeSeriesTable(points)}
-
-            </div>
-        `,
-        text:
-            `S-Curve and Histogram Report\n\n` +
-            timeSeriesText(points)
+            <div class="chart-wrap"><canvas id="${chartId}"></canvas></div>
+        </div>
+        <div class="panel"><div class="panel-title">Weekly progress / quantity / hours table</div>
+            <div class="panel-subtitle">The table is deliberately plain and copyable into Excel. Resource hours are activity-level resource units grouped to the relevant activity finish week; they are not a substitute for a fully time-phased resource spread where the source does not contain one.</div>
+            <div class="table-scroll scurve-weekly-table">${timeSeriesTable(points)}</div>
+        </div>`,
+        text:`S-Curve and Histogram Report\n\n${timeSeriesText(points)}`
     };
 }
 
+function startOfWeek(date){
+    const d=new Date(date);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d;
+}
+
 function buildTimeSeries(activities){
-
-    const dates = [];
-
-    activities.forEach(a => {
-
-        if(a.start)
-            dates.push(
-                new Date(a.start)
-            );
-
-        if(a.finish)
-            dates.push(
-                new Date(a.finish)
-            );
-
-        if(a.baselineStart)
-            dates.push(
-                new Date(a.baselineStart)
-            );
-
-        if(a.baselineFinish)
-            dates.push(
-                new Date(a.baselineFinish)
-            );
-    });
-
-    if(!dates.length)
-        return [];
-
-    let start =
-        new Date(
-            Math.min(
-                ...dates.map(d=>d.getTime())
-            )
-        );
-
-    let end =
-        new Date(
-            Math.max(
-                ...dates.map(d=>d.getTime())
-            )
-        );
-
-    const months = [];
-
-    let cursor =
-        new Date(
-            start.getFullYear(),
-            start.getMonth(),
-            1
-        );
-
-    while(cursor <= end){
-
-        months.push(
-            new Date(cursor)
-        );
-
-        cursor.setMonth(
-            cursor.getMonth()+1
-        );
-
-        if(months.length > 120)
-            break;
+    const dates=[];
+    activities.forEach(a=>[a.start,a.finish,a.currentStart,a.currentFinish,a.actualStart,a.actualFinish,a.baselineStart,a.baselineFinish].filter(Boolean).forEach(v=>{
+        const d=new Date(v);if(Number.isFinite(d.getTime()))dates.push(d);
+    }));
+    if(!dates.length) return [];
+    const start=startOfWeek(new Date(Math.min(...dates.map(d=>d.getTime()))));
+    const end=new Date(Math.max(...dates.map(d=>d.getTime())));
+    const periods=[];
+    let cursor=new Date(start);
+    let guard=0;
+    while(cursor<=end&&guard++<520){
+        const weekStart=new Date(cursor);
+        const next=new Date(cursor);next.setDate(next.getDate()+7);
+        const weekEnd=new Date(next.getTime()-1);
+        const plannedThis=activities.filter(a=>a.baselineFinish&&new Date(a.baselineFinish)>=weekStart&&new Date(a.baselineFinish)<next);
+        const actualThis=activities.filter(a=>Number(a.percent||0)>=100&&(a.actualFinish||a.finish)&&new Date(a.actualFinish||a.finish)>=weekStart&&new Date(a.actualFinish||a.finish)<next);
+        const forecastThis=activities.filter(a=>(a.currentFinish||a.finish)&&new Date(a.currentFinish||a.finish)>=weekStart&&new Date(a.currentFinish||a.finish)<next);
+        const planned=activities.filter(a=>a.baselineFinish&&new Date(a.baselineFinish)<next).length;
+        const actual=activities.filter(a=>Number(a.percent||0)>=100&&(a.actualFinish||a.finish)&&new Date(a.actualFinish||a.finish)<next).length;
+        const forecast=activities.filter(a=>(a.currentFinish||a.finish)&&new Date(a.currentFinish||a.finish)<next).length;
+        const total=Math.max(activities.length,1);
+        periods.push({
+            date:weekStart,weekEnd,total:activities.length,
+            planned,actual,forecast,histogram:forecastThis.length,
+            plannedQty:plannedThis.length,actualQty:actualThis.length,forecastQty:forecastThis.length,
+            plannedHours:plannedThis.reduce((n,a)=>n+Number(a.budgetUnits||0),0),
+            actualHours:actualThis.reduce((n,a)=>n+Number(a.actualUnits||0),0),
+            forecastHours:forecastThis.reduce((n,a)=>n+Number(a.remainingUnits||a.budgetUnits||0),0),
+            plannedPct:planned/total*100,actualPct:actual/total*100,forecastPct:forecast/total*100
+        });
+        cursor=next;
     }
-
-    return months.map(date => {
-
-        const t =
-            date.getTime();
-
-        const planned =
-            activities.filter(
-                a =>
-                    a.baselineFinish &&
-                    new Date(a.baselineFinish).getTime() <= t
-            ).length;
-
-        const actual =
-            activities.filter(
-                a =>
-                    a.percent >= 100 &&
-                    a.finish &&
-                    new Date(a.finish).getTime() <= t
-            ).length;
-
-        const forecast =
-            activities.filter(
-                a =>
-                    a.finish &&
-                    new Date(a.finish).getTime() <= t
-            ).length;
-
-        const inMonth =
-            activities.filter(
-                a =>
-                    a.finish &&
-                    new Date(a.finish).getMonth() === date.getMonth() &&
-                    new Date(a.finish).getFullYear() === date.getFullYear()
-            ).length;
-
-        return {
-            date,
-            planned,
-            actual,
-            forecast,
-            histogram:inMonth,
-            total:activities.length
-        };
-    });
+    return periods;
 }
 
 function drawSCurve(id,points,mode="scurve"){
@@ -6025,8 +6105,8 @@ function drawSCurve(id,points,mode="scurve"){
                     p.date.toLocaleDateString(
                         undefined,
                         {
-                            month:"short",
-                            year:"2-digit"
+                            day:"2-digit",
+                            month:"short"
                         }
                     ),
                     x(i)-12,
@@ -8965,145 +9045,190 @@ function earliestDate(values){
     return valid.length ? new Date(Math.min(...valid.map(d=>d.getTime()))).toISOString() : null;
 }
 
+
 function ganttScaleBands(minTime,maxTime){
-    const weeks=[];
-    const months=[];
-    const start=new Date(minTime);
-    start.setHours(0,0,0,0);
-    start.setDate(start.getDate()-((start.getDay()+6)%7));
-    let cursor=new Date(start);
-    while(cursor.getTime()<=maxTime){
-        const next=new Date(cursor); next.setDate(next.getDate()+7);
-        weeks.push({start:cursor.getTime(),end:Math.min(next.getTime(),maxTime),label:`W${isoWeek(cursor)}`});
+    const weeks=[],months=[],quarters=[],years=[];
+    let start=new Date(minTime);start.setHours(0,0,0,0);start.setDate(start.getDate()-((start.getDay()+6)%7));
+    let cursor=new Date(start),guard=0;
+    while(cursor.getTime()<=maxTime&&guard++<800){
+        const next=new Date(cursor);next.setDate(next.getDate()+7);
+        weeks.push({start:Math.max(cursor.getTime(),minTime),end:Math.min(next.getTime(),maxTime),label:`W${isoWeek(cursor)}`});
         cursor=next;
     }
-    cursor=new Date(new Date(minTime).getFullYear(),new Date(minTime).getMonth(),1);
-    while(cursor.getTime()<=maxTime){
+    cursor=new Date(new Date(minTime).getFullYear(),new Date(minTime).getMonth(),1);guard=0;
+    while(cursor.getTime()<=maxTime&&guard++<300){
         const next=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);
-        months.push({start:Math.max(cursor.getTime(),minTime),end:Math.min(next.getTime(),maxTime),label:cursor.toLocaleDateString(undefined,{month:"short",year:"numeric"})});
+        months.push({start:Math.max(cursor.getTime(),minTime),end:Math.min(next.getTime(),maxTime),label:cursor.toLocaleDateString(undefined,{month:"short"})});
         cursor=next;
     }
-    return {weeks,months};
+    cursor=new Date(new Date(minTime).getFullYear(),Math.floor(new Date(minTime).getMonth()/3)*3,1);guard=0;
+    while(cursor.getTime()<=maxTime&&guard++<120){
+        const next=new Date(cursor.getFullYear(),cursor.getMonth()+3,1);
+        quarters.push({start:Math.max(cursor.getTime(),minTime),end:Math.min(next.getTime(),maxTime),label:`Q${Math.floor(cursor.getMonth()/3)+1}`});
+        cursor=next;
+    }
+    cursor=new Date(new Date(minTime).getFullYear(),0,1);guard=0;
+    while(cursor.getTime()<=maxTime&&guard++<50){
+        const next=new Date(cursor.getFullYear()+1,0,1);
+        years.push({start:Math.max(cursor.getTime(),minTime),end:Math.min(next.getTime(),maxTime),label:String(cursor.getFullYear())});
+        cursor=next;
+    }
+    return {weeks,months,quarters,years};
 }
 
 function isoWeek(date){
     const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
-    const day=d.getUTCDay()||7;
-    d.setUTCDate(d.getUTCDate()+4-day);
+    const day=d.getUTCDay()||7;d.setUTCDate(d.getUTCDate()+4-day);
     const yearStart=new Date(Date.UTC(d.getUTCFullYear(),0,1));
     return Math.ceil((((d-yearStart)/86400000)+1)/7);
 }
 
-function ganttTimelineGrid(bands,minTime,maxTime){
-    const monthLines=bands.months.map(m=>`<span class="gantt-gridline month" style="left:${ganttPosition(new Date(m.start).toISOString(),minTime,maxTime)}%"></span>`).join("");
-    const weekLines=bands.weeks.map(w=>`<span class="gantt-gridline" style="left:${ganttPosition(new Date(w.start).toISOString(),minTime,maxTime)}%"></span>`).join("");
-    return monthLines+weekLines;
+function ganttBandPair(bands,timescale){
+    if(timescale==="annual") return {major:bands.years,minor:bands.years,majorName:"Year",minorName:"Year"};
+    if(timescale==="quarterly") return {major:bands.years,minor:bands.quarters,majorName:"Year",minorName:"Quarter"};
+    if(timescale==="monthly") return {major:bands.years,minor:bands.months,majorName:"Year",minorName:"Month"};
+    return {major:bands.months.map(m=>({...m,label:new Date(m.start).toLocaleDateString(undefined,{month:"short",year:"numeric"})})),minor:bands.weeks,majorName:"Month",minorName:"Week"};
 }
 
-function ganttRowBars(item,type,minTime,maxTime){
+function ganttTimelineGrid(bands,minTime,maxTime,timescale="weekly"){
+    const pair=ganttBandPair(bands,timescale);
+    const major=pair.major.map(m=>`<span class="gantt-gridline month" style="left:${ganttPosition(new Date(m.start).toISOString(),minTime,maxTime)}%"></span>`).join("");
+    const minor=pair.minor.map(w=>`<span class="gantt-gridline" style="left:${ganttPosition(new Date(w.start).toISOString(),minTime,maxTime)}%"></span>`).join("");
+    return major+minor;
+}
+
+function ganttRowBars(item,type,minTime,maxTime,options={}){
     const baselineStart=item.baselineStart||item.plannedStart||item.start;
     const baselineFinish=item.baselineFinish||item.plannedFinish||item.finish;
     const currentStart=item.currentStart||item.actualStart||item.start;
     const currentFinish=item.currentFinish||item.actualFinish||item.finish;
     const p1=ganttPosition(baselineStart,minTime,maxTime),p2=ganttPosition(baselineFinish,minTime,maxTime);
     const c1=ganttPosition(currentStart,minTime,maxTime),c2=ganttPosition(currentFinish,minTime,maxTime);
-    const critical=type==="activity" && (item.critical||Number(item.totalFloat||0)<=0);
+    const critical=type==="activity"&&(item.critical||Number(item.totalFloat||0)<=0);
+    const forceRed=!!options.forceRed;
     if(type==="wbs"){
-        return `<span class="gantt-summary-bar" style="left:${Math.min(c1,c2)}%;width:${Math.max(.35,Math.abs(c2-c1))}%" title="WBS roll-up: ${formatDate(currentStart)} to ${formatDate(currentFinish)}"></span>`;
+        return `<span class="gantt-summary-bar ${forceRed?"force-red":""}" style="left:${Math.min(c1,c2)}%;width:${Math.max(.35,Math.abs(c2-c1))}%" title="WBS roll-up: ${formatDate(currentStart)} to ${formatDate(currentFinish)}"></span>`;
     }
     if(item.milestone){
-        return `<span class="gantt-pro-milestone ${critical?"critical":""}" style="left:${c2}%" title="${escapeHTML(item.id)} · ${formatDate(currentFinish)}"></span>`;
+        return `<span class="gantt-pro-milestone ${(critical||forceRed)?"critical":""}" style="left:${c2}%" title="${escapeHTML(item.id)} · ${formatDate(currentFinish)}"></span>`;
     }
-    return `
-        <span class="gantt-baseline-bar" style="left:${Math.min(p1,p2)}%;width:${Math.max(.25,Math.abs(p2-p1))}%" title="Baseline: ${formatDate(baselineStart)} to ${formatDate(baselineFinish)}"></span>
-        <span class="gantt-current-bar ${critical?"gantt-critical-bar":""}" style="left:${Math.min(c1,c2)}%;width:${Math.max(.25,Math.abs(c2-c1))}%" title="Current: ${formatDate(currentStart)} to ${formatDate(currentFinish)} · ${formatPercent(item.percent)}">
+    return `<span class="gantt-baseline-bar" style="left:${Math.min(p1,p2)}%;width:${Math.max(.25,Math.abs(p2-p1))}%" title="Baseline: ${formatDate(baselineStart)} to ${formatDate(baselineFinish)}"></span>
+        <span class="gantt-current-bar ${(critical||forceRed)?"gantt-critical-bar":""}" style="left:${Math.min(c1,c2)}%;width:${Math.max(.25,Math.abs(c2-c1))}%" title="Current: ${formatDate(currentStart)} to ${formatDate(currentFinish)} · ${formatPercent(item.percent)}">
             <span class="gantt-current-progress" style="width:${Math.max(0,Math.min(100,Number(item.percent||0)))}%"></span>
         </span>`;
 }
 
-function ganttRowsForTree(hierarchy,minTime,maxTime,bands,dataDate){
-    const rows=[];
-    let seq=0;
-    const grid=ganttTimelineGrid(bands,minTime,maxTime);
-    const dd=dataDate ? ganttPosition(dataDate,minTime,maxTime) : null;
-
+function ganttRowsForTree(hierarchy,minTime,maxTime,bands,dataDate,options={}){
+    const rows=[];let seq=0;
+    const grid=ganttTimelineGrid(bands,minTime,maxTime,options.timescale||"weekly");
+    const dd=dataDate?ganttPosition(dataDate,minTime,maxTime):null;
     function addWBS(node,parentKey=""){
-        const key=`wbs-${++seq}`;
-        const hasChildren=node.children.length||node.activities.length;
-        rows.push({
-            key,parentKey,kind:"wbs",depth:node.depth,
+        if(options.criticalOnly&&Number(node.criticalCount||0)<=0) return;
+        const key=`wbs-${++seq}`;const hasChildren=node.children.length||node.activities.length;
+        rows.push({key,parentKey,kind:"wbs",depth:node.depth,
             left:`<div class="gantt-pro-left-row wbs-row ${node.depth===0?"root-wbs":""}" data-row="${key}" data-parent="${parentKey}">
-                <div class="gantt-name-cell">
-                    <span class="gantt-indent" style="width:${node.depth*15}px"></span>
-                    ${hasChildren?`<button class="gantt-tree-toggle" data-toggle="${key}" aria-label="Collapse ${escapeHTML(node.name)}">▾</button>`:`<span style="width:17px"></span>`}
-                    <span class="gantt-code">${escapeHTML(node.code)}</span>
-                    <span class="gantt-name gantt-wbs-name" title="${escapeHTML(node.path)}">${escapeHTML(node.name)}</span>
-                </div>
-                <div>${formatPercent(node.progress)}</div>
-                <div>${formatDate(node.currentStart)}</div>
-                <div>${formatDate(node.currentFinish)}</div>
+                <div class="gantt-name-cell"><span class="gantt-indent" style="width:${node.depth*15}px"></span>
+                ${hasChildren?`<button class="gantt-tree-toggle" data-toggle="${key}" aria-label="Collapse ${escapeHTML(node.name)}">▾</button>`:`<span style="width:17px"></span>`}
+                <span class="gantt-code">${escapeHTML(node.code)}</span><span class="gantt-name gantt-wbs-name" title="${escapeHTML(node.path)}">${escapeHTML(node.name)}</span></div>
+                <div>${formatPercent(node.progress)}</div><div>${formatDate(node.currentStart)}</div><div>${formatDate(node.currentFinish)}</div>
             </div>`,
-            time:`<div class="gantt-pro-time-row wbs-row ${node.depth===0?"root-wbs":""}" data-row="${key}" data-parent="${parentKey}">${grid}${dd!==null?`<span class="gantt-data-date" style="left:${dd}%"></span>`:""}${ganttRowBars(node,"wbs",minTime,maxTime)}</div>`
-        });
+            time:`<div class="gantt-pro-time-row wbs-row ${node.depth===0?"root-wbs":""}" data-row="${key}" data-parent="${parentKey}">${grid}${dd!==null?`<span class="gantt-data-date" style="left:${dd}%"></span>`:""}${ganttRowBars(node,"wbs",minTime,maxTime,options)}</div>`});
         node.children.forEach(child=>addWBS(child,key));
-        node.activities.forEach(activity=>addActivity(activity,key,node.depth+1));
+        node.activities.filter(a=>!options.criticalOnly||a.critical||Number(a.totalFloat||0)<=0).forEach(activity=>addActivity(activity,key,node.depth+1));
     }
-
     function addActivity(activity,parentKey,depth){
         const key=`act-${++seq}`;
-        rows.push({
-            key,parentKey,kind:"activity",depth,
+        rows.push({key,parentKey,kind:"activity",depth,
             left:`<div class="gantt-pro-left-row" data-row="${key}" data-parent="${parentKey}">
-                <div class="gantt-name-cell">
-                    <span class="gantt-indent" style="width:${depth*15}px"></span>
-                    <span style="width:17px"></span>
-                    <span class="gantt-code">${escapeHTML(activity.id)}</span>
-                    <span class="gantt-name" title="${escapeHTML(activity.name)}">${escapeHTML(activity.name)}</span>
-                </div>
-                <div>${formatPercent(activity.percent)}</div>
-                <div>${formatDate(activity.actualStart||activity.currentStart||activity.start)}</div>
-                <div>${formatDate(activity.actualFinish||activity.currentFinish||activity.finish)}</div>
+                <div class="gantt-name-cell"><span class="gantt-indent" style="width:${depth*15}px"></span><span style="width:17px"></span>
+                <span class="gantt-code">${escapeHTML(activity.id)}</span><span class="gantt-name" title="${escapeHTML(activity.name)}">${escapeHTML(activity.name)}</span></div>
+                <div>${formatPercent(activity.percent)}</div><div>${formatDate(activity.actualStart||activity.currentStart||activity.start)}</div><div>${formatDate(activity.actualFinish||activity.currentFinish||activity.finish)}</div>
             </div>`,
-            time:`<div class="gantt-pro-time-row" data-row="${key}" data-parent="${parentKey}">${grid}${dd!==null?`<span class="gantt-data-date" style="left:${dd}%"></span>`:""}${ganttRowBars(activity,"activity",minTime,maxTime)}</div>`
-        });
+            time:`<div class="gantt-pro-time-row" data-row="${key}" data-parent="${parentKey}">${grid}${dd!==null?`<span class="gantt-data-date" style="left:${dd}%"></span>`:""}${ganttRowBars(activity,"activity",minTime,maxTime,options)}</div>`});
     }
-
     hierarchy.roots.forEach(root=>addWBS(root,""));
     return rows;
 }
 
-function toggleGanttBranch(key){
-    const left=document.querySelector(`.gantt-pro-left-row[data-row="${key}"] .gantt-tree-toggle`);
+function toggleGanttBranch(key,root=document){
+    const left=root.querySelector(`.gantt-pro-left-row[data-row="${key}"] .gantt-tree-toggle`);
     const collapsed=left?.dataset.collapsed==="true";
     if(left){left.dataset.collapsed=collapsed?"false":"true";left.textContent=collapsed?"▾":"▸";}
     function apply(parent,hide){
-        document.querySelectorAll(`[data-parent="${parent}"]`).forEach(el=>{
+        root.querySelectorAll(`[data-parent="${parent}"]`).forEach(el=>{
             el.classList.toggle("gantt-hidden",hide);
             const child=el.dataset.row;
-            const toggle=document.querySelector(`.gantt-pro-left-row[data-row="${child}"] .gantt-tree-toggle`);
+            const toggle=root.querySelector(`.gantt-pro-left-row[data-row="${child}"] .gantt-tree-toggle`);
             const childCollapsed=toggle?.dataset.collapsed==="true";
-            if(child) apply(child,hide || childCollapsed);
+            if(child) apply(child,hide||childCollapsed);
         });
     }
     apply(key,!collapsed);
 }
 
-function setAllGanttBranches(expanded){
-    document.querySelectorAll('.gantt-tree-toggle').forEach(btn=>{
-        btn.dataset.collapsed=expanded?"false":"true";
-        btn.textContent=expanded?"▾":"▸";
-    });
-    document.querySelectorAll('.gantt-pro-left-row[data-parent],.gantt-pro-time-row[data-parent]').forEach(el=>{
-        el.classList.toggle('gantt-hidden',!expanded && Boolean(el.dataset.parent));
-    });
+function setAllGanttBranches(expanded,root=document){
+    root.querySelectorAll('.gantt-tree-toggle').forEach(btn=>{btn.dataset.collapsed=expanded?"false":"true";btn.textContent=expanded?"▾":"▸";});
+    root.querySelectorAll('.gantt-pro-left-row[data-parent],.gantt-pro-time-row[data-parent]').forEach(el=>el.classList.toggle('gantt-hidden',!expanded&&Boolean(el.dataset.parent)));
 }
 
 function initialiseGanttInteractions(){
-    document.querySelectorAll('.gantt-tree-toggle').forEach(btn=>{
-        btn.addEventListener('click',()=>toggleGanttBranch(btn.dataset.toggle));
+    document.querySelectorAll('.gantt-pro').forEach(root=>{
+        root.querySelectorAll('.gantt-tree-toggle').forEach(btn=>btn.addEventListener('click',()=>toggleGanttBranch(btn.dataset.toggle,root)));
+        root.querySelector('[data-gantt-expand]')?.addEventListener('click',()=>setAllGanttBranches(true,root));
+        root.querySelector('[data-gantt-collapse]')?.addEventListener('click',()=>setAllGanttBranches(false,root));
     });
-    document.getElementById('ganttExpandAll')?.addEventListener('click',()=>setAllGanttBranches(true));
-    document.getElementById('ganttCollapseAll')?.addEventListener('click',()=>setAllGanttBranches(false));
+}
+
+function ganttCompressionSettings(value){
+    if(value==="compact") return {rowHeight:22,leftWidth:420,timelineWidth:700,label:"Compact / print"};
+    if(value==="expanded") return {rowHeight:40,leftWidth:620,timelineWidth:1500,label:"Expanded"};
+    return {rowHeight:32,leftWidth:500,timelineWidth:1050,label:"Standard"};
+}
+
+function buildGanttMarkup(schedule,{timescale="weekly",compression="standard",criticalOnly=false,forceRed=false,showControls=true,title="WBS programme"}={}){
+    const activities=schedule.activities||[];
+    const [minTime,maxTime]=ganttDateRange(schedule);
+    const hierarchy=buildGanttHierarchy(schedule);
+    const bands=ganttScaleBands(minTime,maxTime);
+    const rows=ganttRowsForTree(hierarchy,minTime,maxTime,bands,schedule.statusDate,{timescale,criticalOnly,forceRed});
+    const pair=ganttBandPair(bands,timescale);
+    const major=pair.major.map(m=>{
+        const left=ganttPosition(new Date(m.start).toISOString(),minTime,maxTime),right=ganttPosition(new Date(m.end).toISOString(),minTime,maxTime);
+        return `<span class="gantt-month-label" style="left:${left}%;width:${Math.max(.2,right-left)}%">${escapeHTML(m.label)}</span>`;
+    }).join("");
+    const minor=(timescale==="annual"?[]:pair.minor).map(w=>{
+        const left=ganttPosition(new Date(w.start).toISOString(),minTime,maxTime),right=ganttPosition(new Date(w.end).toISOString(),minTime,maxTime);
+        return `<span class="gantt-week-label" style="left:${left}%;width:${Math.max(.2,right-left)}%">${escapeHTML(w.label)}</span>`;
+    }).join("");
+    const settings=ganttCompressionSettings(compression);
+    const visibleActivities=criticalOnly?activities.filter(a=>a.critical||Number(a.totalFloat||0)<=0).length:activities.length;
+    const controls=showControls?`<div class="gantt-pro-toolbar">
+        <div class="gantt-control-group">
+            <label>Timescale <select onchange="localStorage.setItem('pcGanttTimescale',this.value);runSelectedReport()">
+                ${["weekly","monthly","quarterly","annual"].map(v=>`<option value="${v}" ${timescale===v?"selected":""}>${v[0].toUpperCase()+v.slice(1)}</option>`).join("")}
+            </select></label>
+            <label>Bar compression <select onchange="localStorage.setItem('pcGanttCompression',this.value);runSelectedReport()">
+                <option value="compact" ${compression==="compact"?"selected":""}>Compact / print</option>
+                <option value="standard" ${compression==="standard"?"selected":""}>Standard</option>
+                <option value="expanded" ${compression==="expanded"?"selected":""}>Expanded</option>
+            </select></label>
+        </div>
+        <div class="gantt-pro-actions"><button data-gantt-expand type="button">Expand all</button><button data-gantt-collapse type="button">Collapse all</button></div>
+    </div>`:"";
+    return `<div class="panel gantt-light-panel"><div class="panel-title">${escapeHTML(title)}</div>
+        <div class="panel-subtitle">${criticalOnly?"Critical / zero-float activities only.":"Native P6 parent/child WBS hierarchy retained."} Timescale: ${escapeHTML(timescale)} · ${escapeHTML(settings.label)}.</div>
+        <div class="gantt-pro ${forceRed?"critical-gantt":""}" style="--gantt-row-h:${settings.rowHeight}px;--gantt-left:${settings.leftWidth}px;--gantt-time-min:${settings.timelineWidth}px">
+            ${controls}
+            <div class="gantt-pro-scroll"><div class="gantt-pro-grid"><div>
+                <div class="gantt-pro-left-head"><div>WBS / Activity</div><div>%</div><div>Start</div><div>Finish</div></div>
+                ${rows.map(r=>r.left).join("")}
+            </div><div>
+                <div class="gantt-pro-time-head"><div class="gantt-month-band">${major}</div><div class="gantt-week-band">${minor}</div></div>
+                ${rows.map(r=>r.time).join("")}
+            </div></div></div>
+        </div>
+        <div class="panel-subtitle">${visibleActivities} displayed activities · ${formatDate(new Date(minTime).toISOString())} to ${formatDate(new Date(maxTime).toISOString())}</div>
+    </div>`;
 }
 
 function buildNodesLinksReport(schedules){
@@ -9179,82 +9304,30 @@ window.switchNodesLinksTab=function(button,id){
     report.querySelectorAll(".nl-pane").forEach(pane=>pane.classList.toggle("active",pane.dataset.nlPane===id));
 };
 
+
 function buildGanttReport(schedules){
-    const schedule=schedules[0];
-    const activities=schedule.activities||[];
-    const [minTime,maxTime]=ganttDateRange(schedule);
+    const schedule=schedules[0],activities=schedule.activities||[];
+    const timescale=localStorage.getItem("pcGanttTimescale")||"weekly";
+    const compression=localStorage.getItem("pcGanttCompression")||"standard";
     const hierarchy=buildGanttHierarchy(schedule);
-    const bands=ganttScaleBands(minTime,maxTime);
-    const rows=ganttRowsForTree(hierarchy,minTime,maxTime,bands,schedule.statusDate);
-
-    const months=bands.months.map(m=>{
-        const left=ganttPosition(new Date(m.start).toISOString(),minTime,maxTime);
-        const right=ganttPosition(new Date(m.end).toISOString(),minTime,maxTime);
-        return `<span class="gantt-month-label" style="left:${left}%;width:${Math.max(.2,right-left)}%">${escapeHTML(m.label)}</span>`;
-    }).join("");
-    const weeks=bands.weeks.map(w=>{
-        const left=ganttPosition(new Date(w.start).toISOString(),minTime,maxTime);
-        const right=ganttPosition(new Date(w.end).toISOString(),minTime,maxTime);
-        return `<span class="gantt-week-label" style="left:${left}%;width:${Math.max(.2,right-left)}%">${escapeHTML(w.label)}</span>`;
-    }).join("");
-
-    const leftRows=rows.map(r=>r.left).join("");
-    const timeRows=rows.map(r=>r.time).join("");
-    const wbsCount=hierarchy.nodes.size;
-
     setTimeout(initialiseGanttInteractions,0);
-
     return {
         id:"gantt",
         title:"Professional WBS Gantt",
-        subtitle:`Full hierarchical WBS · ${formatDate(new Date(minTime).toISOString())} to ${formatDate(new Date(maxTime).toISOString())}`,
-        html:`
-            <div class="metrics">
-                ${metric("Activities",activities.length,"Schedule activities","blue")}
-                ${metric("WBS elements",wbsCount,"Parent + child WBS","blue")}
-                ${metric("Progress",formatPercent(weightedProgress(activities)),"Activity weighted","good")}
-                ${metric("Critical",activities.filter(a=>a.critical||Number(a.totalFloat||0)<=0).length,"Critical / zero float","danger")}
-                ${metric("Forecast finish",formatDate(latestDate(activities.map(a=>a.finish))),"Latest current finish","warning")}
-            </div>
-
-            <div class="panel">
-                <div class="panel-title">Gantt legend</div>
-                <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:7px;color:var(--muted)">
-                    <span><span style="display:inline-block;width:22px;height:5px;background:#8b8f97;border-radius:999px;margin-right:4px"></span>Baseline / planned</span>
-                    <span><span style="display:inline-block;width:22px;height:8px;background:var(--purple);border-radius:3px;margin-right:4px"></span>Current / forecast</span>
-                    <span><span style="display:inline-block;width:22px;border-top:3px solid var(--text);margin-right:4px"></span>WBS summary</span>
-                    <span>◆ Milestone</span>
-                    <span style="color:var(--red)">│ Data date</span>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-title">WBS programme</div>
-                <div class="panel-subtitle">Native P6 parent/child WBS hierarchy is retained. Parent summary bars roll up every descendant activity. Expand or collapse branches independently.</div>
-                <div class="gantt-pro">
-                    <div class="gantt-pro-toolbar">
-                        <div style="font-size:7px;color:var(--muted)">${wbsCount} WBS elements · ${activities.length} activities · weekly time scale</div>
-                        <div class="gantt-pro-actions">
-                            <button id="ganttExpandAll" type="button">Expand all</button>
-                            <button id="ganttCollapseAll" type="button">Collapse all</button>
-                        </div>
-                    </div>
-                    <div class="gantt-pro-scroll">
-                        <div class="gantt-pro-grid">
-                            <div>
-                                <div class="gantt-pro-left-head"><div>WBS / Activity</div><div>%</div><div>Start</div><div>Finish</div></div>
-                                ${leftRows}
-                            </div>
-                            <div>
-                                <div class="gantt-pro-time-head"><div class="gantt-month-band">${months}</div><div class="gantt-week-band">${weeks}</div></div>
-                                ${timeRows}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `,
-        text:`Professional WBS Gantt\n\nSchedule: ${schedule.name}\nWBS elements: ${wbsCount}\nActivities: ${activities.length}\nRange: ${formatDate(new Date(minTime).toISOString())} to ${formatDate(new Date(maxTime).toISOString())}`
+        subtitle:"Printable light-theme WBS programme with configurable timescale and bar compression",
+        html:`<div class="metrics">
+            ${metric("Activities",activities.length,"Schedule activities","blue")}
+            ${metric("WBS elements",hierarchy.nodes.size,"Parent + child WBS","blue")}
+            ${metric("Progress",formatPercent(weightedProgress(activities)),"Activity weighted","good")}
+            ${metric("Critical",activities.filter(a=>a.critical||Number(a.totalFloat||0)<=0).length,"Critical / zero float","danger")}
+            ${metric("Forecast finish",formatDate(latestDate(activities.map(a=>a.finish))),"Latest current finish","warning")}
+        </div>
+        <div class="panel gantt-light-panel"><div class="panel-title">Gantt legend</div><div class="gantt-legend">
+            <span><i class="baseline"></i>Baseline / planned</span><span><i class="current"></i>Current / forecast</span>
+            <span><i class="critical"></i>Critical activity</span><span><i class="summary"></i>WBS summary</span><span>◆ Milestone</span><span class="data-date-key">│ Data date</span>
+        </div></div>
+        ${buildGanttMarkup(schedule,{timescale,compression,showControls:true,title:"WBS programme"})}`,
+        text:`Professional WBS Gantt\nSchedule: ${schedule.name}\nTimescale: ${timescale}\nCompression: ${compression}\nActivities: ${activities.length}`
     };
 }
 
@@ -11515,6 +11588,7 @@ async function newProject(){
     state.delayBaselineBySchedule = {};
     state.forensicBaselineBySchedule = {};
     state.monteSettingsBySchedule = {};
+    state.narrativeComparisonBySchedule = {};
     state.comparisonSequenceIds = [];
     state.savedComparisonReports = [];
     state.chat = [];
@@ -11784,61 +11858,30 @@ function costTable(activities){
     `;
 }
 
+
 function timeSeriesTable(points){
-
-    if(!points.length)
-        return "<p>No usable date information.</p>";
-
-    return `
-        <table>
-
-            <thead>
-                <tr>
-                    <th>Period</th>
-                    <th>Planned cumulative</th>
-                    <th>Actual cumulative</th>
-                    <th>Forecast cumulative</th>
-                    <th>Histogram</th>
-                </tr>
-            </thead>
-
-            <tbody>
-
-                ${points.map(
-                    p=>`
-
-                    <tr>
-
-                        <td>
-                            ${p.date.toLocaleDateString(
-                                undefined,
-                                {
-                                    month:"short",
-                                    year:"numeric"
-                                }
-                            )}
-                        </td>
-
-                        <td>${p.planned}</td>
-                        <td>${p.actual}</td>
-                        <td>${p.forecast}</td>
-                        <td>${p.histogram}</td>
-
-                    </tr>
-                `).join("")}
-
-            </tbody>
-
-        </table>
-    `;
+    if(!points.length) return "<p>No usable date information.</p>";
+    return `<table class="copyable-data-table">
+        <thead><tr>
+            <th>Week</th><th>Week commencing</th><th>Week ending</th>
+            <th>Planned qty</th><th>Actual qty</th><th>Forecast qty</th>
+            <th>Planned hours</th><th>Actual hours</th><th>Forecast / remaining hours</th>
+            <th>Planned cumulative %</th><th>Actual cumulative %</th><th>Forecast cumulative %</th>
+            <th>Planned cumulative qty</th><th>Actual cumulative qty</th><th>Forecast cumulative qty</th>
+        </tr></thead>
+        <tbody>${points.map(p=>`<tr>
+            <td>W${isoWeek(p.date)} ${p.date.getFullYear()}</td>
+            <td>${p.date.toLocaleDateString()}</td>
+            <td>${p.weekEnd.toLocaleDateString()}</td>
+            <td>${p.plannedQty}</td><td>${p.actualQty}</td><td>${p.forecastQty}</td>
+            <td>${formatNumber(p.plannedHours)}</td><td>${formatNumber(p.actualHours)}</td><td>${formatNumber(p.forecastHours)}</td>
+            <td>${formatNumber(p.plannedPct)}%</td><td>${formatNumber(p.actualPct)}%</td><td>${formatNumber(p.forecastPct)}%</td>
+            <td>${p.planned}</td><td>${p.actual}</td><td>${p.forecast}</td>
+        </tr>`).join("")}</tbody></table>`;
 }
 
 function timeSeriesText(points){
-
-    return points.map(
-        p =>
-            `${p.date.toISOString().slice(0,7)} planned=${p.planned} actual=${p.actual} forecast=${p.forecast} histogram=${p.histogram}`
-    ).join("\n");
+    return points.map(p=>`W${isoWeek(p.date)} ${p.date.getFullYear()} | ${p.date.toISOString().slice(0,10)} | plannedQty=${p.plannedQty} actualQty=${p.actualQty} forecastQty=${p.forecastQty} plannedHours=${p.plannedHours} actualHours=${p.actualHours} forecastHours=${p.forecastHours} plannedPct=${p.plannedPct.toFixed(2)} actualPct=${p.actualPct.toFixed(2)} forecastPct=${p.forecastPct.toFixed(2)}`).join("\n");
 }
 
 function activityStatusCounts(activities){
@@ -12230,6 +12273,7 @@ async function initialise(){
     state.delayBaselineBySchedule = {};
     state.forensicBaselineBySchedule = {};
     state.monteSettingsBySchedule = {};
+    state.narrativeComparisonBySchedule = {};
     state.comparisonSequenceIds = [];
     state.savedComparisonReports = [];
     state.chat = [];

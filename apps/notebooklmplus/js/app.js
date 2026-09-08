@@ -1,10 +1,11 @@
 
 function applyParentTheme(theme){
-  const value = theme === 'dark' ? 'dark' : 'light';
-  document.documentElement.dataset.pcTheme = value;
-  document.documentElement.dataset.theme = value;
-  document.documentElement.classList.toggle('dark-mode', value === 'dark');
-  document.documentElement.style.colorScheme = value;
+  const allowed=['dark','light','slate','midnight','sand'];
+  const value=allowed.includes(theme)?theme:'dark';
+  document.documentElement.dataset.pcTheme=value;
+  document.documentElement.dataset.theme=value;
+  document.documentElement.classList.toggle('dark-mode', value==='dark'||value==='midnight');
+  document.documentElement.style.colorScheme=(value==='dark'||value==='midnight')?'dark':'light';
 }
 window.addEventListener('message', event => {
   if (event.data?.type === 'pc-theme') applyParentTheme(event.data.theme);

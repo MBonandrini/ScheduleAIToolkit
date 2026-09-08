@@ -35,6 +35,9 @@ node tests/suite-contract-tests.js
 echo '[4/9] Shared AI/Ollama integration'
 node tests/ai-provider-tests.js
 node tests/shared-ai-architecture-tests.js
+node tests/schedule-report-enhancement-tests.js
+node tests/context-theme-progress-tests.js
+node tests/shared-context-ai-integration.js
 echo '[5/9] XER parser regression + 10k/50k performance'
 node tests/parser-tests.js
 echo '[6/9] XER malformed/random fuzzing'

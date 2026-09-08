@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.8.1-suite-shared-ai';
+export const APP_VERSION = '0.8.2-suite-context-themes';
 
 export const DEFAULT_MODES = Object.freeze({
   cpu: {

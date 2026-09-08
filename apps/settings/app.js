@@ -67,7 +67,13 @@ function generalView() {
   const theme = getStorage(THEME_KEY, "dark"), perf = getStorage(PERF_KEY, "balanced");
   return `<div class="grid">
     <section class="card"><div class="card-head">Appearance</div><div class="card-body">
-      <div class="field"><label for="themeSelect">Default theme</label><select id="themeSelect"><option value="dark" ${theme==='dark'?'selected':''}>Dark</option><option value="light" ${theme==='light'?'selected':''}>Light</option></select></div>
+      <div class="field"><label for="themeSelect">Suite theme</label><select id="themeSelect">
+<option value="dark" ${theme==='dark'?'selected':''}>Dark</option>
+<option value="light" ${theme==='light'?'selected':''}>Light</option>
+<option value="slate" ${theme==='slate'?'selected':''}>Slate</option>
+<option value="midnight" ${theme==='midnight'?'selected':''}>Midnight</option>
+<option value="sand" ${theme==='sand'?'selected':''}>Sand</option>
+</select></div>
       <div class="note">Dark mode is the first-run default. Your choice is remembered in this browser.</div>
       <div class="actions"><button id="applyTheme" class="btn primary" type="button">Apply theme</button></div>
     </div></section>
@@ -190,9 +196,20 @@ function render() { content.innerHTML = page === "ai" ? aiView() : page === "tut
 
 function bindView() {
   document.getElementById('applyTheme')?.addEventListener('click', () => {
-    const theme=document.getElementById('themeSelect').value==='light'?'light':'dark'; setStorage(THEME_KEY,theme);
-    try { const root=window.parent.document.documentElement; root.dataset.theme=theme; root.classList.toggle('dark-mode',theme==='dark'); document.documentElement.dataset.theme=theme; document.documentElement.classList.toggle('dark-mode',theme==='dark'); window.parent.document.dispatchEvent(new CustomEvent('pc-theme-change',{detail:{theme}})); } catch (_) {}
-    setStatus(`${theme==='dark'?'Dark':'Light'} theme applied`,'ok');
+    const requested=document.getElementById('themeSelect')?.value||'dark';
+    const theme=['dark','light','slate','midnight','sand'].includes(requested)?requested:'dark';
+    setStorage(THEME_KEY,theme);
+    try {
+      if(typeof window.parent.setProjectControlsTheme==='function') window.parent.setProjectControlsTheme(theme);
+      else {
+        const root=window.parent.document.documentElement; root.dataset.theme=theme;
+        root.classList.toggle('dark-mode',theme==='dark'||theme==='midnight');
+        window.parent.document.dispatchEvent(new CustomEvent('pc-theme-change',{detail:{theme}}));
+      }
+      document.documentElement.dataset.theme=theme;
+      document.documentElement.classList.toggle('dark-mode',theme==='dark'||theme==='midnight');
+    } catch (_) {}
+    setStatus(`${theme[0].toUpperCase()+theme.slice(1)} theme applied`,'ok');
   });
   document.getElementById('saveNotebookPerformance')?.addEventListener('click', () => { const value=document.getElementById('notebookPerformanceSelect').value; setStorage(PERF_KEY,value); notifyPerformance(value); setStatus(`NotebookLM+ profile: ${PERF_OPTIONS.find(x=>x[0]===value)?.[1]||value}`,'ok'); });
   document.getElementById('saveNotebookRuntime')?.addEventListener('click',()=>{
