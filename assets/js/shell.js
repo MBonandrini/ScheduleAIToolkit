@@ -1,14 +1,14 @@
 "use strict";
 
 const TOOL_CONFIG = {
-    contracts: { name: "Contract Manager", url: "./apps/contract-manager/index.html?sharedPane=1&v=20260903-keepalive-boundary2" },
-    drawing: { name: "Drawing Measurement", url: "./apps/drawing-measurement/index.html?sharedPane=1&v=20260903-keepalive-boundary2" },
-    assessment: { name: "Schedule Assessment", url: "./apps/schedule-assessment/index.html?sharedPane=1&v=20260903-keepalive-boundary2" },
-    risk: { name: "Risk Analysis", url: "./apps/risk-analysis/index.html?sharedPane=1&v=20260903-keepalive-boundary2" },
-    claims: { name: "Claims & Forensics", url: "./apps/claims-forensics/index.html?sharedPane=1&v=20260903-keepalive-boundary2" },
-    notebook: { name: "NotebookLM+", url: "./apps/notebooklmplus/index.html?v=20260903-keepalive-boundary2" },
-    settings: { name: "Settings", url: "./apps/settings/index.html?v=20260903-keepalive-boundary2" },
-    builder: { name: "Schedule Builder", url: "./apps/schedule-builder/index.html?v=20260903-keepalive-boundary2" }
+    contracts: { name: "Contract Manager", url: "./apps/contract-manager/index.html?sharedPane=1&v=20260904-shared-ai2" },
+    drawing: { name: "Drawing Measurement", url: "./apps/drawing-measurement/index.html?sharedPane=1&v=20260904-shared-ai2" },
+    assessment: { name: "Schedule Assessment", url: "./apps/schedule-assessment/index.html?sharedPane=1&v=20260904-shared-ai2" },
+    risk: { name: "Risk Analysis", url: "./apps/risk-analysis/index.html?sharedPane=1&v=20260904-shared-ai2" },
+    claims: { name: "Claims & Forensics", url: "./apps/claims-forensics/index.html?sharedPane=1&v=20260904-shared-ai2" },
+    notebook: { name: "NotebookLM+", url: "./apps/notebooklmplus/index.html?v=20260904-shared-ai2" },
+    settings: { name: "Settings", url: "./apps/settings/index.html?v=20260904-shared-ai2" },
+    builder: { name: "Schedule Builder", url: "./apps/schedule-builder/index.html?v=20260904-shared-ai2" }
 };
 
 const host = document.getElementById("host");

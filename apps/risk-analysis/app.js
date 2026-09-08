@@ -178,7 +178,7 @@ async function runMonte(){
 async function runAIReview(){
  const out=document.getElementById("aiOutput");if(!out)return;out.textContent="Analysing calculated risk evidence…";
  try{
-  const model=Core.ai.preferred();await Core.ai.ensure(model);
+  const model=Core.ai.preferred();
   const evidence={project:schedule.name,file:scheduleFileName,deterministicFinish:dt(maxFinish()),plannedFinish:dt(schedule.plannedFinish),overallRiskScore:overallScore(),criticalActivities:criticalCount(),nearCriticalActivities:nearCritical(),topActivities:riskRows().slice(0,15).map(r=>({id:r.id,name:r.name,wbs:r.wbsPath,score:r.score,totalFloat:r.totalFloat,reasons:r.reasons})),monteCarlo:monte?{p50:dt(pDate("p50")),p80:dt(pDate("p80")),p90:dt(pDate("p90")),p80ExposureDays:exposure("p80"),topCriticality:monte.riskRows?.slice(0,12)}:null,registeredRisks:register,mitigations};
   const response=await Core.ai.run([{role:"system",content:"You are a senior project-controls schedule-risk analyst. Interpret only the supplied calculated evidence. Do not invent schedule facts, probabilities, contractual dates, causes or mitigation benefits. Distinguish calculated facts, reasonable interpretation and missing information. Structure the response as Executive Risk Position, Primary Drivers, Quantitative Exposure, WBS Concentration, Mitigation Priorities, Evidence Gaps and Recommended Actions."},{role:"user",content:JSON.stringify(evidence)}],{temperature:.15,max_tokens:1600});
   out.textContent=response?.choices?.[0]?.message?.content||response?.content||"No response returned.";

@@ -285,3 +285,24 @@ html[data-theme="dark"] .brand-mark,html.dark-mode .brand-mark{background:#102C3
 .composer textarea,input,select,textarea{background:var(--panel)!important;color:var(--text)!important;border-color:var(--line-2)!important}
 .shared-repository-source{margin-top:auto;padding:12px;border-top:1px solid var(--line);display:grid;gap:8px;background:var(--bg-soft)}
 .shared-repository-source strong{font-size:.86rem}
+
+/* v0.8.1: NotebookLM+ is a first-class suite surface. Dark is first paint/default. */
+:root,
+html[data-theme="dark"],
+html.dark-mode{
+  color-scheme:dark;
+  --bg:#071521!important;--bg-soft:#091A27!important;--panel:#0B2030!important;--panel-2:#102C3F!important;
+  --line:#1D4058!important;--line-2:#28526D!important;--text:#EDF8FF!important;--muted:#8BA8B9!important;
+  --accent:#2F9BFF!important;--accent-2:#52B8FF!important;--good:#54D39A!important;--warn:#F4BD61!important;--bad:#FF7474!important;
+}
+html[data-theme="light"]:not(.dark-mode){
+  color-scheme:light;
+  --bg:#F8FAFC!important;--bg-soft:#F1F5F8!important;--panel:#FFFFFF!important;--panel-2:#F5F8FA!important;
+  --line:#D2DEE6!important;--line-2:#B9CFDC!important;--text:#17212B!important;--muted:#667985!important;
+  --accent:#084B73!important;--accent-2:#0A6A9D!important;--good:#24734A!important;--warn:#9A6500!important;--bad:#A92D25!important;
+}
+.topbar,.tabs,.panel,.composer,.shared-repository-source,.list-item,.message-bubble,
+.composer textarea,input,select,textarea,pre,code{color:var(--text)!important;border-color:var(--line)!important}
+.topbar,.tabs,.shared-repository-source{background:var(--bg-soft)!important}
+.panel,.composer,.composer textarea,input,select,textarea{background:var(--panel)!important}
+.list-item,.message-bubble,.btn.secondary{background:var(--panel-2)!important}

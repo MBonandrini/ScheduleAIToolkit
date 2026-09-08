@@ -1348,21 +1348,13 @@ END SOURCE ${index + 1}
 
 
 async function initialiseAssistant(){
-    aiReady=false;
-    sendButton.disabled=true;
-    try{
-            const preferred=select?.value || localStorage.getItem("projectControlsSharedAIModel") || "ollama:auto";
-        currentModelValue=preferred;
-        await window.parent.ProjectControlsCore.ai.ensure(preferred);
-        engineMode=window.parent.ProjectControlsCore.ai.status().engine;
-        aiReady=true;
-        setEngineStatus(engineMode,window.parent.ProjectControlsCore.ai.status().label,"ready");
-        updateSendButton();
-    }catch(error){
-        aiReady=false;
-        setEngineStatus(null,"AI unavailable","error");
-        console.error(error);
-    }
+    const core=window.parent?.ProjectControlsCore;
+    if(!core?.ai) throw new Error("Shared AI runtime is unavailable. Reload the suite and configure AI in Settings.");
+    currentModelValue=core.ai.preferred();
+    aiReady=true;
+    engineMode=core.ai.status().engine || "shared";
+    setEngineStatus("shared",`${core.ai.preferredLabel()} · configured in Settings`,"ready");
+    updateSendButton();
 }
 
 
@@ -1370,17 +1362,14 @@ async function initialiseAssistant(){
 let modelSwitchInFlight = false;
 
 window.changeModel = async function(value){
-    if(!value) return;
-    if(select) select.disabled=true;
-    try{
-        await window.parent.ProjectControlsCore.ai.ensure(value);
-        currentModelValue=value;
-        engineMode=window.parent.ProjectControlsCore.ai.status().engine;
-        aiReady=true;
-        setEngineStatus(engineMode,window.parent.ProjectControlsCore.ai.status().label,"ready");
-        updateSendButton();
-    }finally{
-    }
+    const core=window.parent?.ProjectControlsCore;
+    if(!core?.ai) throw new Error("Shared AI runtime is unavailable.");
+    core.ai.setPreferred(value);
+    currentModelValue=value;
+    aiReady=true;
+    engineMode="shared";
+    setEngineStatus("shared",`${core.ai.preferredLabel()} · configured in Settings`,"ready");
+    updateSendButton();
 };
 
 
@@ -1389,23 +1378,27 @@ window.changeModel = async function(value){
 
 
 async function runAI(messages,options={}){
-    const requested=window.parent.ProjectControlsCore.ai.preferred();
-    await window.parent.ProjectControlsCore.ai.ensure(requested);
-    currentModelValue=requested;
-    engineMode=window.parent.ProjectControlsCore.ai.status().engine;
+    const core=window.parent?.ProjectControlsCore;
+    if(!core?.ai) throw new Error("Shared AI runtime is unavailable. Reload the suite and configure AI in Settings.");
+    currentModelValue=core.ai.preferred();
+    const result=await core.ai.run(messages,options);
+    engineMode=core.ai.status().engine;
     aiReady=true;
-    return await window.parent.ProjectControlsCore.ai.run(messages,options);
+    setEngineStatus(engineMode,core.ai.status().label,"ready");
+    return result;
 }
 
-
 async function switchToCPU(){
-    const cpu="cpu:onnx-community/Qwen2.5-0.5B-Instruct";
-    await window.parent.ProjectControlsCore.ai.ensure(cpu);
+    const core=window.parent?.ProjectControlsCore;
+    if(!core?.ai) throw new Error("Shared AI runtime is unavailable.");
+    const cpu=core.ai.catalog.find(m=>m.engine==="cpu"&&!m.disabled)?.value;
+    if(!cpu) throw new Error("No browser CPU AI option is configured.");
+    core.ai.setPreferred(cpu);
     currentModelValue=cpu;
-    engineMode=window.parent.ProjectControlsCore.ai.status().engine;
     aiReady=true;
-    setEngineStatus(engineMode,window.parent.ProjectControlsCore.ai.status().label,"ready");
-    updateSendButton();
+    engineMode="shared";
+    setEngineStatus("shared",`${core.ai.preferredLabel()} · configured in Settings`,"ready");
+    updateSendButton?.();
 }
 
 

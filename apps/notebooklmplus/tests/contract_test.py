@@ -208,12 +208,12 @@ def test_source_inputs_accept_supported_document_types():
 
 def test_build_version_handshake_prevents_mixed_cached_ui():
     sw = (ROOT/'sw.js').read_text(encoding='utf-8')
-    assert 'name="notebooklmplus-build" content="0.8.0-suite-unified"' in html
-    assert "export const APP_VERSION = '0.8.0-suite-unified'" in config
+    assert 'name="notebooklmplus-build" content="0.8.1-suite-shared-ai"' in html
+    assert "export const APP_VERSION = '0.8.1-suite-shared-ai'" in config
     assert 'ensureBuildCompatibility' in app
     assert 'clearAppCachesAndWorkers' in app
     assert "updateViaCache: 'none'" in app
-    assert "notebooklmplus-v0.8.0-suite-unified" in sw
+    assert "notebooklmplus-v0.8.1-suite-shared-ai" in sw
     assert 'Network-first prevents stale application JavaScript after a deployment' in sw
     assert 'return cached || network' not in sw
 

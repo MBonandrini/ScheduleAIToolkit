@@ -662,59 +662,50 @@ function findModelEntry(value){
 }
 
 async function initialiseAssistant(){
-    if(aiReady) return;
-
-    const preferred =
-        localStorage.getItem("projectControlsSharedAIModel") ||
-        (MODEL_CATALOG.find(m => m.value === "ollama:auto")?.value || MODEL_CATALOG.find(m => String(m.value).includes("Qwen2.5-0.5B"))?.value || MODEL_CATALOG[0].value);
-
-    await window.parent.ProjectControlsCore.ai.ensure(preferred);
-    currentModelValue = preferred;
-    aiReady = true;
-    engineMode = window.parent.ProjectControlsCore.ai.status().engine;
-
-    setEngineStatus(engineMode, window.parent.ProjectControlsCore.ai.status().label, "ready");
+    const core=window.parent?.ProjectControlsCore;
+    if(!core?.ai) throw new Error("Shared AI runtime is unavailable. Reload the suite and configure AI in Settings.");
+    const preferred=core.ai.preferred();
+    currentModelValue=preferred;
+    aiReady=true;
+    engineMode=core.ai.status().engine || "shared";
+    setEngineStatus("shared", `${core.ai.preferredLabel()} · configured in Settings`, "ready");
     updateSendButton?.();
 }
 
 
 window.changeModel = async function(value){
-    if(modelSwitchInFlight) return;
-    modelSwitchInFlight = true;
-    aiReady = false;
-
-
-    try{
-        setEngineStatus(null,"Loading shared AI…","loading");
-        await window.parent.ProjectControlsCore.ai.ensure(value);
-        currentModelValue=value;
-        aiReady=true;
-        engineMode=window.parent.ProjectControlsCore.ai.status().engine;
-        setEngineStatus(engineMode,window.parent.ProjectControlsCore.ai.status().label,"ready");
-    }catch(error){
-        setEngineStatus(null,error?.message||"AI unavailable","error");
-        aiReady=false;
-        throw error;
-    }finally{
-        modelSwitchInFlight=false;
-        updateSendButton?.();
-    }
+    const core=window.parent?.ProjectControlsCore;
+    if(!core?.ai) throw new Error("Shared AI runtime is unavailable.");
+    core.ai.setPreferred(value);
+    currentModelValue=value;
+    aiReady=true;
+    engineMode="shared";
+    setEngineStatus("shared",`${core.ai.preferredLabel()} · configured in Settings`,"ready");
+    updateSendButton?.();
 };
 
 async function runAI(messages,options={}){
-    await ensureAssistantReady();
-    const requested=window.parent.ProjectControlsCore.ai.preferred();
-    await window.parent.ProjectControlsCore.ai.ensure(requested);
-    currentModelValue=requested;
-    engineMode=window.parent.ProjectControlsCore.ai.status().engine;
-    return await window.parent.ProjectControlsCore.ai.run(messages,options);
+    const core=window.parent?.ProjectControlsCore;
+    if(!core?.ai) throw new Error("Shared AI runtime is unavailable. Reload the suite and configure AI in Settings.");
+    currentModelValue=core.ai.preferred();
+    const result=await core.ai.run(messages,options);
+    engineMode=core.ai.status().engine;
+    aiReady=true;
+    setEngineStatus(engineMode,core.ai.status().label,"ready");
+    return result;
 }
 
 async function switchToCPU(){
-    const cpu =
-        MODEL_CATALOG.find(m => String(m.value).includes("Qwen2.5-0.5B"))?.value ||
-        "cpu:onnx-community/Qwen2.5-0.5B-Instruct";
-    await window.changeModel(cpu);
+    const core=window.parent?.ProjectControlsCore;
+    if(!core?.ai) throw new Error("Shared AI runtime is unavailable.");
+    const cpu=core.ai.catalog.find(m=>m.engine==="cpu"&&!m.disabled)?.value;
+    if(!cpu) throw new Error("No browser CPU AI option is configured.");
+    core.ai.setPreferred(cpu);
+    currentModelValue=cpu;
+    aiReady=true;
+    engineMode="shared";
+    setEngineStatus("shared",`${core.ai.preferredLabel()} · configured in Settings`,"ready");
+    updateSendButton?.();
 }
 
 async function initialiseApp(){
@@ -1197,33 +1188,12 @@ END SOURCE ${index + 1}
 let assistantInitPromise = null;
 
 async function ensureAssistantReady(){
-
-    if(aiReady){
-        return;
-    }
-
-    if(!assistantInitPromise){
-
-        setEngineStatus(
-            null,
-            "Connecting AI…",
-            "loading"
-        );
-
-        assistantInitPromise =
-            initialiseAssistant()
-                .finally(()=>{
-                    assistantInitPromise = null;
-                });
-    }
-
-    await assistantInitPromise;
-
-    if(!aiReady){
-        throw new Error(
-            "The browser AI engine could not be started."
-        );
-    }
+    const core=window.parent?.ProjectControlsCore;
+    if(!core?.ai) throw new Error("Shared AI runtime is unavailable. Reload the suite and configure AI in Settings.");
+    aiReady=true;
+    currentModelValue=core.ai.preferred();
+    engineMode=core.ai.status().engine || "shared";
+    return true;
 }
 
 window.sendMessage =

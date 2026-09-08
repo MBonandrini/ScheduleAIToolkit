@@ -71,3 +71,12 @@ The shared project pane now supports collapsible linked folders under **Bulk Inf
 
 ### Shared AI runtime settings
 Settings → General Settings contains the suite-wide AI runtime controls. These include Qwen/Ollama reasoning mode and timeout/fallback, generation sampling, token/context limits, request/model-load/streaming timeouts, retry policy, Ollama keep-alive, and empty-response recovery. The settings apply to every module using the global AI selection.
+
+
+## Shared AI runtime architecture
+
+AI provider/model configuration is global. Configure Ollama or another enabled engine in **Settings → Unified AI Configuration**, then use the top-right suite selector. Individual tools do not load or configure their own model and do not display local-model consent prompts.
+
+Contract Manager, Drawing Measurement, Schedule Assessment, Risk Analysis, Claims & Forensics, Schedule Builder and NotebookLM+ all execute chat/generation through the shared `ProjectControlsCore.ai` runtime. NotebookLM+ retains its specialist document retrieval/RAG pipeline but hands the assembled prompt to the same shared runtime.
+
+Opening or changing tabs never intentionally loads Ollama. Ollama is contacted when an explicit AI operation is run, and its lifetime is controlled by the global keep-alive setting.

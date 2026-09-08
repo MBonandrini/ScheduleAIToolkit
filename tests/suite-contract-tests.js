@@ -30,7 +30,7 @@ check('Ollama is enabled in shared catalog',/value:"ollama:auto",engine:"ollama"
 check('Per-module AI selectors are removed', ['contract-manager','drawing-measurement','schedule-assessment','risk-analysis','claims-forensics','schedule-builder'].every(n=>!read(`apps/${n}/index.html`).includes('data-ai-model-select')&&!read(`apps/${n}/index.html`).includes('id="modelSelect"')));
 const moduleApps=['contract-manager','drawing-measurement','schedule-assessment','risk-analysis','claims-forensics','schedule-builder'].map(n=>read(`apps/${n}/app.js`));
 check('Only Settings owns global AI selection persistence',moduleApps.every(code=>!code.includes('localStorage.setItem(\"projectControlsSharedAIModel\"'))&&!notebookApp.includes('localStorage.setItem(\"projectControlsSharedAIModel\"'));
-check('Notebook visible tabs are Workspace and Studio only',![...notebookHtml.matchAll(/<button class="tab[^>]*data-tab="([^"]+)"/g)].map(x=>x[1]).some(x=>['ollama','tutorial','settings'].includes(x)));
+check('Notebook visible tab is Workspace only',![...notebookHtml.matchAll(/<button class="tab[^>]*data-tab="([^"]+)"/g)].map(x=>x[1]).some(x=>['ollama','tutorial','settings'].includes(x)));
 check('Notebook Suite Settings button removed',!notebookHtml.includes('Suite Settings')&&!notebookApp.includes('pc-open-settings'));
 check('Notebook top performance dropdown removed',!notebookHtml.includes('id="modeSelect"'));
 check('Notebook performance is centrally sourced',/projectControlsNotebookPerformanceMode/.test(notebookApp)&&/suitePerformanceMode/.test(notebookApp));
@@ -90,5 +90,21 @@ check("Schedule Assessment never prompts to restore last project", !assessmentAp
 check("Schedule Assessment PDF uses automatic blob download", assessmentApp.includes('worker.outputPdf("blob")') && assessmentApp.includes("anchor.click()"));
 check("Schedule Assessment export footer uses requested site address", assessmentApp.includes("https://mbonandrini.githib.io/ScheduleAIToolkit"));
 check("Schedule Assessment Gantt export forced light", assessmentCss.includes(".pdf-export .gantt-pro") && assessmentCss.includes("background:#fff!important"));
+
+
+const moduleAiFiles=[
+  'apps/contract-manager/app.js',
+  'apps/drawing-measurement/app.js',
+  'apps/schedule-assessment/app.js',
+  'apps/risk-analysis/app.js',
+  'apps/claims-forensics/app.js',
+  'apps/schedule-builder/app.js'
+];
+const moduleAiSource=moduleAiFiles.map(read).join('\n');
+check('No module-level local AI loading consent dialog remains', !core.includes('Continue loading this model') && !core.includes('Local AI loading was cancelled'));
+check('Modules do not directly call shared ai.ensure', !/ProjectControlsCore\.ai\.ensure|Core\.ai\.ensure/.test(moduleAiSource));
+check('NotebookLM+ chat uses parent shared AI runtime', notebookApp.includes('streamSuiteAiChat') && notebookApp.includes('core.ai.run(messages'));
+check('NotebookLM+ dark theme is first-paint default', /<html[^>]+data-theme="dark"[^>]+dark-mode/.test(notebookHtml));
+check('NotebookLM+ build cache bumped for shared AI correction', notebookHtml.includes('0.8.1-suite-shared-ai'));
 
 if(failures.length){console.error('FAILURES:',failures);process.exit(1)}

@@ -2213,13 +2213,9 @@ function sleep(ms){
         }
 
         function requireLocalConsent(entry){
-            if(!["cpu","mlc","ollama"].includes(entry.engine)) return;
-            const key=`projectControlsLocalAIConsent:${entry.value}`;
-            try{if(sessionStorage.getItem(key)==="1") return}catch(_){}
-            const where=entry.engine==="mlc"?"GPU memory and system RAM":entry.engine==="ollama"?"system RAM and, where available, GPU memory":"system RAM";
-            const accepted=window.confirm(`${entry.label} runs locally on this computer. It can use significant ${where} (${entry.ram||"several GB"}) and may slow the overall application and your computer.\n\nContinue loading this model?`);
-            if(!accepted) throw new Error("Local AI loading was cancelled.");
-            try{sessionStorage.setItem(key,"1")}catch(_){}
+            // Consent/configuration is owned by Suite Settings and the global AI selector.
+            // Modules must never interrupt work with model-loading confirmation dialogs.
+            return entry;
         }
 
         async function load(value){
@@ -2497,7 +2493,14 @@ function sleep(ms){
             return {ready:!!runtime,value:currentValue,engine:currentEngine || "shared",label:currentLabel,loading:!!loadingPromise,config:ollamaConfig()};
         }
 
-        return {catalog,ensure,run,release,status,ollamaConfig,configureOllama,listOllamaModels,inspectOllamaModel,inspectOllamaModels,testOllamaConnection,preferred,preferredLabel,setPreferred,ollamaEmbeddingModel,configureOllamaEmbedding,aiRuntimeConfig,sanitiseOllamaKeepAlive};
+        function configured(){
+            const value=preferred();
+            const entry=model(value);
+            const cfg=ollamaConfig();
+            return {value,entry,ollama:cfg,ready:!!runtime,loading:!!loadingPromise};
+        }
+
+        return {catalog,ensure,run,release,status,configured,ollamaConfig,configureOllama,listOllamaModels,inspectOllamaModel,inspectOllamaModels,testOllamaConnection,preferred,preferredLabel,setPreferred,ollamaEmbeddingModel,configureOllamaEmbedding,aiRuntimeConfig,sanitiseOllamaKeepAlive};
     })();
 
     const risk = (() => {

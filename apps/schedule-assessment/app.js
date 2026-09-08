@@ -468,81 +468,50 @@ async function disposeAIEngines(){
 }
 
 async function initialiseAI(){
-
-    const saved =
-        localStorage.getItem(
-            "projectControlsSharedAIModel"
-        );
-
-    const requested =
-        MODEL_CATALOG.some(
-            model =>
-                model.value === saved
-        )
-            ? saved
-            : (MODEL_CATALOG.find(model=>model.value==="ollama:auto")?.value || MODEL_CATALOG[0]?.value);
-
-    try{
-
-        await changeModel(
-            requested,
-            true
-        );
-
-    }catch(error){
-
-        console.warn(
-            "Preferred AI option could not start; using deterministic analysis.",
-            error
-        );
-
-        state.aiReady = true;
-        state.aiMode = "heuristic";
-        state.aiModelValue =
-            "heuristic";
-
-        setEngine(
-            "Deterministic analysis ready",
-            "ready"
-        );
+    // Settings/global selector own AI configuration. Opening Schedule Assessment
+    // only reflects that selection; it never loads, tests or prompts for a model.
+    const core=window.parent?.ProjectControlsCore;
+    if(!core?.ai){
+        state.aiReady=false;
+        state.aiMode="shared";
+        state.aiModelValue=null;
+        setEngine("AI configuration unavailable · reload the suite","error");
+        return;
     }
-
-    updateChatButton();
+    state.aiReady=true;
+    state.aiMode=core.ai.status().engine || "shared";
+    state.aiModelValue=core.ai.preferred();
+    setEngine(`${core.ai.preferredLabel()} · configured in Settings`,"ready");
 }
 
 async function changeModel(value,initial=false){
-    const model =
-        MODEL_CATALOG.find(item=>item.value===value) ||
-        MODEL_CATALOG[0];
-
-    if(model.engine === "heuristic"){
+    const model=MODEL_CATALOG.find(item=>item.value===value) || MODEL_CATALOG[0];
+    if(model?.engine === "heuristic"){
         state.aiReady=true;
         state.aiMode="heuristic";
         state.aiModelValue="heuristic";
         setEngine("Deterministic analysis ready","ready");
         return;
     }
-
-    setEngine(`Loading ${model.label}...`,"loading");
-
-    await window.parent.ProjectControlsCore.ai.ensure(model.value);
-
+    const core=window.parent?.ProjectControlsCore;
+    if(!core?.ai) throw new Error("Shared AI runtime is unavailable.");
+    if(value && value !== core.ai.preferred()) core.ai.setPreferred(value);
     state.aiReady=true;
-    state.aiMode=window.parent.ProjectControlsCore.ai.status().engine;
-    state.aiModelValue=model.value;
-    setEngine(window.parent.ProjectControlsCore.ai.status().label,"ready");
+    state.aiMode=core.ai.status().engine || "shared";
+    state.aiModelValue=core.ai.preferred();
+    setEngine(`${core.ai.preferredLabel()} · configured in Settings`,"ready");
 }
 
 async function runLocalAI(messages,options={}){
-    if(state.aiMode === "heuristic"){
-        throw new Error("Deterministic mode selected.");
-    }
-
-    const modelValue = window.parent.ProjectControlsCore.ai.preferred();
-    await window.parent.ProjectControlsCore.ai.ensure(modelValue);
-    state.aiModelValue = modelValue;
-    state.aiMode = window.parent.ProjectControlsCore.ai.status().engine;
-    return await window.parent.ProjectControlsCore.ai.run(messages,options);
+    if(state.aiMode === "heuristic") throw new Error("Deterministic mode selected.");
+    const core=window.parent?.ProjectControlsCore;
+    if(!core?.ai) throw new Error("Shared AI runtime is unavailable. Reload the suite and configure AI in Settings.");
+    state.aiModelValue=core.ai.preferred();
+    const result=await core.ai.run(messages,options);
+    state.aiMode=core.ai.status().engine;
+    state.aiReady=true;
+    setEngine(core.ai.status().label,"ready");
+    return result;
 }
 
 function buildAIContext(schedule){
