@@ -1,0 +1,11 @@
+{
+  "name": "schedule-ai-toolkit",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run-all.js",
+    "test:quick": "node tests/run-all.js --quick",
+    "test:exhaustive": "node tests/run-all.js && node tests/run-exhaustive.js"
+  }
+}

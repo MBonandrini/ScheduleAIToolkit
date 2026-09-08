@@ -1,79 +1,79 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" data-theme="dark">
 <head>
-<meta name="pc-suite-build" content="20260908-central-ai-context-clean2">
-<meta charset="UTF-8">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Project Controls AI Suite — Shared Core</title>
-
-<script src="./assets/js/theme.js?v=20260908-central-ai-context-clean2"></script>
-<link rel="stylesheet" href="./assets/css/shell.css?v=20260908-central-ai-context-clean2">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Project Controls AI Suite</title>
+  <link rel="stylesheet" href="./assets/app.css?v=1.0.0">
 </head>
-<body data-build-version="20260908-central-ai-context-clean2">
-<nav class="suite-nav" role="tablist">
-  <div class="brand"><span class="logo"><svg class="arc-reactor-mark" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20"></circle><path d="M11.5 16.5h25L24 37z"></path><path d="M18 21h12l-6 10z"></path></svg></span><span>Project Controls AI Suite</span></div>
-  <button class="suite-tab active" data-tool="contracts" role="tab" aria-selected="true">Contract Manager</button>
-<button class="suite-tab" data-tool="drawing" role="tab" aria-selected="false">Drawing Measurement</button>
-<button class="suite-tab" data-tool="assessment" role="tab" aria-selected="false">Schedule Assessment</button>
-<button class="suite-tab" data-tool="risk" role="tab" aria-selected="false">Risk Analysis</button>
-<button class="suite-tab" data-tool="claims" role="tab" aria-selected="false">Claims &amp; Forensics</button>
-<button class="suite-tab" data-tool="notebook" role="tab" aria-selected="false">NotebookLM+</button>
-<button class="suite-tab" data-tool="builder" role="tab" aria-selected="false">Schedule Builder</button>
-<button class="suite-tab" data-tool="settings" role="tab" aria-selected="false">Settings</button>
-  <label class="shell-theme-control" title="Suite theme">
-  <span>Theme</span>
-  <select id="shellThemeSelect" data-theme-select aria-label="Suite theme">
-    <option value="dark">Dark</option>
-    <option value="light">Light</option>
-    <option value="navy">Light · Dark Blue Contrast</option>
-  </select>
-</label>
-  <label class="global-ai-control" for="globalModelSelect"><span>AI Model</span><select id="globalModelSelect" aria-label="Global AI model selection"></select></label>
-</nav>
-<div id="workspaceShell" class="workspace-shell">
-<aside id="sharedPane" class="shared-pane">
-  <div class="shared-pane-head">
-    <div class="shared-pane-title"><span>Shared Project Repository</span><span id="sharedCount" class="shared-pane-count">0</span></div>
-    <button id="sharedNewProject" class="shared-new" type="button">＋ New shared project</button>
-    <label class="shared-project-label" for="sharedProjectName">Project</label>
-    <input id="sharedProjectName" class="shared-project-input" value="Untitled project" autocomplete="off">
-  </div>
-  <div class="shared-pane-scroll">
-    <div id="sharedRepoList"></div>
-    <section class="bulk-information" aria-labelledby="bulkInformationTitle">
-      <div class="bulk-information-head">
-        <div>
-          <div id="bulkInformationTitle" class="bulk-information-title">Bulk Information</div>
-          <div class="bulk-information-subtitle">Linked project folders and reference libraries</div>
+<body>
+  <header class="suite-header">
+    <div class="brand">Project Controls AI Suite</div>
+    <nav id="tabs" class="tabs">
+      <button data-view="dashboard" class="active">Dashboard</button>
+      <button data-view="contracts">Contract Manager</button>
+      <button data-view="drawing">Drawing Measurement</button>
+      <button data-view="assessment">Schedule Assessment</button>
+      <button data-view="risk">Risk Analysis</button>
+      <button data-view="claims">Claims &amp; Forensics</button>
+      <button data-view="notebook">NotebookLM+</button>
+      <button data-view="builder">Schedule Builder</button>
+      <button data-view="settings">Settings</button>
+    </nav>
+    <div class="global-controls">
+      <label>Theme
+        <select id="themeSelect">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="navy">Light · Dark Blue Contrast</option>
+        </select>
+      </label>
+      <label>AI Model
+        <select id="aiSelect">
+          <option value="ollama">Ollama · Local</option>
+          <option value="browser-cpu">Browser CPU AI</option>
+          <option value="browser-gpu">Browser WebGPU AI</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <div class="app-shell">
+    <aside id="repositoryPane" class="repository">
+      <div class="repo-head">
+        <div style="display:grid;grid-template-columns:1fr auto;gap:6px">
+          <select id="projectSelect" class="project-name"></select>
+          <button id="newProjectBtn" title="New project">＋</button>
         </div>
-        <span id="bulkFolderCount" class="shared-pane-count">0</span>
+        <input id="projectName" class="project-name" value="Untitled Project">
+        <div class="repo-actions">
+          <button id="addFilesBtn">Add files</button>
+          <button id="linkFolderBtn">Link folder</button>
+          <button id="folderFallbackBtn">Folder upload</button>
+        </div>
+        <input id="fileInput" type="file" multiple hidden>
+        <input id="folderInput" type="file" webkitdirectory multiple hidden>
       </div>
-      <div id="bulkFolderList" class="bulk-folder-list"></div>
-      <div class="bulk-actions">
-        <button id="bulkLinkFolder" class="bulk-link-button" type="button">＋ Link folder</button>
-        <input id="bulkFolderFallbackInput" type="file" webkitdirectory directory multiple hidden>
+      <div class="repo-help">Checked files are shared AI context across the toolkit. XER/XML schedules are parsed automatically.</div>
+      <div id="repoFiles" class="repo-files"></div>
+      <div class="repo-section">
+        <div class="repo-section-title">Schedule revisions <span id="scheduleCount">0</span></div>
+        <div id="scheduleList"></div>
       </div>
-      <div class="bulk-information-note">Folders remain collapsible. On supported browsers the suite retains a local directory handle and reads files only when required. Other browsers store the selected folder files locally as a fallback.</div>
-    </section>
+    </aside>
+
+    <main id="workspace" class="workspace">
+      <div class="empty-state">Loading toolkit…</div>
+    </main>
   </div>
-  <div class="shared-upload">
-    <label class="shared-upload-label">＋ Add files to shared repository
-      <input id="sharedFileInput" type="file" multiple accept=".xer,.xml,.pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json,.html">
-    </label>
+
+  <div id="progressHud" class="progress-hud" hidden>
+    <div><strong id="progressTitle">Working</strong><span id="progressPct">…</span></div>
+    <div id="progressDetail">Processing…</div>
+    <div class="progress-track"><div id="progressBar"></div></div>
   </div>
-  <div class="shared-pane-foot">One repository for Contract Manager, Drawing Measurement, Schedule Assessment, Risk Analysis and Claims &amp; Forensics. Tick the checkbox beside any repository or linked-folder file to include it in AI chat context across all tools. Use opens the file directly in the active tool for native parsing/analysis.</div>
-</aside>
-<main id="host"><div id="loading" class="loading">Opening Contract Manager…</div></main>
-</div>
-<div id="suiteProgress" class="suite-progress" hidden role="status" aria-live="polite">
-  <div class="suite-progress-head"><span id="suiteProgressTitle">Processing schedules</span><span id="suiteProgressPercent">0%</span></div>
-  <div id="suiteProgressDetail" class="suite-progress-detail">Preparing…</div>
-  <div class="suite-progress-track"><div id="suiteProgressBar" class="suite-progress-bar"></div></div>
-</div>
-<script src="./assets/js/core.js?v=20260908-central-ai-context-clean2"></script>
-<script src="./assets/js/shell.js?v=20260908-central-ai-context-clean2"></script>
+
+  <script type="module" src="./src/ui/app.js?v=1.0.0"></script>
 </body>
 </html>
