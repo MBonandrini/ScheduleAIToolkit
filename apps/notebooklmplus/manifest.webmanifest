@@ -1,9 +1,0 @@
-{
-  "name": "NotebookLM+",
-  "short_name": "NotebookLM+",
-  "description": "Local-first research, Studio artifacts, web/deep research and configurable AI with Ollama or hosted engines.",
-  "start_url": "./",
-  "display": "standalone",
-  "background_color": "#0b1020",
-  "theme_color": "#111827"
-}
