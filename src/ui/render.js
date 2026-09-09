@@ -1,5 +1,5 @@
 
-import {esc,isoDate,parseDate,clamp} from "../core/utils.js";
+import {esc,isoDate,parseDate,clamp} from "../core/utils.js?v=1.2.0";
 
 export const metric=(label,value,detail="")=>`<div class="metric"><small>${esc(label)}</small><strong>${esc(value)}</strong><small>${esc(detail)}</small></div>`;
 export const badge=(text,kind="")=>`<span class="badge ${kind}">${esc(text)}</span>`;

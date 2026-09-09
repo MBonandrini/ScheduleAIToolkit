@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="navy">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title>Project Controls AI Suite</title>
-  <link rel="stylesheet" href="./assets/app.css?v=1.0.0">
+  <link rel="stylesheet" href="./assets/app.css?v=1.2.0">
 </head>
 <body>
   <header class="suite-header">
@@ -30,10 +30,8 @@
         </select>
       </label>
       <label>AI Model
-        <select id="aiSelect">
-          <option value="ollama">Ollama · Local</option>
-          <option value="browser-cpu">Browser CPU AI</option>
-          <option value="browser-gpu">Browser WebGPU AI</option>
+        <select id="aiSelect" aria-label="Global AI model">
+          <option>Loading AI catalogue…</option>
         </select>
       </label>
     </div>
@@ -42,11 +40,14 @@
   <div class="app-shell">
     <aside id="repositoryPane" class="repository">
       <div class="repo-head">
-        <div style="display:grid;grid-template-columns:1fr auto;gap:6px">
-          <select id="projectSelect" class="project-name"></select>
-          <button id="newProjectBtn" title="New project">＋</button>
+        <div class="project-switcher">
+          <label for="projectSelect">Project</label>
+          <div>
+            <select id="projectSelect" class="project-name"></select>
+            <button id="newProjectBtn" title="New project" aria-label="New project">＋</button>
+          </div>
         </div>
-        <input id="projectName" class="project-name" value="Untitled Project">
+        <button id="renameProjectBtn" class="repo-secondary-action">Rename project</button>
         <div class="repo-actions">
           <button id="addFilesBtn">Add files</button>
           <button id="linkFolderBtn">Link folder</button>
@@ -74,6 +75,6 @@
     <div class="progress-track"><div id="progressBar"></div></div>
   </div>
 
-  <script type="module" src="./src/ui/app.js?v=1.0.0"></script>
+  <script type="module" src="./src/ui/app.js?v=1.2.0"></script>
 </body>
 </html>

@@ -11,7 +11,8 @@ function walk(dir){
 }
 function resolveImport(from,spec){
   if(!spec.startsWith("."))return null;
-  const p=path.resolve(path.dirname(from),spec);
+  const clean=spec.split("?")[0];
+  const p=path.resolve(path.dirname(from),clean);
   return path.extname(p)?p:`${p}.js`;
 }
 export async function run(){
@@ -30,7 +31,7 @@ export async function run(){
       const dep=resolveImport(file,m[1]);if(dep)assert.ok(fs.existsSync(dep),`Broken import ${m[1]} in ${path.relative(root,file)}`);
     }
     for(const m of text.matchAll(/new URL\(["']([^"']+)["'],\s*import\.meta\.url\)/g)){
-      const dep=path.resolve(path.dirname(file),m[1]);assert.ok(fs.existsSync(dep),`Broken worker/URL dependency ${m[1]} in ${path.relative(root,file)}`);
+      const dep=path.resolve(path.dirname(file),m[1].split("?")[0]);assert.ok(fs.existsSync(dep),`Broken worker/URL dependency ${m[1]} in ${path.relative(root,file)}`);
     }
   }
 

@@ -1,5 +1,5 @@
 
-import {parseDate,daysBetween} from "../core/utils.js";
+import {parseDate,daysBetween} from "../core/utils.js?v=1.2.0";
 export function activityHistory(revisions,activityId){
   return (revisions||[]).map(s=>{
     const a=s.activities.find(x=>x.id===activityId);if(!a)return null;

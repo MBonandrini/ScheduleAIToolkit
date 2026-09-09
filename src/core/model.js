@@ -1,5 +1,5 @@
 
-import {parseNum,parseDate,isoDate,uid} from "./utils.js";
+import {parseNum,parseDate,isoDate,uid} from "./utils.js?v=1.2.0";
 
 export function createSchedule(input={}){
   const s={

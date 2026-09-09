@@ -1,6 +1,6 @@
 
-import {whyDidDateMove} from "./comparison.js";
-import {traceToMilestone} from "./network.js";
+import {whyDidDateMove} from "./comparison.js?v=1.2.0";
+import {traceToMilestone} from "./network.js?v=1.2.0";
 export function buildDelayEventFile({event,current,previous,documents=[]}){
   const impacted=(event.activityIds||[]).map(id=>current.activities.find(a=>a.id===id)).filter(Boolean);
   const movement=impacted.map(a=>whyDidDateMove(previous,current,a.id));

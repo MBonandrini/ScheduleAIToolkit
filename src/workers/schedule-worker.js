@@ -1,7 +1,7 @@
 
-import {parseXER} from "../parsers/xer.js";
-import {compareSchedules} from "../analysis/comparison.js";
-import {scheduleHealth} from "../analysis/health.js";
+import {parseXER} from "../parsers/xer.js?v=1.2.0";
+import {compareSchedules} from "../analysis/comparison.js?v=1.2.0";
+import {scheduleHealth} from "../analysis/health.js?v=1.2.0";
 self.onmessage=e=>{
   const {id,type,payload}=e.data||{};
   try{

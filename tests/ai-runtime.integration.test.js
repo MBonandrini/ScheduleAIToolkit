@@ -44,5 +44,26 @@ export async function run(){
   assert.ok(result.sources.some(x=>x.name==="perun 3.xer"));
   assert.ok(result.sources.some(x=>x.name==="weekly-report.txt"));
   assert.ok(calls.some(x=>x.url.endsWith("/api/chat")));
+
+  await repo.addFiles([
+    new File([syntheticXER(5000,12000)],"large-revision.xer",{type:"text/plain"}),
+    new File([syntheticXER(3000,8000)],"another-revision.xer",{type:"text/plain"})
+  ],{category:"Programme"});
+  const allSchedules=await repo.listSchedules();
+  let observedChars=0,observedSystem="";
+  globalThis.__PC_AI_TEST_HOOKS__={transformers:{pipeline:async(task,model,options)=>{
+    options.progress_callback?.({progress:.5,file:"model_q4.onnx"});
+    return async(messages)=>{
+      observedChars=messages.reduce((n,m)=>n+String(m.content||"").length,0);observedSystem=String(messages[0]?.content||"");
+      return [{generated_text:[...messages,{role:"assistant",content:"OK"}]}];
+    };
+  }}};
+  await runtime.setPreferredAI("cpu:qwen2.5-0.5b");
+  const cpuResult=await runtime.askAI({question:"What do you think about my current schedules?",role:"Planner",current:allSchedules.at(-1),revisions:allSchedules});
+  assert.equal(cpuResult.text,"OK");
+  assert.ok(observedChars<30000,`Browser-model prompt is too large: ${observedChars} characters`);
+  assert.ok(observedSystem.includes("SCHEDULE PORTFOLIO / REVISION SUMMARY"));assert.ok(observedSystem.includes("large-revision.xer"));
+  assert.ok(!observedSystem.includes("%T\\tTASK"),"Raw XER table data must not be dumped into browser-model context");
+  delete globalThis.__PC_AI_TEST_HOOKS__;
   return "ai-runtime-integration";
 }

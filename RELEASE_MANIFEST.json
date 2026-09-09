@@ -25,34 +25,44 @@
     "sha256": "bd7891e4e2af8a8f182d4a2f5a1d4b577a9151bcf6de1473ecd4dc100f414641"
   },
   {
+    "path": "AI_MODEL_VERIFICATION.md",
+    "bytes": 797,
+    "sha256": "42cdbb1cd3347847301e1ae39b22519c83fb719bdcf09bd8fc9749a23dd9a8e6"
+  },
+  {
     "path": "COMPREHENSIVE_TEST_REPORT.md",
-    "bytes": 6988,
-    "sha256": "9b9d9b8d907b99599ccd545a373314d6412e240ea0c9d75dec01e5273907a245"
+    "bytes": 6419,
+    "sha256": "a0ead5454e8f890ef63d799696592d400b4fadb2066ce1497d411f83082953ab"
   },
   {
     "path": "README.md",
-    "bytes": 2056,
-    "sha256": "0b619782abd50038847fe5248220ee9ce83f5134f25be1e99b00844fcbad8068"
+    "bytes": 3832,
+    "sha256": "300f73e0b9e5aa4e4739fdbbd1a60bbd979e0d3ee32a06eafc94eb52a8a4be64"
   },
   {
     "path": "assets/app.css",
-    "bytes": 10781,
-    "sha256": "e6f0cdb31b4f534efe3fda4a4f861d8e30958f9468013be0b9857bd07409abb5"
+    "bytes": 19257,
+    "sha256": "703f31cc860df4c92b225663d33cee05ef9f59d57d90870d4a04cacf4d52d1c0"
   },
   {
     "path": "index.html",
-    "bytes": 3219,
-    "sha256": "55136cd8c8f115cacb9d2b79333a768a0ff1d16ae12f43b16348da8368c7ba46"
+    "bytes": 3207,
+    "sha256": "f3a9f02bedf4de941e03948aa1e840a652ce83098d2e6391682786648715fad1"
   },
   {
     "path": "package.json",
     "bytes": 283,
-    "sha256": "4ede7cb117de560772ddaf2e76e670ad838ad8562bac26087fd0289dd7dbb2ed"
+    "sha256": "0ea6325f19bf11fba1fe7b511d56079b98b50b5e733d8df90034d0073e9b656b"
   },
   {
     "path": "src/ai/browser.js",
-    "bytes": 2135,
-    "sha256": "81879ecf0e1b36093d1cf7d89c98b76661abe7fbf67f2482b164d79e32cdb0b4"
+    "bytes": 8134,
+    "sha256": "bbed87019dffb43aee4a730cb570ad03b516ba70151451a79cd406d4cedeeed2"
+  },
+  {
+    "path": "src/ai/catalog.js",
+    "bytes": 3931,
+    "sha256": "0fe3a38f8a037981027dd0584a35b562207dd6859873e932ebb0ddb2444bc7d0"
   },
   {
     "path": "src/ai/ollama.js",
@@ -61,28 +71,28 @@
   },
   {
     "path": "src/ai/runtime.js",
-    "bytes": 2384,
-    "sha256": "505db6387629a7348d88925a9fd2a258821416758ca163e1b67c0038bc4c26b5"
+    "bytes": 5875,
+    "sha256": "4287cb6c9b05f63ee08ed9d493d0a5711083bb8d06a0a0336dd61b56c5322fbc"
   },
   {
     "path": "src/ai/tools.js",
-    "bytes": 3731,
-    "sha256": "c8fe1d13f366ebaf184b6bec0e0e71519e693862f8c75a7176c6a12d2aea1773"
+    "bytes": 3771,
+    "sha256": "bf61a11a010cb87beb1ff9e5d1968374604709910ac7befec26635920cbd020d"
   },
   {
     "path": "src/analysis/calendar.js",
-    "bytes": 2195,
-    "sha256": "35c85565f2c0d807fc9bf5810eed791c93ea57075e14a43c02c5b4e0d3fff281"
+    "bytes": 2203,
+    "sha256": "21547928c807e77016fc464dc238016be246732d42ca76af9b6cbd145ae8dbb2"
   },
   {
     "path": "src/analysis/claims.js",
-    "bytes": 1017,
-    "sha256": "1d1f28fb8b75fea7fd717bd1077a6299d6db73ae788784788817146466c572e9"
+    "bytes": 1033,
+    "sha256": "3b7f1c27c5a2e18bfc2276ba1e57acf6f5779fb9e2340a225d18de1c9334aa57"
   },
   {
     "path": "src/analysis/comparison.js",
-    "bytes": 5465,
-    "sha256": "66149503200fa8e763fc9e7ece80bb73a05f8405675d9e69c7ba88b33e37e334"
+    "bytes": 5481,
+    "sha256": "58d86f50bf2426944e1d8890f06b0c8e89db341a79d0a6ca3ed87fbb43819e2d"
   },
   {
     "path": "src/analysis/datacentre.js",
@@ -91,38 +101,38 @@
   },
   {
     "path": "src/analysis/health.js",
-    "bytes": 4037,
-    "sha256": "61508c48f3b9cde3232986b8427cf5b7c12c238e38005ac1b725263177656124"
+    "bytes": 4053,
+    "sha256": "59afbedec978d8deb4598aacc78a397b0d014761f3cc0e6b1b224d302e5a8d0b"
   },
   {
     "path": "src/analysis/narrative.js",
-    "bytes": 1757,
-    "sha256": "e539aa2938810f159eceab6a3de727bc9f9d9f7be155653f6c0629814fd4e2ef"
+    "bytes": 1789,
+    "sha256": "d4456ac37c49e02d189a50370452906ca36c4e816738312c7e94b953d14a80ef"
   },
   {
     "path": "src/analysis/network.js",
-    "bytes": 7284,
-    "sha256": "e05db987e03c66f72ee8f01bad38c79b04e484016cfefb371dd879e3d5eed765"
+    "bytes": 7292,
+    "sha256": "fbd6f1fd9c80dc690e2c7b8bcd18df32cad591abff28303c20c64035200fa135"
   },
   {
     "path": "src/analysis/risk.js",
-    "bytes": 2089,
-    "sha256": "0435ebe858545be52d2e789265dc000076f669b0b6d88827850c5718de978ee3"
+    "bytes": 2105,
+    "sha256": "8cee2d071cb14fb9cb08c6a71be1bda5eef472a2f2c3275b52a913bc39381c30"
   },
   {
     "path": "src/analysis/timemachine.js",
-    "bytes": 1046,
-    "sha256": "0cac3b42a2c02c4219cdc1d563e755150e96f3614920cfbd2ff905b7086b9aec"
+    "bytes": 1054,
+    "sha256": "fa96a80c5b8ec4ef021237fd7b734229aded62b86c665cc441600a6859539ee0"
   },
   {
     "path": "src/analysis/timeseries.js",
-    "bytes": 2394,
-    "sha256": "e463289bccfe37836e58ae64273fc60563f7289151774f50f3f78678d1d7e15b"
+    "bytes": 2402,
+    "sha256": "9943668ca345fd7010c21c90da5a7583b77f149feb7e3848a14fcdd6c4ff28bd"
   },
   {
     "path": "src/core/model.js",
-    "bytes": 6949,
-    "sha256": "645ff2a862dec896f27b76ccec9b3ae3f17dcf9cb2761ce7f9a75a6e3cb9794b"
+    "bytes": 6957,
+    "sha256": "5fe35dbe82a59337ba41ad65298fd93eccf07f1b09bfdc36466dcff4f279271c"
   },
   {
     "path": "src/core/utils.js",
@@ -131,63 +141,73 @@
   },
   {
     "path": "src/parsers/index.js",
-    "bytes": 383,
-    "sha256": "999e62b068cb52b0eeda05f5831555d83cc92bdfc211319751944baf21385811"
+    "bytes": 399,
+    "sha256": "401e87dec09b95a3eb6b7c0b3b5c605a0d88c174fc86e134620aa5133ced66a6"
   },
   {
     "path": "src/parsers/mspxml.js",
-    "bytes": 2238,
-    "sha256": "6087e62cddc53fc72cd97b93d753c8e581451e20b4b97e8ef1268881d272ac50"
+    "bytes": 2246,
+    "sha256": "403fb9f87ba9deff6bdcfd2d3d578329e0ea7f7d0d44448e0b1509059d0d502d"
   },
   {
     "path": "src/parsers/xer.js",
-    "bytes": 4340,
-    "sha256": "491a303be212a07ff80d32597b5a5fea46f3d15f49d0842179191cf166befd28"
+    "bytes": 4356,
+    "sha256": "858144d3739fd3bd21df91d93b6b37d5831584319e28bb2f07e70603b5474cab"
   },
   {
     "path": "src/repository/db.js",
-    "bytes": 2872,
-    "sha256": "1cfa6b36750f05952df3b4df457653ee9dc4ce74896083b22913742c966c9240"
+    "bytes": 2880,
+    "sha256": "88f659f7cf37855ddb82ade5008e07f71824ee17d949b02ff71aacfb5defbd4b"
   },
   {
     "path": "src/repository/repository.js",
-    "bytes": 6433,
-    "sha256": "8bc418f875248b90183cca80de5d5585044aa39376fc1a3b43ec7322f34a73e9"
+    "bytes": 8142,
+    "sha256": "a321257b8e9458abad89e733ad8528ca35c8e6c53ff66f4980acc62df023f49f"
   },
   {
     "path": "src/ui/app.js",
-    "bytes": 58002,
-    "sha256": "24bbb6c34a426edf52c3a7d32372d7a09175626b34c5cb466d479dd73dc64ec7"
+    "bytes": 61735,
+    "sha256": "eab0b33635c4c9dcdc978c9b9456a367a9b9ac16d31f99cb3151526728770ca2"
   },
   {
     "path": "src/ui/render.js",
-    "bytes": 9826,
-    "sha256": "c20a2b6a7fee56f5d3393a30b672a1f2564b82b7ec9ab845905c808de50bc1f2"
+    "bytes": 9834,
+    "sha256": "d1b0ab3c506d4d444b00bc1bd5b8c5621484bb63471288588afa0b5ea31ad7c7"
   },
   {
     "path": "src/workers/client.js",
-    "bytes": 1361,
-    "sha256": "83ea47b1a5f3d916a0b7cb4188d5d3123d2d85a9e02c78b57e914d8170681165"
+    "bytes": 1393,
+    "sha256": "03922da635b60681287627937c7d00a7f56f662ecb0f95eeec4f375b1b348b51"
   },
   {
     "path": "src/workers/montecarlo-worker.js",
-    "bytes": 267,
-    "sha256": "48d46f11d4b2c70dd467ae4f9db385202aa25bcd99a91c3d3019484c609a98de"
+    "bytes": 275,
+    "sha256": "51645ddc58395c09b31c15540eb9636dbeebfed097eb83f90f96a83717913675"
   },
   {
     "path": "src/workers/schedule-worker.js",
-    "bytes": 650,
-    "sha256": "269c53da562e13b56f2e4d2c8901342e59f0e32b712d1d4a18853f3ce873fc79"
+    "bytes": 674,
+    "sha256": "eb6e0927b96a2b6b41958e8888c895287fa7164d8ea7db06f4b906f25eca5ef9"
   },
   {
     "path": "tests/ai-runtime.integration.test.js",
-    "bytes": 2669,
-    "sha256": "0ccb6b886a61d737b1fefeeafeb5a67e5cfb50d9ee27be250c3588cf2757704f"
+    "bytes": 4034,
+    "sha256": "fd30057b40b38f419f198351672f204e0022c749e465d3e041ccd5fdacf73624"
   },
   {
     "path": "tests/ai-tools.test.js",
     "bytes": 774,
     "sha256": "cc253b815ca554c75eb314dd77deef8c01a1c2a3521e1543babf58311730a6fd"
+  },
+  {
+    "path": "tests/all-agents.test.js",
+    "bytes": 1654,
+    "sha256": "688c1d2cef9cdd6a0fa68e77661410f0f6d0523acd3b737435971ff8b976ee94"
+  },
+  {
+    "path": "tests/browser-models.test.js",
+    "bytes": 3216,
+    "sha256": "68fd9978795f0f52086df1cf7882fcd999bba01a1cb999f5716479a0a72267fa"
   },
   {
     "path": "tests/calendar-datacentre.test.js",
@@ -201,8 +221,8 @@
   },
   {
     "path": "tests/deployment.test.js",
-    "bytes": 2481,
-    "sha256": "ad1a62aa797e2154b2a2a1383f9d76bc6db697a10dd4a206f93151962f922b76"
+    "bytes": 2530,
+    "sha256": "9a26cb336ce81eba5847499a1a2657f9f95d9e5adc577f84e6d912edd1d5e6fb"
   },
   {
     "path": "tests/exhaustive.test.js",
@@ -228,6 +248,11 @@
     "path": "tests/master-feature-contract.test.js",
     "bytes": 4306,
     "sha256": "08b7e505f5b92b9f3d5017ece84b17f34b6ac26960e3a87b39d445b9f50a02a5"
+  },
+  {
+    "path": "tests/model-ui-regression.test.js",
+    "bytes": 2292,
+    "sha256": "45fcbe79bcc961a25f1aaea39213885189484485debc0a47a9fd7ecf757a6e55"
   },
   {
     "path": "tests/msp-golden.test.js",
@@ -271,8 +296,8 @@
   },
   {
     "path": "tests/run-all.js",
-    "bytes": 2057,
-    "sha256": "d1573303b1344b74d0f45364504771220144e9a9e67d24bd477337d4c58578fd"
+    "bytes": 2299,
+    "sha256": "ee312ddc35a1de822cc0d4843f33eddddafb50bee3abdc841ebf821976150ae8"
   },
   {
     "path": "tests/run-exhaustive.js",

@@ -1,193 +1,160 @@
-# Project Controls AI Suite — Comprehensive Validation Report
+# Project Controls AI Suite v1.2.0 — Final Validation Report
 
 ## Release status
 
 **AUTOMATED RELEASE GATE: PASS**
 
-The rewritten GitHub Pages build passed every automated suite and the additional exhaustive stress/volume suite.
+The rebuilt GitHub Pages toolkit passes the complete primary suite and exhaustive stress suite after the browser-AI failures shown in UAT were reproduced in regression tests and corrected.
 
-## Defects found and corrected during validation
+## Browser-AI failures corrected
 
-1. **UI contract regression**
-   - The S-Curve and Histogram were intentionally split into two professional panels, but an older test still expected the combined heading.
-   - The test was corrected to require both `Weekly S-Curve` and `Weekly Histogram`.
+### 1. CPU/WASM Qwen `Gather` / out-of-bounds failure
 
-2. **Relationship lag double conversion**
-   - XER/MS Project relationship lags were normalized to days by the parser and then divided by 24 again by the common model normalizer.
-   - This was a real defect.
-   - The model now treats an already-normalized `lag` value as days and only divides the raw P6 `lag_hr_cnt` field by 24.
-   - Permanent regression tests verify:
-     - 48 P6 lag hours = 2 days.
-     - An already-normalized 1-day Microsoft Project lag remains 1 day.
+Observed error:
 
-3. **Recursive cycle detection stack overflow**
-   - A very deep synthetic relationship chain could overflow the JavaScript call stack.
-   - Cycle detection was rewritten as an iterative, stack-safe DFS.
-   - A 20,000-activity deep chain now completes successfully.
+`indices element out of data bounds, idx=32768 must be within the inclusive range [-32768,32767]`
 
-4. **Revision progress comparison**
-   - Added/deleted scope could distort the headline progress movement between revisions.
-   - The comparison engine now calculates progress movement on comparable/common activities when available.
+Root cause: multiple selected XER files could be inserted as raw text into the prompt, allowing a small browser model to reach its context/index boundary.
 
-5. **Ollama unavailable classification**
-   - The first version of the new Ollama diagnostic did not classify every unreachable-loopback wording as a likely installation/running/access issue.
-   - The classification was corrected and is now regression-tested.
+Correction:
+- raw XER/XML text is no longer placed into small browser-model prompts;
+- checked schedule files contribute filename/metadata plus structured parsed schedule evidence;
+- a compact portfolio/revision summary is generated for all current schedules;
+- non-schedule text files use query-relevant excerpts with per-model budgets;
+- history is restricted for small browser models;
+- failed browser runtimes are released so the next attempt starts cleanly.
 
-## Automated suites
+A regression test imports large XER revisions and asks the reported question, `What do you think about my current schedules?`. It verifies that the prompt remains below the browser safety budget, contains the schedule portfolio summary, contains the XER filenames, and does not contain raw `%T TASK` XER tables.
 
-All 18 primary suites passed:
+### 2. WebGPU selected where WebGPU is unavailable
 
-1. Parser & file import — PASS
-2. Network/driving path — PASS
-3. Schedule comparison/golden movement — PASS
-4. Health, confidence, narrative, weekly series — PASS
-5. Calendar & data-centre readiness — PASS
-6. Risk/QSRA & claims — PASS
-7. Structured AI schedule tools — PASS
-8. Microsoft Project XML golden results — PASS
-9. Ollama native API compatibility — PASS
-10. Ollama failure/recovery paths — PASS
-11. Repository/multi-project integration — PASS
-12. Shared AI runtime + repository context — PASS
-13. Parser fuzz — PASS
-14. Performance/volume — PASS
-15. UI/GitHub Pages contracts — PASS
-16. Master feature completeness contract — PASS
-17. GitHub Pages deployment/import graph — PASS
-18. Security — PASS
+Correction:
+- WebGPU models are compatibility-checked before selection/use;
+- unsupported WebGPU options are labelled unavailable in the global dropdown;
+- a saved WebGPU selection automatically falls back to Qwen2.5 0.5B CPU/WASM on startup if WebGPU is not available;
+- Settings exposes a model compatibility table and a live `Test selected browser AI` action;
+- the inference runtime also validates that a WebGPU adapter can actually be obtained.
+
+### 3. Model versions had disappeared from the global selector
+
+The global catalogue is restored and grouped by execution engine. Verified model choices in this release are:
+
+CPU/WASM / Transformers.js:
+- Qwen2.5 0.5B
+- Qwen2.5 1.5B
+- Llama 3.2 1B
+
+WebGPU / Transformers.js:
+- Qwen2.5 0.5B
+- Qwen2.5 1.5B
+- Llama 3.2 1B
+
+WebGPU / WebLLM:
+- Llama 3.2 1B
+- Llama 3.2 3B
+- Llama 3.1 8B
+- Phi 3.5 Mini
+
+Ollama remains a separate global option and uses the chat-capable model selected in Settings.
+
+Transformers.js is pinned to `4.2.0`; WebLLM is pinned to `0.2.85`.
+
+## Shared AI architecture
+
+PASS:
+- one global AI model selector only;
+- Settings owns model diagnostics/configuration;
+- all mini-tools use the same shared runtime;
+- no module-local model status/selector conflicts;
+- all seven specialist roles were executed through the same selected browser model in regression testing;
+- checked repository files are available to every AI role;
+- parsed schedules are exposed through structured schedule tools.
+
+## Professional UI revision
+
+PASS:
+- first-run theme is `Light · Dark Blue Contrast`;
+- Dark and Light remain available from the Theme dropdown;
+- navigation is two-tiered and less cramped at desktop widths;
+- project selector no longer duplicates the editable project-name field;
+- repository/file controls, cards, tables, filters and chat spacing have been tightened and normalised;
+- responsive breakpoints were added for 1450 px, 1100 px and 780 px widths;
+- Gantt remains white/light in all themes and critical bars remain red.
+
+## GitHub Pages / cache safety
+
+PASS:
+- fully static architecture;
+- `.nojekyll` present;
+- project-subpath-compatible relative URLs;
+- every production local JS module import carries `?v=1.2.0`;
+- worker URLs carry the same cache token;
+- top-level CSS/app assets carry the same token;
+- this prevents a new Pages deployment from combining old cached modules with the new shell.
+
+Static subpath smoke test returned HTTP 200 for the page, CSS, app module, AI catalogue, browser runtime, shared AI runtime, schedule worker and `.nojekyll`.
+
+## Primary automated test suites
+
+**21 / 21 PASS**
+
+1. Parser & file import
+2. Network/driving path
+3. Schedule comparison/golden movement
+4. Health, confidence, narrative, weekly series
+5. Calendar & data-centre readiness
+6. Risk/QSRA & claims
+7. Structured AI schedule tools
+8. Microsoft Project XML golden
+9. Ollama native API compatibility
+10. Ollama failure/recovery paths
+11. All restored browser AI models
+12. Repository/multi-project integration
+13. Shared AI runtime + repository context
+14. All toolkit AI agent roles
+15. Parser fuzz
+16. Performance/volume
+17. UI/GitHub Pages contracts
+18. Model catalogue + professional UI regression
+19. Master feature completeness contract
+20. GitHub Pages deployment/import graph
+21. Security
+
+Most recent primary-suite result:
+
+`ALL TESTS PASS · 21/21 suites`
 
 ## Exhaustive stress suite
 
 PASS:
-- 3,000 randomized malformed XER inputs.
-- 50,000 activities / 200,000 relationships parse.
-- Health analysis on 50,000 / 200,000.
-- 10,000-activity revision comparison.
-- 20,000-activity deep dependency chain.
+- 3,000 randomized malformed XER inputs;
+- 50,000 activities / 200,000 relationships parse;
+- schedule health at 50,000 / 200,000;
+- 10,000-activity revision comparison;
+- 20,000-activity deep dependency path;
 - 5,000-iteration deterministic Monte Carlo.
 
-Most recent measured timings in this environment:
-- 3,000-input fuzz pass: ~157 ms
-- 50k / 200k parse: ~990 ms
-- 50k / 200k health analysis: ~419 ms
-- 10k revision comparison: ~148 ms
-- 20k deep-chain graph analysis: ~183 ms
-- 5,000-iteration Monte Carlo pair: ~29 ms
+Most recent run in this environment:
+- 3,000-input fuzz: ~108 ms
+- 50k / 200k parse: ~563 ms
+- 50k / 200k health: ~294 ms
+- 10k comparison: ~105 ms
+- 20k deep path: ~181 ms
+- Monte Carlo pair: ~27 ms
 
-These timings are environment-specific and should not be treated as contractual performance guarantees.
+Timings are environment-specific, not contractual guarantees.
 
-## GitHub Pages validation
+## Important live-browser limitation
 
-PASS:
-- `.nojekyll` present.
-- No server build required.
-- Relative asset paths only.
-- Relative module import graph resolves.
-- Worker module URLs resolve.
-- No root-relative application API dependency.
-- GitHub Actions exhaustive-test workflow included.
-- GitHub Pages deployment workflow included and deployment is gated on tests.
-- Static subpath serving smoke test returned HTTP 200 for:
-  - `/`
-  - `assets/app.css`
-  - `src/ui/app.js`
-  - `src/ai/ollama.js`
-  - `src/repository/repository.js`
-  - schedule worker
-  - Monte Carlo worker
-  - `.nojekyll`
-  - `404.html`
+The automated suite confirms the application logic, model routing, progress events, error recovery, prompt budgeting, repository integration and supported upstream model identifiers. It cannot physically execute a multi-gigabyte WebGPU model on the user's GPU from this container, nor can it reach the user's Windows Ollama service.
 
-## Ollama validation
+For that reason, the final operational acceptance test remains a short live UAT on the deployed GitHub Pages site:
+1. open Settings;
+2. select a browser CPU model and use `Test selected browser AI`;
+3. if WebGPU is supported, test one WebGPU model;
+4. select several real XERs and ask `What do you think about my current schedules?`;
+5. confirm the model-download/generation progress HUD;
+6. test Ollama with `Check Ollama`, `Detect & classify`, then `Test & Save`;
+7. ask the same project question in Contract Manager and Schedule Assessment.
 
-PASS:
-- `GET /api/tags`
-- `POST /api/show`
-- `POST /api/chat`
-- `POST /api/generate` fallback
-- chat vs embedding model classification
-- empty-chat fallback to generate
-- thinking On / Off fallback
-- progress HUD events
-- localhost / 127.0.0.1 fallback
-- missing Ollama / not-running / CORS guidance
-- HTTP server errors
-- checked Project Repository files injected into the actual AI request
-- structured schedule tool result injected alongside repository evidence
-
-The toolkit deliberately says **“Ollama was not detected”** rather than claiming it is definitely uninstalled, because a browser cannot reliably distinguish:
-- not installed;
-- installed but stopped;
-- blocked by local-network/CORS policy.
-
-## Security/static-hosting checks
-
-PASS:
-- no OmniRoute references;
-- no embedded API keys/secrets;
-- no `eval()` use;
-- HTML escaping helper tested;
-- CSV injection/quoting helper tested;
-- one global AI selector only;
-- only Dark, Light, and Light · Dark Blue Contrast themes;
-- no obsolete tab icons;
-- Schedule Builder precedes Settings;
-- checked repository context remains central;
-- Gantt remains light;
-- critical Gantt bars remain red.
-
-## Master feature contract
-
-PASS for the requested architecture and improvements, including:
-- central multi-project Project Repository;
-- schedule revision lineage;
-- structured AI schedule-query tools;
-- canonical network engine;
-- Why Did My Date Move;
-- milestone control centre;
-- professional Gantt;
-- cross-report filtering;
-- planner dashboard;
-- Planner's Inbox;
-- data-centre mode;
-- forecast confidence;
-- Monte Carlo P10/P50/P80/P90;
-- risk-to-schedule mapping;
-- claims evidence packs;
-- AI evidence references;
-- specialist AI roles using one global model;
-- Web Workers;
-- large-table virtualisation;
-- browser project database;
-- schedule comparison;
-- Week-on-Week;
-- DCMA-style check;
-- delay analysis;
-- forensic review;
-- year-by-year calendar analysis;
-- weekly S-Curve and Histogram;
-- comparative schedule narrative;
-- Resources/EVM;
-- Cost Report;
-- baseline/lookahead;
-- Nodes & Links.
-
-## Important environment limitation
-
-The automated test suite is at **100% pass**.
-
-That is not the same as claiming software can never contain a defect. This environment does not have the user's real Windows Ollama process, installed models, GitHub account/browser permissions, or a usable graphical Chromium session for interactive GUI UAT.
-
-Before calling the deployment operationally accepted, perform a short live UAT on the real hosted GitHub Pages site:
-1. Open the deployed site in Chrome or Edge.
-2. Import two real P6 XER revisions.
-3. Confirm Schedule Comparison, Critical Path, Calendar Analyser, S-Curve, Narrative and Gantt.
-4. Tick `perun 3.xer` in the Project Repository.
-5. Settings → Ollama → Check Ollama.
-6. Detect models.
-7. Test & Save.
-8. Ask a schedule-specific question in at least two mini-tools.
-9. Confirm the AI answer shows evidence filenames and the progress HUD.
-10. Refresh the page and confirm the Project Repository and project selection persist.
-
-No optimization work should begin until that live UAT is accepted.
+The release is suitable for that live acceptance test and the automated release gate is fully passing.

@@ -1,9 +1,9 @@
 
-import {buildNetwork,drivingChain,traceToMilestone,openEnds,longestPath} from "../analysis/network.js";
-import {compareSchedules,whyDidDateMove} from "../analysis/comparison.js";
-import {scheduleHealth,forecastConfidence} from "../analysis/health.js";
-import {activityHistory,milestoneHistory} from "../analysis/timemachine.js";
-import {fourWeekLookahead} from "../analysis/timeseries.js";
+import {buildNetwork,drivingChain,traceToMilestone,openEnds,longestPath} from "../analysis/network.js?v=1.2.0";
+import {compareSchedules,whyDidDateMove} from "../analysis/comparison.js?v=1.2.0";
+import {scheduleHealth,forecastConfidence} from "../analysis/health.js?v=1.2.0";
+import {activityHistory,milestoneHistory} from "../analysis/timemachine.js?v=1.2.0";
+import {fourWeekLookahead} from "../analysis/timeseries.js?v=1.2.0";
 
 const compactActivity=a=>a?({id:a.id,name:a.name,wbs:a.wbsPath,status:a.status,start:a.currentStart||a.start,finish:a.currentFinish||a.finish,float:a.totalFloat,percent:a.percent,critical:a.critical}):null;
 export function toolRegistry({current,previous,revisions=[]}){

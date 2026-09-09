@@ -1,5 +1,5 @@
 
-import {startOfWeek,parseDate,addDays,isoWeek} from "../core/utils.js";
+import {startOfWeek,parseDate,addDays,isoWeek} from "../core/utils.js?v=1.2.0";
 export function weeklySeries(schedule){
   const a=schedule.activities||[],dates=a.flatMap(x=>[x.baselineFinish,x.actualFinish,x.currentFinish||x.finish]).map(parseDate).filter(Boolean);
   if(!dates.length)return [];

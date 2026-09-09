@@ -1,7 +1,7 @@
 
-import {db,ensureProject,listProjects,createProject,setActiveProject,deleteProject} from "./db.js";
-import {uid} from "../core/utils.js";
-import {parseScheduleOffThread} from "../workers/client.js";
+import {db,ensureProject,listProjects,createProject,setActiveProject,deleteProject} from "./db.js?v=1.2.0";
+import {uid} from "../core/utils.js?v=1.2.0";
+import {parseScheduleOffThread} from "../workers/client.js?v=1.2.0";
 
 const TEXT_EXT=new Set(["txt","md","csv","tsv","json","xml","xer","html","htm","log","ini","yaml","yml","sql"]);
 let folderHandles=new Map();
@@ -42,24 +42,68 @@ export async function removeFile(id){
   for(const s of await db.all("schedules"))if(s.sourceFileId===id)await db.del("schedules",s.id);
 }
 export async function checkedFiles(){return (await listFiles()).filter(f=>f.checked)}
-export async function selectedContext({maxFileChars=750000,maxTotalChars=4000000}={}){
+
+function queryTerms(question){
+  return [...new Set(String(question||"").toLowerCase().match(/[a-z0-9][a-z0-9_.-]{2,}/g)||[])]
+    .filter(x=>!["what","about","current","project","schedule","schedules","please","could","would","think","with","from","this","that"].includes(x))
+    .slice(0,20);
+}
+function relevantExcerpt(text,question,maxChars){
+  const raw=String(text||"");
+  if(raw.length<=maxChars)return raw;
+  const terms=queryTerms(question);
+  if(!terms.length)return raw.slice(0,maxChars);
+  const lower=raw.toLowerCase(),windows=[];
+  for(const term of terms){
+    let pos=0,hits=0;
+    while((pos=lower.indexOf(term,pos))>=0&&hits++<8){
+      const start=Math.max(0,pos-700),end=Math.min(raw.length,pos+term.length+1300);
+      windows.push([start,end]);pos+=term.length;
+    }
+  }
+  if(!windows.length)return raw.slice(0,maxChars);
+  windows.sort((a,b)=>a[0]-b[0]);
+  const merged=[];
+  for(const w of windows){
+    const last=merged.at(-1);
+    if(last&&w[0]<=last[1]+120)last[1]=Math.max(last[1],w[1]);else merged.push([...w]);
+  }
+  let out="";
+  for(const [a,b] of merged){
+    const piece=raw.slice(a,b);
+    if(out.length+piece.length>maxChars){out+=piece.slice(0,maxChars-out.length);break}
+    out+=(out?"\n…\n":"")+piece;
+    if(out.length>=maxChars)break;
+  }
+  return out.slice(0,maxChars);
+}
+export async function selectedContext({
+  maxFileChars=12000,maxTotalChars=36000,question="",skipScheduleText=true
+}={}){
   const files=await checkedFiles(),blocks=[];let total=0;
   for(const f of files){
     if(total>=maxTotalChars)break;
     const ext=(f.name.split(".").pop()||"").toLowerCase();
-    if(!TEXT_EXT.has(ext)){blocks.push(`[FILE ${f.name}] Binary file selected; use module parser/tooling for its structured content.`);continue}
+    const isSchedule=ext==="xer"||ext==="xml";
+    const meta=`FILE: ${f.name}\nCATEGORY: ${f.category}\nPATH: ${f.relativePath}\nSIZE: ${f.size||0} bytes`;
+    if(isSchedule&&skipScheduleText){
+      blocks.push(`${meta}\nTYPE: Parsed schedule file — use structured schedule evidence supplied separately.`);
+      continue;
+    }
+    if(!TEXT_EXT.has(ext)){blocks.push(`${meta}\nTYPE: Binary/non-text project evidence.`);continue}
     let blob=f.blob;
     if(!blob&&f.folderKey){
       const handle=folderHandles.get(f.folderKey);if(handle)blob=await resolveHandleFile(handle,f.relativePath);
     }
-    if(!blob){blocks.push(`[FILE ${f.name}] File reference unavailable until the linked folder is re-authorized.`);continue}
+    if(!blob){blocks.push(`${meta}\nSTATUS: Linked file unavailable until the folder is re-authorized.`);continue}
     try{
-      const text=(await blob.text()).slice(0,Math.min(maxFileChars,maxTotalChars-total));
-      blocks.push(`PROJECT FILE\nNAME: ${f.name}\nCATEGORY: ${f.category}\nPATH: ${f.relativePath}\n\n${text}\n\nEND PROJECT FILE`);
-      total+=text.length;
-    }catch(e){blocks.push(`[FILE ${f.name}] Could not read: ${e.message}`)}
+      const raw=await blob.text(),remaining=Math.max(0,maxTotalChars-total);
+      const excerpt=relevantExcerpt(raw,question,Math.min(maxFileChars,remaining));
+      blocks.push(`PROJECT FILE EXCERPT\n${meta}\n\n${excerpt}\n\nEND PROJECT FILE EXCERPT`);
+      total+=excerpt.length;
+    }catch(e){blocks.push(`${meta}\nSTATUS: Could not read: ${e.message}`)}
   }
-  return {files,text:blocks.join("\n\n")};
+  return {files,text:blocks.join("\n\n"),textChars:total};
 }
 async function resolveHandleFile(root,path){
   const parts=String(path||"").split("/").filter(Boolean);let cur=root;

@@ -1,5 +1,5 @@
 
-import {parseDate} from "../core/utils.js";
+import {parseDate} from "../core/utils.js?v=1.2.0";
 export function standardWorkingDays(calendar){
   const hpd=Math.max(.1,Number(calendar.hoursPerDay||8)),hpw=Math.max(hpd,Number(calendar.hoursPerWeek||40));
   const days=Math.max(1,Math.min(7,Math.round(hpw/hpd)));

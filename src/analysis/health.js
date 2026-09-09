@@ -1,6 +1,6 @@
 
-import {networkHealth,openEnds} from "./network.js";
-import {stddev,mean,daysBetween,parseDate,clamp} from "../core/utils.js";
+import {networkHealth,openEnds} from "./network.js?v=1.2.0";
+import {stddev,mean,daysBetween,parseDate,clamp} from "../core/utils.js?v=1.2.0";
 
 export function scheduleHealth(schedule){
   const a=schedule.activities||[],n=Math.max(1,a.length),net=networkHealth(schedule);

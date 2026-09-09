@@ -1,6 +1,6 @@
 
-import {uid} from "../core/utils.js";
-import {parseScheduleFile} from "../parsers/index.js";
+import {uid} from "../core/utils.js?v=1.2.0";
+import {parseScheduleFile} from "../parsers/index.js?v=1.2.0";
 
 function workerSupported(){return typeof Worker!=="undefined"&&typeof URL!=="undefined"}
 async function callWorker(url,type,payload){
@@ -15,14 +15,14 @@ async function callWorker(url,type,payload){
 export async function parseScheduleOffThread(file){
   const ext=(file.name.split(".").pop()||"").toLowerCase();
   if(workerSupported()&&ext==="xer"){
-    try{return await callWorker(new URL("./schedule-worker.js",import.meta.url),"parse-xer",{text:await file.text(),name:file.name})}
+    try{return await callWorker(new URL("./schedule-worker.js?v=1.2.0",import.meta.url),"parse-xer",{text:await file.text(),name:file.name})}
     catch(error){console.warn("Worker XER parse failed; falling back to main thread",error)}
   }
   return await parseScheduleFile(file);
 }
 export async function compareOffThread(previous,current){
   if(workerSupported()){
-    try{return await callWorker(new URL("./schedule-worker.js",import.meta.url),"compare",{previous,current})}
+    try{return await callWorker(new URL("./schedule-worker.js?v=1.2.0",import.meta.url),"compare",{previous,current})}
     catch(error){console.warn("Worker comparison failed; falling back to caller",error)}
   }
   return null;

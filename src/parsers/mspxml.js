@@ -1,5 +1,5 @@
 
-import {createSchedule} from "../core/model.js";
+import {createSchedule} from "../core/model.js?v=1.2.0";
 function unesc(s){return String(s||"").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,"&")}
 function tag(block,name){
   const m=String(block||"").match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`,"i"));

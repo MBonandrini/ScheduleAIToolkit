@@ -1,5 +1,5 @@
 
-import {uid} from "../core/utils.js";
+import {uid} from "../core/utils.js?v=1.2.0";
 const DB="ScheduleAIToolkitDB",VERSION=2;
 const stores=["projects","files","schedules","risks","claims","settings","folders"];
 

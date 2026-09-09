@@ -1,6 +1,6 @@
 
-import {seededRandom,mean,median} from "../core/utils.js";
-import {longestPath,buildNetwork,topologicalOrder} from "./network.js";
+import {seededRandom,mean,median} from "../core/utils.js?v=1.2.0";
+import {longestPath,buildNetwork,topologicalOrder} from "./network.js?v=1.2.0";
 
 function triangular(r,min,mode,max){
   const u=r(),f=(mode-min)/(max-min||1);

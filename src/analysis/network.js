@@ -1,5 +1,5 @@
 
-import {parseDate,daysBetween,mean} from "../core/utils.js";
+import {parseDate,daysBetween,mean} from "../core/utils.js?v=1.2.0";
 
 export function buildNetwork(schedule){
   const activities=new Map((schedule.activities||[]).map(a=>[a.id,a]));

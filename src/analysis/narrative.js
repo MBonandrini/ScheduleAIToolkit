@@ -1,8 +1,8 @@
 
-import {scheduleSummary} from "../core/model.js";
-import {compareSchedules} from "./comparison.js";
-import {fourWeekLookahead} from "./timeseries.js";
-import {scheduleHealth} from "./health.js";
+import {scheduleSummary} from "../core/model.js?v=1.2.0";
+import {compareSchedules} from "./comparison.js?v=1.2.0";
+import {fourWeekLookahead} from "./timeseries.js?v=1.2.0";
+import {scheduleHealth} from "./health.js?v=1.2.0";
 export function scheduleNarrative(current,previous=null){
   const s=scheduleSummary(current),h=scheduleHealth(current),look=fourWeekLookahead(current),comp=previous?compareSchedules(previous,current):null;
   const paragraphs=[

@@ -1,20 +1,20 @@
 
-import {currentProject,projects,newProject,switchProject,restoreFolderHandles,renameProject,addFiles,listFiles,listSchedules,setFileChecked,removeFile,linkFolder,importFolderFallback,selectedContext,saveRisk,listRisks,saveClaim,listClaims} from "../repository/repository.js";
-import {preferredAI,setPreferredAI,askAI,aiLabel} from "../ai/runtime.js";
-import {ollamaConfig,saveOllamaConfig,inspectModels,testOllama,probeOllama} from "../ai/ollama.js";
-import {scheduleSummary} from "../core/model.js";
-import {esc,isoDate,parseDate,daysBetween,toCSV,downloadBlob,uid,addDays} from "../core/utils.js";
-import {metric,table,lineChart,barChart,networkGraph,gantt,calendarMonth,badge} from "./render.js";
-import {scheduleHealth,forecastConfidence,plannerInbox} from "../analysis/health.js";
-import {compareSchedules,whyDidDateMove,avgProgress} from "../analysis/comparison.js";
-import {networkHealth,openEnds,detectCycles,pathConvergence,drivingChain,longestPath,traceToMilestone} from "../analysis/network.js";
-import {projectYears,calendarYear} from "../analysis/calendar.js";
-import {weeklySeries,fourWeekLookahead} from "../analysis/timeseries.js";
-import {activityHistory,milestoneHistory,revisionLineage} from "../analysis/timemachine.js";
-import {runMonteCarlo,mapRiskToSchedule} from "../analysis/risk.js";
-import {buildDelayEventFile} from "../analysis/claims.js";
-import {dataCentreReadiness,readinessGates} from "../analysis/datacentre.js";
-import {scheduleNarrative} from "../analysis/narrative.js";
+import {currentProject,projects,newProject,switchProject,restoreFolderHandles,renameProject,addFiles,listFiles,listSchedules,setFileChecked,removeFile,linkFolder,importFolderFallback,selectedContext,saveRisk,listRisks,saveClaim,listClaims} from "../repository/repository.js?v=1.2.0";
+import {preferredAI,setPreferredAI,askAI,aiLabel,AI_CATALOG,aiEntry,aiCompatibility,catalogueGroups,testSelectedAI} from "../ai/runtime.js?v=1.2.0";
+import {ollamaConfig,saveOllamaConfig,inspectModels,testOllama,probeOllama} from "../ai/ollama.js?v=1.2.0";
+import {scheduleSummary} from "../core/model.js?v=1.2.0";
+import {esc,isoDate,parseDate,daysBetween,toCSV,downloadBlob,uid,addDays} from "../core/utils.js?v=1.2.0";
+import {metric,table,lineChart,barChart,networkGraph,gantt,calendarMonth,badge} from "./render.js?v=1.2.0";
+import {scheduleHealth,forecastConfidence,plannerInbox} from "../analysis/health.js?v=1.2.0";
+import {compareSchedules,whyDidDateMove,avgProgress} from "../analysis/comparison.js?v=1.2.0";
+import {networkHealth,openEnds,detectCycles,pathConvergence,drivingChain,longestPath,traceToMilestone} from "../analysis/network.js?v=1.2.0";
+import {projectYears,calendarYear} from "../analysis/calendar.js?v=1.2.0";
+import {weeklySeries,fourWeekLookahead} from "../analysis/timeseries.js?v=1.2.0";
+import {activityHistory,milestoneHistory,revisionLineage} from "../analysis/timemachine.js?v=1.2.0";
+import {runMonteCarlo,mapRiskToSchedule} from "../analysis/risk.js?v=1.2.0";
+import {buildDelayEventFile} from "../analysis/claims.js?v=1.2.0";
+import {dataCentreReadiness,readinessGates} from "../analysis/datacentre.js?v=1.2.0";
+import {scheduleNarrative} from "../analysis/narrative.js?v=1.2.0";
 
 const $=id=>document.getElementById(id);
 const state={
@@ -28,19 +28,44 @@ const state={
 const roles=["Planner","Forensic Planner","Risk Analyst","Commercial Manager","Contract Analyst","Project Controls Manager","Executive Reviewer"];
 const noRepoViews=new Set(["notebook","builder","settings"]);
 
+function renderAIModelOptions(){
+  const select=$("aiSelect");if(!select)return;
+  const current=preferredAI(),groups=catalogueGroups();
+  select.innerHTML=[...groups.entries()].map(([group,entries])=>
+    `<optgroup label="${esc(group)}">${entries.map(entry=>{
+      const compat=aiCompatibility(entry.value);
+      const suffix=!compat.ok&&entry.engine!=="placeholder"?" · unavailable here":"";
+      return `<option value="${esc(entry.value)}" ${entry.value===current?"selected":""} ${entry.disabled?"disabled":""}>${esc(entry.label+suffix)}</option>`;
+    }).join("")}</optgroup>`
+  ).join("");
+  if([...select.options].some(o=>o.value===current))select.value=current;
+}
+function selectedAIInfo(){
+  const entry=aiEntry(preferredAI()),compat=aiCompatibility(entry.value);
+  return {...entry,compatible:compat.ok,compatibilityMessage:compat.reason};
+}
+
 async function init(){
   state.project=await currentProject();
   await restoreFolderHandles();
   state.quantityRows=JSON.parse(localStorage.getItem("pcai.quantities")||"[]");
   state.builderRows=JSON.parse(localStorage.getItem("pcai.builder")||"[]");
-  const savedTheme=localStorage.getItem("pcai.theme")||"dark";document.documentElement.dataset.theme=savedTheme;$("themeSelect").value=savedTheme;
-  $("aiSelect").value=preferredAI();
+  const savedTheme=localStorage.getItem("pcai.theme")||"navy";document.documentElement.dataset.theme=savedTheme;$("themeSelect").value=savedTheme;
+  const initialAI=preferredAI(),initialCompat=aiCompatibility(initialAI);
+  if(!initialCompat.ok)await setPreferredAI("cpu:qwen2.5-0.5b");
+  renderAIModelOptions();
   bindShell();await refreshData();render();
+  if(!initialCompat.ok)toast("WebGPU unavailable here — switched to Qwen2.5 0.5B CPU/WASM");
 }
 function bindShell(){
   $("tabs").addEventListener("click",e=>{const b=e.target.closest("[data-view]");if(!b)return;state.view=b.dataset.view;render()});
   $("themeSelect").addEventListener("change",e=>{document.documentElement.dataset.theme=e.target.value;localStorage.setItem("pcai.theme",e.target.value)});
-  $("aiSelect").addEventListener("change",async e=>{await setPreferredAI(e.target.value);toast(`Global AI: ${aiLabel(e.target.value)}`)});
+  $("aiSelect").addEventListener("change",async e=>{
+    const requested=e.target.value,compat=aiCompatibility(requested);
+    if(!compat.ok){alert(compat.reason);renderAIModelOptions();return}
+    try{await setPreferredAI(requested);renderAIModelOptions();toast(`Global AI: ${aiLabel(requested)}`)}
+    catch(error){alert(error.message||String(error));renderAIModelOptions()}
+  });
   $("newProjectBtn").onclick=async()=>{const name=prompt("Project name","New Project");if(!name)return;state.project=await newProject(name);await restoreFolderHandles();await refreshData();render()};
   $("projectSelect").onchange=async e=>{state.project=await switchProject(e.target.value);await restoreFolderHandles();state.activeScheduleId=null;state.previousScheduleId=null;await refreshData();render()};
   $("addFilesBtn").onclick=()=>$("fileInput").click();
@@ -48,7 +73,10 @@ function bindShell(){
   $("folderFallbackBtn").onclick=()=>$("folderInput").click();
   $("folderInput").onchange=async e=>{await withProgress("Importing folder",async()=>{await importFolderFallback(e.target.files);await refreshData()});e.target.value=""};
   $("linkFolderBtn").onclick=async()=>{try{await withProgress("Linking project folder",async()=>{await linkFolder();await refreshData()})}catch(e){alert(e.message)}};
-  let timer;$("projectName").addEventListener("input",e=>{clearTimeout(timer);timer=setTimeout(async()=>{state.project=await renameProject(e.target.value)},400)});
+  $("renameProjectBtn").onclick=async()=>{
+    const name=prompt("Project name",state.project?.name||"Untitled Project");if(!name)return;
+    state.project=await renameProject(name);await refreshData();render();
+  };
   globalThis.addEventListener("pc-progress",e=>updateProgress(e.detail||{}));
 }
 async function refreshData(){
@@ -73,7 +101,6 @@ function filteredSchedule(){
   return {...s,activities:acts,relationships:s.relationships.filter(r=>ids.has(r.predId)&&ids.has(r.succId))};
 }
 async function renderRepository(){
-  $("projectName").value=state.project?.name||"Untitled Project";
   const ps=await projects();
   $("projectSelect").innerHTML=ps.map(p=>`<option value="${p.id}" ${p.id===state.project?.id?"selected":""}>${esc(p.name)}</option>`).join("");
   $("repoFiles").innerHTML=state.files.map(f=>`<div class="repo-file">
@@ -364,7 +391,7 @@ function renderMonte(m){
 async function runMonteWorker(schedule,options){
   if(typeof Worker==="undefined")return runMonteCarlo(schedule,options);
   return await new Promise((resolve,reject)=>{
-    const w=new Worker(new URL("../workers/montecarlo-worker.js",import.meta.url),{type:"module"}),id=uid("mc");
+    const w=new Worker(new URL("../workers/montecarlo-worker.js?v=1.2.0",import.meta.url),{type:"module"}),id=uid("mc");
     w.onmessage=e=>{if(e.data.id!==id)return;w.terminate();e.data.ok?resolve(e.data.result):reject(new Error(e.data.error))};w.onerror=e=>{w.terminate();reject(e.error||new Error(e.message))};w.postMessage({id,schedule,options});
   });
 }
@@ -396,11 +423,36 @@ function renderBuilder(){
 
 function renderSettings(){
   const c=ollamaConfig();
-  $("workspace").innerHTML=`${viewHead("Settings","Global configuration for AI, project-controls profile and GitHub Pages deployment")}
-  <div class="grid grid2">
-    <section class="panel"><h2>Ollama</h2><div class="form"><label>Host<input id="ollamaHost" value="${esc(c.baseUrl)}"></label><label>Chat model<select id="ollamaModel"><option value="${esc(c.model)}">${esc(c.model||"Detect installed models")}</option></select></label><label>Embedding model<select id="embedModel"><option value="${esc(c.embeddingModel||"")}">${esc(c.embeddingModel||"Keyword-only")}</option></select></label><label>Keep alive<select id="keepAlive">${["default","0","5m","15m","30m","1h","2h","4h"].map(x=>`<option ${c.keepAlive===x?"selected":""}>${x}</option>`).join("")}</select></label><label>Reasoning<select id="thinking">${["off","auto","on"].map(x=>`<option ${c.thinking===x?"selected":""}>${x}</option>`).join("")}</select><div class="actions"><button class="btn" id="checkOllama">Check Ollama</button><button class="btn" id="detectOllama">Detect & classify</button><button class="btn primary" id="testOllama">Test & Save</button></div><div id="ollamaDiag" class="muted">Expected local API: http://localhost:11434</div><div id="ollamaHelp" class="ollama-help" hidden></div></div></section>
-    <section class="panel"><h2>Project Controls Profile</h2><div class="form"><label>Specialism<select id="profile"><option>General Project Controls</option><option selected>Data Centre</option><option>Life Sciences / Pharma</option><option>Industrial / Process</option></select></label><div class="muted">The profile changes terminology and readiness reporting, not the AI model.</div></div><h3 style="margin-top:18px">GitHub Pages deployment</h3><ol class="muted"><li>Keep this repository static; no build step is required.</li><li>Enable Pages from the repository root or GitHub Actions.</li><li>For Ollama, allow the deployed origin using <code>OLLAMA_ORIGINS</code> and restart Ollama.</li><li>Do not place paid-provider secrets in frontend JavaScript.</li></ol></section>
+  $("workspace").innerHTML=`${viewHead("Settings","Global AI configuration, browser model diagnostics, Ollama and GitHub Pages deployment")}
+  <div class="grid grid2 settings-grid">
+    <section class="panel"><h2>Global AI Model</h2>
+      <p class="muted">Select the model once in the suite header. Contract Manager, Schedule Assessment, Risk, Claims, NotebookLM+ and Schedule Builder all use the same selection.</p>
+      <div id="selectedAiCard" class="ai-config-card"></div>
+      <div class="actions" style="margin-top:10px"><button class="btn primary" id="testSelectedAI">Test selected browser AI</button></div>
+      <div id="browserAiDiag" class="muted" style="margin-top:8px">Browser models download on first test/use and are cached by the browser.</div>
+      <h3 style="margin-top:18px">Available browser models</h3>
+      ${table(["Model","Engine","Memory","Compatibility"],AI_CATALOG.filter(x=>x.engine!=="ollama"&&!x.disabled).map(entry=>{
+        const cp=aiCompatibility(entry.value);
+        return [esc(entry.label),esc(entry.engine==="cpu"?"CPU / WASM":entry.engine==="gpu-transformers"?"WebGPU / Transformers.js":"WebGPU / WebLLM"),esc(entry.memory),cp.ok?badge("Available","good"):badge("Unavailable in this browser","warn")];
+      }))}
+    </section>
+    <section class="panel"><h2>Ollama</h2><div class="form"><label>Host<input id="ollamaHost" value="${esc(c.baseUrl)}"></label><label>Chat model<select id="ollamaModel"><option value="${esc(c.model)}">${esc(c.model||"Detect installed models")}</option></select></label><label>Embedding model<select id="embedModel"><option value="${esc(c.embeddingModel||"")}">${esc(c.embeddingModel||"Keyword-only")}</option></select></label><label>Keep alive<select id="keepAlive">${["default","0","5m","15m","30m","1h","2h","4h"].map(x=>`<option ${c.keepAlive===x?"selected":""}>${x}</option>`).join("")}</select></label><label>Reasoning<select id="thinking">${["off","auto","on"].map(x=>`<option ${c.thinking===x?"selected":""}>${x}</option>`).join("")}</select></label><div class="actions"><button class="btn" id="checkOllama">Check Ollama</button><button class="btn" id="detectOllama">Detect & classify</button><button class="btn primary" id="testOllama">Test & Save</button></div><div id="ollamaDiag" class="muted">Expected local API: http://localhost:11434</div><div id="ollamaHelp" class="ollama-help" hidden></div></div></section>
+    <section class="panel"><h2>Project Controls Profile</h2><div class="form"><label>Specialism<select id="profile"><option>General Project Controls</option><option selected>Data Centre</option><option>Life Sciences / Pharma</option><option>Industrial / Process</option></select></label><div class="muted">The profile changes terminology and readiness reporting, not the AI model.</div></div></section>
+    <section class="panel"><h2>GitHub Pages deployment</h2><ol class="muted"><li>This toolkit remains fully static and GitHub Pages compatible.</li><li>Browser AI models are downloaded directly by the user's browser and cached locally.</li><li>For Ollama, allow the deployed origin using <code>OLLAMA_ORIGINS</code> and restart Ollama.</li><li>Do not place paid-provider secrets in frontend JavaScript.</li></ol></section>
   </div>`;
+
+  const selected=selectedAIInfo();
+  $("selectedAiCard").innerHTML=`<div class="ai-config-title">${esc(aiLabel())}</div>
+    <div class="ai-config-meta"><span>${esc(selected.engine==="ollama"?"Ollama":selected.engine==="cpu"?"CPU / WASM":selected.engine==="gpu-transformers"?"WebGPU / Transformers.js":"WebGPU / WebLLM")}</span><span>${esc(selected.memory||"")}</span></div>
+    <div class="${selected.compatible?"ai-ok":"ai-warning"}">${selected.compatible?"Compatible with this browser.":esc(selected.compatibilityMessage)}</div>`;
+  $("testSelectedAI").disabled=selected.engine==="ollama"||!selected.compatible;
+  $("testSelectedAI").title=selected.engine==="ollama"?"Use Test & Save in the Ollama panel.":selected.compatibilityMessage||"Download/load the selected browser model and run a short inference test.";
+  $("testSelectedAI").onclick=async()=>{
+    const d=$("browserAiDiag");d.textContent=`Testing ${aiLabel()}…`;
+    const result=await testSelectedAI();
+    d.textContent=result.ok?`✓ ${result.message}`:`✕ ${result.message}`;
+  };
+
   const showOllamaHelp=(resultOrError)=>{
     const box=$("ollamaHelp"),diag=$("ollamaDiag");
     const result=resultOrError?.help?resultOrError:{
@@ -427,7 +479,7 @@ function renderSettings(){
     else showOllamaHelp(r);
   };
   $("detectOllama").onclick=async()=>{const d=$("ollamaDiag"),box=$("ollamaHelp");box.hidden=true;d.textContent="Detecting…";try{saveOllamaConfig({baseUrl:$("ollamaHost").value});const models=await inspectModels(),chat=models.filter(x=>x.supportsChat),embed=models.filter(x=>x.supportsEmbedding);$("ollamaModel").innerHTML=chat.map(x=>`<option value="${esc(x.name)}">${esc(x.name)}</option>`).join("")||`<option value="">No chat-capable models</option>`;$("embedModel").innerHTML=`<option value="">Keyword-only</option>`+embed.map(x=>`<option value="${esc(x.name)}">${esc(x.name)}</option>`).join("");if(chat.some(x=>x.name===c.model))$("ollamaModel").value=c.model;d.textContent=`✓ ${models.length} installed · ${chat.length} chat · ${embed.length} embedding`}catch(e){showOllamaHelp(e)}};
-  $("testOllama").onclick=async()=>{const d=$("ollamaDiag"),box=$("ollamaHelp");box.hidden=true;d.textContent="Testing Ollama…";try{saveOllamaConfig({baseUrl:$("ollamaHost").value,model:$("ollamaModel").value,embeddingModel:$("embedModel").value,keepAlive:$("keepAlive").value,thinking:$("thinking").value});const r=await testOllama({model:$("ollamaModel").value});d.textContent=r.ok?`✓ Ollama ready: ${r.selectedModel}`:`✕ ${r.message}`;if(r.ok){await setPreferredAI("ollama");$("aiSelect").value="ollama"}else showOllamaHelp(r)}catch(e){showOllamaHelp(e)}};
+  $("testOllama").onclick=async()=>{const d=$("ollamaDiag"),box=$("ollamaHelp");box.hidden=true;d.textContent="Testing Ollama…";try{saveOllamaConfig({baseUrl:$("ollamaHost").value,model:$("ollamaModel").value,embeddingModel:$("embedModel").value,keepAlive:$("keepAlive").value,thinking:$("thinking").value});const r=await testOllama({model:$("ollamaModel").value});d.textContent=r.ok?`✓ Ollama ready: ${r.selectedModel}`:`✕ ${r.message}`;if(r.ok){await setPreferredAI("ollama:auto");renderAIModelOptions()}else showOllamaHelp(r)}catch(e){showOllamaHelp(e)}};
 }
 
 init().catch(e=>{$("workspace").innerHTML=`<div class="panel"><h2>Startup error</h2><pre>${esc(e.stack||e.message)}</pre></div>`});

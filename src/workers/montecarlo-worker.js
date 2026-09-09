@@ -1,5 +1,5 @@
 
-import {runMonteCarlo} from "../analysis/risk.js";
+import {runMonteCarlo} from "../analysis/risk.js?v=1.2.0";
 self.onmessage=e=>{
   const {id,schedule,options}=e.data||{};
   try{postMessage({id,ok:true,result:runMonteCarlo(schedule,options)})}

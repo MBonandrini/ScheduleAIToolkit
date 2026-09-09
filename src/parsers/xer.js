@@ -1,6 +1,6 @@
 
-import {createSchedule} from "../core/model.js";
-import {parseNum} from "../core/utils.js";
+import {createSchedule} from "../core/model.js?v=1.2.0";
+import {parseNum} from "../core/utils.js?v=1.2.0";
 
 function splitLine(line){return line.split("\t")}
 export function parseXERTables(text){

@@ -1,6 +1,6 @@
 
-import {daysBetween,parseDate} from "../core/utils.js";
-import {criticalPathMigration,drivingChain} from "./network.js";
+import {daysBetween,parseDate} from "../core/utils.js?v=1.2.0";
+import {criticalPathMigration,drivingChain} from "./network.js?v=1.2.0";
 
 const amap=s=>new Map((s?.activities||[]).map(a=>[a.id,a]));
 const rkey=r=>`${r.predId}|${r.succId}|${r.type}|${Number(r.lag||0).toFixed(3)}`;
