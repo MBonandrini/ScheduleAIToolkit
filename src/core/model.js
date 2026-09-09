@@ -30,6 +30,11 @@ export function createSchedule(input={}){
   hydrateSchedule(s);
   return s;
 }
+
+function isMilestoneType(value){
+  const t=String(value||"").trim();
+  return /milestone/i.test(t)||/^TT_(?:Start)?Mile$/i.test(t)||/^TT_FinMile$/i.test(t);
+}
 export function normalizeActivity(a,schedule=null){
   return {
     id:String(a.id||a.task_code||a.task_id||""),
@@ -59,7 +64,7 @@ export function normalizeActivity(a,schedule=null){
     secondaryConstraintType:String(a.secondaryConstraintType||a.cstr_type2||""),
     secondaryConstraintDate:a.secondaryConstraintDate||a.cstr_date2||null,
     critical:Boolean(a.critical)||parseNum(a.totalFloat??a.total_float_hr_cnt)<=0,
-    milestone:Boolean(a.milestone)||/milestone/i.test(String(a.activityType||a.task_type||"")),
+    milestone:Boolean(a.milestone)||isMilestoneType(a.activityType||a.task_type),
     budgetUnits:parseNum(a.budgetUnits),
     actualUnits:parseNum(a.actualUnits),
     remainingUnits:parseNum(a.remainingUnits),
@@ -115,7 +120,7 @@ export function hydrateSchedule(s){
     a.wbsPath=a.wbsPath||pathFor(a.wbsId);
     a.calendarName=a.calendarName||calMap.get(a.calendarId)?.name||"";
     a.critical=Boolean(a.critical)||Number(a.totalFloat)<=0;
-    a.milestone=Boolean(a.milestone)||/milestone/i.test(a.activityType);
+    a.milestone=Boolean(a.milestone)||isMilestoneType(a.activityType||a.task_type);
     a.start=a.currentStart||a.start;a.finish=a.currentFinish||a.finish;
   }
   const byTask=new Map();

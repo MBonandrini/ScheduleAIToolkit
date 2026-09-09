@@ -23,6 +23,7 @@ export async function setPreferredAI(value){
 }
 export function aiLabel(value=preferredAI()){
   const e=aiEntry(value);
+  if(e.engine==="none")return "No AI";
   if(e.engine==="ollama")return `Ollama${ollamaConfig().model?` · ${ollamaConfig().model}`:" · selected local model"}`;
   return e.label;
 }
@@ -37,7 +38,7 @@ function budgetFor(entry){
 }
 export async function askAI({question,role="Project Controls Manager",current=null,previous=null,revisions=[],history=[]}){
   if(!question?.trim())throw new Error("Question required");
-  const entry=aiEntry(preferredAI()),compat=aiCompatibility(entry.value);if(!compat.ok)throw new Error(compat.reason);
+  const entry=aiEntry(preferredAI()),compat=aiCompatibility(entry.value);if(entry.engine==="none")throw new Error("AI is disabled. Select a model on the Settings page to enable chat.");if(!compat.ok)throw new Error(compat.reason);
   const budget=budgetFor(entry),reg=current?toolRegistry({current,previous,revisions}):{},call=current?inferTool(question,current):null;
   let structured=null;if(call&&reg[call.name]){try{structured=reg[call.name](call.args)}catch(e){structured={error:e.message}}}
   const repo=await selectedContext({question,maxFileChars:budget.repoFile,maxTotalChars:budget.repoTotal,skipScheduleText:true});
@@ -69,6 +70,7 @@ ${repo.text}`;
 }
 export async function testSelectedAI({onProgress=null}={}){
   const entry=aiEntry(preferredAI()),compat=aiCompatibility(entry.value);
+  if(entry.engine==="none")return {ok:true,message:"AI is disabled by default. Select a model in Settings when required.",entry};
   if(!compat.ok)return {ok:false,message:compat.reason,entry};
   if(entry.engine==="ollama")return {ok:true,message:"Use the Ollama Test & Save control in Settings for a full local-server test.",entry};
   try{const r=await testBrowserAI(entry,{onProgress:onProgress||((x)=>progress(x))});return {ok:r.ok,message:r.ok?`${entry.label} responded correctly.`:`${entry.label} returned: ${r.text}`,entry}}

@@ -23,22 +23,13 @@ const state={
   filters:{search:"",wbs:"",status:"",floatMax:""},
   ganttTimescale:"weekly",ganttCompression:"standard",ganttRelationships:false,
   whyActivityId:"",timeActivityId:"",traceActivityId:"",
-  monte:null,chats:{},quantityRows:[],builderRows:[],riskEdit:null
+  monte:null,chats:{},quantityRows:[],builderRows:[],riskEdit:null,profile:"Data Centre"
 };
 const roles=["Planner","Forensic Planner","Risk Analyst","Commercial Manager","Contract Analyst","Project Controls Manager","Executive Reviewer"];
 const noRepoViews=new Set(["notebook","builder","settings"]);
 
-function renderAIModelOptions(){
-  const select=$("aiSelect");if(!select)return;
-  const current=preferredAI(),groups=catalogueGroups();
-  select.innerHTML=[...groups.entries()].map(([group,entries])=>
-    `<optgroup label="${esc(group)}">${entries.map(entry=>{
-      const compat=aiCompatibility(entry.value);
-      const suffix=!compat.ok&&entry.engine!=="placeholder"?" · unavailable here":"";
-      return `<option value="${esc(entry.value)}" ${entry.value===current?"selected":""} ${entry.disabled?"disabled":""}>${esc(entry.label+suffix)}</option>`;
-    }).join("")}</optgroup>`
-  ).join("");
-  if([...select.options].some(o=>o.value===current))select.value=current;
+function renderAIModelDisplay(){
+  const display=$("aiDisplay");if(display)display.value=aiLabel(preferredAI());
 }
 function selectedAIInfo(){
   const entry=aiEntry(preferredAI()),compat=aiCompatibility(entry.value);
@@ -50,22 +41,14 @@ async function init(){
   await restoreFolderHandles();
   state.quantityRows=JSON.parse(localStorage.getItem("pcai.quantities")||"[]");
   state.builderRows=JSON.parse(localStorage.getItem("pcai.builder")||"[]");
+  state.profile=localStorage.getItem("pcai.profile")||"Data Centre";
   const savedTheme=localStorage.getItem("pcai.theme")||"navy";document.documentElement.dataset.theme=savedTheme;$("themeSelect").value=savedTheme;
-  const initialAI=preferredAI(),initialCompat=aiCompatibility(initialAI);
-  if(!initialCompat.ok)await setPreferredAI("cpu:qwen2.5-0.5b");
-  renderAIModelOptions();
+  renderAIModelDisplay();
   bindShell();await refreshData();render();
-  if(!initialCompat.ok)toast("WebGPU unavailable here — switched to Qwen2.5 0.5B CPU/WASM");
 }
 function bindShell(){
   $("tabs").addEventListener("click",e=>{const b=e.target.closest("[data-view]");if(!b)return;state.view=b.dataset.view;render()});
   $("themeSelect").addEventListener("change",e=>{document.documentElement.dataset.theme=e.target.value;localStorage.setItem("pcai.theme",e.target.value)});
-  $("aiSelect").addEventListener("change",async e=>{
-    const requested=e.target.value,compat=aiCompatibility(requested);
-    if(!compat.ok){alert(compat.reason);renderAIModelOptions();return}
-    try{await setPreferredAI(requested);renderAIModelOptions();toast(`Global AI: ${aiLabel(requested)}`)}
-    catch(error){alert(error.message||String(error));renderAIModelOptions()}
-  });
   $("newProjectBtn").onclick=async()=>{const name=prompt("Project name","New Project");if(!name)return;state.project=await newProject(name);await restoreFolderHandles();await refreshData();render()};
   $("projectSelect").onchange=async e=>{state.project=await switchProject(e.target.value);await restoreFolderHandles();state.activeScheduleId=null;state.previousScheduleId=null;await refreshData();render()};
   $("addFilesBtn").onclick=()=>$("fileInput").click();
@@ -179,6 +162,9 @@ function bindChat(key,defaultRole){
       hist.push({role:"assistant",content:`AI request failed: ${e.message}${ollamaHelp}`});render()
     }
   };
+  $("chatInput").addEventListener("keydown",e=>{
+    if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("chatSend").click()}
+  });
 }
 function renderContracts(){
   $("workspace").innerHTML=chatMarkup("contracts","Contract Manager","Evidence-grounded contract and project-controls review using checked repository files.","Contract Analyst");
@@ -204,7 +190,7 @@ function renderDrawing(){
 }
 
 function assessmentNav(){
-  const items=[["overview","Overview"],["activities","Activity Register"],["comparison","Schedule Comparison"],["week","Week-on-Week"],["critical","Critical Path"],["logic","Logic & Health"],["dcma","DCMA-style Check"],["whymove","Why Date Moved"],["delay","Delay Analysis"],["forensic","Forensic Review"],["calendar","Calendar Analyser"],["scurve","S-Curve & Histogram"],["forecast","Forecast Confidence"],["narrative","Schedule Narrative"],["gantt","WBS / Gantt"],["network","Nodes & Links"],["timemachine","Time Machine"],["milestones","Milestone Control"],["resources","Resources & EVM"],["cost","Cost Report"],["baseline","Baseline & Lookahead"],["datacentre","Data-Centre Mode"]];
+  const items=[["overview","Overview"],["activities","Activity Register"],["comparison","Schedule Comparison"],["week","Week-on-Week"],["critical","Critical Path"],["logic","Logic & Health"],["dcma","DCMA-style Check"],["whymove","Why Date Moved"],["delay","Delay Analysis"],["forensic","Forensic Review"],["calendar","Calendar Analyser"],["scurve","S-Curve & Histogram"],["forecast","Forecast Confidence"],["narrative","Schedule Narrative"],["gantt","WBS / Gantt"],["network","Nodes"],["timemachine","Time Machine"],["milestones","Milestone Control"],["resources","Resources & EVM"],["cost","Cost Report"],["baseline","Baseline & Lookahead"],["datacentre","Data-Centre Mode"]];
   return `<div class="report-nav">${items.map(([id,l])=>`<button data-report="${id}" class="${state.assessmentReport===id?"active":""}">${l}</button>`).join("")}</div>`;
 }
 function renderAssessment(){
@@ -236,17 +222,23 @@ function assessmentReport(s){
     case"dcma":{
       const net=networkHealth(s),checks=h.checks;
       const relCount=Math.max(1,s.relationships.length),actCount=Math.max(1,s.activities.length);
+      const mk=(name,count,rate,guideline,pass)=>[name,count,rate,guideline,pass?badge("PASS","good"):badge("FAIL","danger")];
+      const missingRate=(net.openStarts+net.openFinishes)/actCount*100,leadRate=net.leads/relCount*100,lagRate=net.lags/relCount*100;
+      const longCount=s.activities.filter(a=>a.originalDuration>44).length,longRate=longCount/actCount*100;
+      const highCount=s.activities.filter(a=>a.totalFloat>44).length,highRate=highCount/actCount*100;
+      const negCount=s.activities.filter(a=>a.totalFloat<0).length,negRate=negCount/actCount*100;
+      const conCount=s.activities.filter(a=>a.constraintType).length,conRate=conCount/actCount*100;
       const dcma=[
-        ["Missing logic",`${net.openStarts+net.openFinishes}`,((net.openStarts+net.openFinishes)/actCount*100).toFixed(1)+"%","≤5%"],
-        ["Leads",net.leads,(net.leads/relCount*100).toFixed(1)+"%","0%"],
-        ["Lags",net.lags,(net.lags/relCount*100).toFixed(1)+"%","≤5%"],
-        ["Long durations",s.activities.filter(a=>a.originalDuration>44).length,(s.activities.filter(a=>a.originalDuration>44).length/actCount*100).toFixed(1)+"%","≤5%"],
-        ["High float",s.activities.filter(a=>a.totalFloat>44).length,(s.activities.filter(a=>a.totalFloat>44).length/actCount*100).toFixed(1)+"%","≤5%"],
-        ["Negative float",s.activities.filter(a=>a.totalFloat<0).length,(s.activities.filter(a=>a.totalFloat<0).length/actCount*100).toFixed(1)+"%","≤2%"],
-        ["Constraints",s.activities.filter(a=>a.constraintType).length,(s.activities.filter(a=>a.constraintType).length/actCount*100).toFixed(1)+"%","≤5%"],
-        ["Cycles",net.cycles,net.cycles?"Fail":"Pass","0"]
+        mk("Missing logic",net.openStarts+net.openFinishes,missingRate.toFixed(1)+"%","≤5%",missingRate<=5),
+        mk("Leads",net.leads,leadRate.toFixed(1)+"%","0%",net.leads===0),
+        mk("Lags",net.lags,lagRate.toFixed(1)+"%","≤5%",lagRate<=5),
+        mk("Long durations",longCount,longRate.toFixed(1)+"%","≤5%",longRate<=5),
+        mk("High float",highCount,highRate.toFixed(1)+"%","≤5%",highRate<=5),
+        mk("Negative float",negCount,negRate.toFixed(1)+"%","≤2%",negRate<=2),
+        mk("Constraints",conCount,conRate.toFixed(1)+"%","≤5%",conRate<=5),
+        mk("Cycles",net.cycles,net.cycles?"Fail":"Pass","0",net.cycles===0)
       ];
-      return `<div class="metrics">${metric("Schedule health",`${h.score}/100`,h.label)}${metric("Logic density",net.logicDensity.toFixed(2))}${metric("Open starts",net.openStarts)}${metric("Open finishes",net.openFinishes)}${metric("Cycles",net.cycles)}${metric("Duplicate relationships",net.duplicateRelationships)}</div><section class="panel"><h2>DCMA-style quality screen</h2><p class="muted">This is an internal DCMA-style screening report, not an official DCMA certification.</p>${table(["Check","Count","Rate / result","Guideline"],dcma)}</section>`;
+      return `<div class="metrics">${metric("Schedule health",`${h.score}/100`,h.label)}${metric("Logic density",net.logicDensity.toFixed(2))}${metric("Open starts",net.openStarts)}${metric("Open finishes",net.openFinishes)}${metric("Cycles",net.cycles)}${metric("Duplicate relationships",net.duplicateRelationships)}</div><section class="panel"><h2>DCMA-style quality screen</h2><p class="muted">This is an internal DCMA-style screening report, not an official DCMA certification.</p>${table(["Check","Count","Rate / result","Guideline","Pass / Fail"],dcma)}</section>`;
     }
     case"delay":{
       if(!prev)return `<section class="panel"><h2>Delay Analysis</h2><p class="muted">Import/select a comparative programme for deterministic delay movement analysis.</p></section>`;
@@ -261,7 +253,7 @@ function assessmentReport(s){
     }
     case"critical":{
       const crit=s.activities.filter(a=>a.critical||a.totalFloat<=0);
-      return `${gantt(s,{activities:crit,criticalOnly:true,forceRed:true,timescale:state.ganttTimescale,compression:"compact"})}<section class="panel"><h2>Critical / zero-float activities</h2>${table(["Activity","WBS","Finish","TF"],crit.map(a=>[`${esc(a.id)} · ${esc(a.name)}`,esc(a.wbsPath),isoDate(a.currentFinish||a.finish),a.totalFloat.toFixed(1)]))}</section>`;
+      return `${gantt(s,{activities:crit,criticalOnly:true,forceRed:true,timescale:state.ganttTimescale,compression:"compact"})}<section class="panel"><h2>Critical / zero-float activities</h2>${table(["Activity","WBS","Finish","TF"],crit.map(a=>[`${esc(a.id)} · ${esc(a.name)}`,esc(a.wbsPath),isoDate(a.currentFinish||a.finish),a.totalFloat.toFixed(1)]),{resizable:true})}</section>`;
     }
     case"logic":{
       const n=networkHealth(s),oe=openEnds(s),cycles=detectCycles(s);
@@ -287,7 +279,7 @@ function assessmentReport(s){
     case"gantt":return gantt(s,{timescale:state.ganttTimescale,compression:state.ganttCompression,showRelationships:state.ganttRelationships});
     case"network":{
       const conv=pathConvergence(s).slice(0,40),lp=longestPath(s);
-      return `<section class="panel"><h2>Nodes & Links</h2><p class="muted">Critical/zero-float network subset shown for readability. Hover nodes/links for evidence.</p>${networkGraph(s,{maxNodes:90})}</section><div class="grid grid2"><section class="panel"><h2>Network graph intelligence</h2>${metric("Longest path",`${lp.duration.toFixed(1)}d`,`${lp.path.length} activities`)}${table(["Activity","Incoming","Outgoing"],conv.map(x=>[`${esc(x.activity.id)} · ${esc(x.activity.name)}`,x.incoming,x.outgoing]))}</section><section class="panel"><h2>Trace to milestone / activity</h2><select id="traceActivity">${s.activities.filter(a=>a.milestone||a.critical).slice(0,2000).map(a=>`<option value="${esc(a.id)}" ${a.id===state.traceActivityId?"selected":""}>${esc(a.id)} · ${esc(a.name)}</option>`).join("")}</select><div id="traceResult">${renderTrace(s)}</div></section></div>`;
+      return `<section class="panel"><h2>Nodes</h2><p class="muted">Critical/zero-float network subset shown for readability. Hover nodes/links for evidence.</p>${networkGraph(s,{maxNodes:90})}</section><div class="grid grid2"><section class="panel"><h2>Network graph intelligence</h2>${metric("Longest path",`${lp.duration.toFixed(1)}d`,`${lp.path.length} activities`)}${table(["Activity","Incoming","Outgoing"],conv.map(x=>[`${esc(x.activity.id)} · ${esc(x.activity.name)}`,x.incoming,x.outgoing]))}</section><section class="panel"><h2>Trace to milestone / activity</h2><select id="traceActivity">${s.activities.filter(a=>a.milestone||a.critical).slice(0,2000).map(a=>`<option value="${esc(a.id)}" ${a.id===state.traceActivityId?"selected":""}>${esc(a.id)} · ${esc(a.name)}</option>`).join("")}</select><div id="traceResult">${renderTrace(s)}</div></section></div>`;
     }
     case"timemachine":{
       const id=state.timeActivityId||s.activities.find(a=>a.milestone)?.id||s.activities[0]?.id||"",hist=activityHistory(state.schedules,id);
@@ -304,10 +296,8 @@ function assessmentReport(s){
       return `<div class="metrics">${metric("Overall confidence",`${overall.score}%`,overall.label)}${metric("Revision volatility",overall.volatility.toFixed(1),"days std dev")}${metric("Average positive slip",overall.avgSlip.toFixed(1),"days")}${metric("Revisions analysed",overall.rows.length)}${metric("Current critical",s.activities.filter(a=>a.critical||a.totalFloat<=0).length)}${metric("Current negative float",s.activities.filter(a=>a.totalFloat<0).length)}</div><section class="panel"><h2>Milestone Forecast Confidence</h2>${table(["Milestone","Confidence","Band","Volatility","Avg slip","Current forecast"],rows)}</section>`;
     }
     case"cost":{
-      const groups=new Map();
-      for(const a of s.activities){const key=a.wbsPath||"Unassigned";if(!groups.has(key))groups.set(key,{budget:0,actual:0,remaining:0,units:0});const g=groups.get(key);g.budget+=Number(a.budgetCost||0);g.actual+=Number(a.actualCost||0);g.remaining+=Number(a.remainingCost||0);g.units+=Number(a.budgetUnits||0)}
       const budget=s.activities.reduce((n,a)=>n+Number(a.budgetCost||0),0),actual=s.activities.reduce((n,a)=>n+Number(a.actualCost||0),0),remaining=s.activities.reduce((n,a)=>n+Number(a.remainingCost||0),0);
-      return `<div class="metrics">${metric("Budget cost",budget.toFixed(0))}${metric("Actual cost",actual.toFixed(0))}${metric("Remaining cost",remaining.toFixed(0))}${metric("Forecast cost",(actual+remaining).toFixed(0))}${metric("Cost variance",(budget-(actual+remaining)).toFixed(0))}${metric("Cost loaded activities",s.activities.filter(a=>a.budgetCost||a.actualCost||a.remainingCost).length)}</div><section class="panel"><h2>Cost by WBS</h2>${table(["WBS","Budget","Actual","Remaining","Forecast","Variance"],[...groups.entries()].map(([k,g])=>[esc(k),g.budget.toFixed(0),g.actual.toFixed(0),g.remaining.toFixed(0),(g.actual+g.remaining).toFixed(0),(g.budget-(g.actual+g.remaining)).toFixed(0)]))}</section>`;
+      return `<div class="metrics">${metric("Budget cost",budget.toFixed(0))}${metric("Actual cost",actual.toFixed(0))}${metric("Remaining cost",remaining.toFixed(0))}${metric("Forecast cost",(actual+remaining).toFixed(0))}${metric("Cost variance",(budget-(actual+remaining)).toFixed(0))}${metric("Cost loaded activities",s.activities.filter(a=>a.budgetCost||a.actualCost||a.remainingCost).length)}</div><section class="panel"><h2>Cost by WBS</h2><p class="muted">WBS headings follow the imported schedule hierarchy. Expand a WBS to see child WBS elements and activities.</p>${costTreeMarkup(s)}</section>`;
     }
     case"resources":{
       const assigns=s.assignments||[],resources=s.resources||[];
@@ -338,7 +328,32 @@ function renderTrace(s){
   const id=state.traceActivityId||s.activities.find(a=>a.milestone)?.id||"";if(!id)return `<div class="muted">Select an activity.</div>`;
   const x=traceToMilestone(s,id);return table(["Sequence","Activity","Finish","TF"],x.drivingChain.map((a,i)=>[i+1,`${esc(a.id)} · ${esc(a.name)}`,isoDate(a.currentFinish||a.finish),a.totalFloat.toFixed(1)]));
 }
+function bindResizableTables(root=document){
+  root.querySelectorAll("table.resizable-table th .col-resizer").forEach(handle=>{
+    handle.onpointerdown=e=>{
+      e.preventDefault();const th=handle.parentElement,table=th.closest("table"),startX=e.clientX,startW=th.getBoundingClientRect().width;
+      const move=ev=>{const w=Math.max(60,startW+ev.clientX-startX);th.style.width=`${w}px`;th.style.minWidth=`${w}px`;table.style.tableLayout="fixed"};
+      const up=()=>{window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up)};window.addEventListener("pointermove",move);window.addEventListener("pointerup",up);
+    };
+  });
+}
+function money(v){return Number(v||0).toFixed(0)}
+function costTreeMarkup(schedule){
+  const nodes=new Map((schedule.wbs||[]).map(w=>[String(w.id),{...w,children:[],activities:[]}])) , roots=[];
+  for(const n of nodes.values()){const p=nodes.get(String(n.parentId||""));if(p)p.children.push(n);else roots.push(n)}
+  const unassigned=[];for(const a of schedule.activities||[]){const n=nodes.get(String(a.wbsId||""));(n?n.activities:unassigned).push(a)}
+  const sumActivity=a=>({budget:Number(a.budgetCost||0),actual:Number(a.actualCost||0),remaining:Number(a.remainingCost||0)});
+  const add=(x,y)=>({budget:x.budget+y.budget,actual:x.actual+y.actual,remaining:x.remaining+y.remaining});
+  const total=n=>{let t={budget:0,actual:0,remaining:0};for(const a of n.activities)t=add(t,sumActivity(a));for(const c of n.children)t=add(t,total(c));n._total=t;return t};roots.forEach(total);
+  const vals=t=>`<span>${money(t.budget)}</span><span>${money(t.actual)}</span><span>${money(t.remaining)}</span><span>${money(t.actual+t.remaining)}</span><span>${money(t.budget-(t.actual+t.remaining))}</span>`;
+  const activity=a=>{const t=sumActivity(a);return `<div class="cost-row cost-activity"><span class="cost-name">${esc(a.id)} · ${esc(a.name)}</span>${vals(t)}</div>`};
+  const renderNode=(n,depth=0)=>`<details class="cost-node" ${depth<1?"open":""}><summary class="cost-row" style="--cost-depth:${depth}"><span class="cost-name"><strong>${esc(n.code||n.name||n.id)}</strong>${n.name&&n.code?` · ${esc(n.name)}`:""}</span>${vals(n._total||{budget:0,actual:0,remaining:0})}</summary><div class="cost-children">${n.children.sort((a,b)=>String(a.code||a.name).localeCompare(String(b.code||b.name))).map(c=>renderNode(c,depth+1)).join("")}${n.activities.sort((a,b)=>String(a.id).localeCompare(String(b.id))).map(activity).join("")}</div></details>`;
+  const unassignedMarkup=unassigned.length?`<details class="cost-node"><summary class="cost-row"><span class="cost-name"><strong>Unassigned WBS</strong></span>${vals(unassigned.map(sumActivity).reduce(add,{budget:0,actual:0,remaining:0}))}</summary><div class="cost-children">${unassigned.map(activity).join("")}</div></details>`:"";
+  if(!roots.length&&unassigned.length)return `<div class="cost-tree"><div class="cost-row cost-header"><span>WBS / Activity</span><span>Budget</span><span>Actual</span><span>Remaining</span><span>Forecast</span><span>Variance</span></div>${unassignedMarkup}</div>`;
+  return `<div class="cost-tree"><div class="cost-row cost-header"><span>WBS / Activity</span><span>Budget</span><span>Actual</span><span>Remaining</span><span>Forecast</span><span>Variance</span></div>${roots.sort((a,b)=>String(a.code||a.name).localeCompare(String(b.code||b.name))).map(n=>renderNode(n)).join("")}${unassignedMarkup}</div>`;
+}
 function bindAssessmentControls(s){
+  bindResizableTables($("reportBody"));
   if(state.assessmentReport==="activities")mountVirtualActivities($("virtualActivities"),s.activities);
   if(state.assessmentReport==="whymove"){
     $("whyActivity")?.addEventListener("change",e=>{state.whyActivityId=e.target.value;renderAssessment()});
@@ -355,11 +370,15 @@ function bindAssessmentControls(s){
 }
 function mountVirtualActivities(container,activities){
   if(!container)return;const rowH=32,headerH=32,total=activities.length;
-  container.innerHTML=`<div style="height:${headerH+total*rowH}px;position:relative"><div style="position:sticky;top:0;height:${headerH}px;background:var(--panel);z-index:2;display:grid;grid-template-columns:120px 1fr 160px 100px 100px 70px 70px;padding:6px"><strong>ID</strong><strong>Activity</strong><strong>WBS</strong><strong>Start</strong><strong>Finish</strong><strong>TF</strong><strong>%</strong></div><div id="virtualRows"></div></div>`;
+  const cols=[120,320,180,110,110,75,75];container.style.setProperty("--va-cols",cols.map(x=>`${x}px`).join(" "));
+  const labels=["ID","Activity","WBS","Start","Finish","TF","%"];
+  container.innerHTML=`<div style="height:${headerH+total*rowH}px;position:relative;min-width:${cols.reduce((a,b)=>a+b,0)}px"><div class="virtual-header">${labels.map((x,i)=>`<strong>${x}<span class="virtual-resizer" data-vcol="${i}"></span></strong>`).join("")}</div><div id="virtualRows"></div></div>`;
   const rows=$("virtualRows");const paint=()=>{
     const top=container.scrollTop,from=Math.max(0,Math.floor((top-headerH)/rowH)-8),count=Math.ceil(container.clientHeight/rowH)+16,to=Math.min(total,from+count);
-    rows.innerHTML=activities.slice(from,to).map((a,i)=>`<div style="position:absolute;top:${headerH+(from+i)*rowH}px;left:0;right:0;height:${rowH}px;display:grid;grid-template-columns:120px 1fr 160px 100px 100px 70px 70px;padding:6px;border-bottom:1px solid var(--border)"><span>${esc(a.id)}</span><span title="${esc(a.name)}">${esc(a.name)}</span><span>${esc(a.wbsPath)}</span><span>${isoDate(a.currentStart||a.start)}</span><span>${isoDate(a.currentFinish||a.finish)}</span><span>${a.totalFloat.toFixed(1)}</span><span>${a.percent.toFixed(1)}</span></div>`).join("");
-  };container.onscroll=paint;paint();
+    rows.innerHTML=activities.slice(from,to).map((a,i)=>`<div class="virtual-row" style="top:${headerH+(from+i)*rowH}px"><span>${esc(a.id)}</span><span title="${esc(a.name)}">${esc(a.name)}</span><span title="${esc(a.wbsPath)}">${esc(a.wbsPath)}</span><span>${isoDate(a.currentStart||a.start)}</span><span>${isoDate(a.currentFinish||a.finish)}</span><span>${a.totalFloat.toFixed(1)}</span><span>${a.percent.toFixed(1)}</span></div>`).join("");
+  };
+  container.querySelectorAll(".virtual-resizer").forEach(handle=>handle.onpointerdown=e=>{e.preventDefault();const i=Number(handle.dataset.vcol),startX=e.clientX,startW=cols[i];const move=ev=>{cols[i]=Math.max(60,startW+ev.clientX-startX);container.style.setProperty("--va-cols",cols.map(x=>`${x}px`).join(" "));container.firstElementChild.style.minWidth=`${cols.reduce((a,b)=>a+b,0)}px`};const up=()=>{window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up)};window.addEventListener("pointermove",move);window.addEventListener("pointerup",up)});
+  container.onscroll=paint;paint();
 }
 
 function exportVisibleTables(){
@@ -422,32 +441,31 @@ function renderBuilder(){
 }
 
 function renderSettings(){
-  const c=ollamaConfig();
-  $("workspace").innerHTML=`${viewHead("Settings","Global configuration for AI, project-controls profile and GitHub Pages deployment")}
+  const c=ollamaConfig(),selectedValue=preferredAI();
+  $("workspace").innerHTML=`${viewHead("Settings","AI model selection, project-controls profile and local Ollama setup")}
   <div class="grid grid2 settings-grid">
     <section class="panel"><h2>Global AI Model</h2>
-      <p class="muted">The model is selected once in the suite header. All mini-tools use this same selection.</p>
-      <div id="selectedAiCard" class="ai-config-card"></div>
-      <div class="actions" style="margin-top:10px"><button class="btn primary" id="testSelectedAI">Test selected browser AI</button></div>
-      <div id="browserAiDiag" class="muted" style="margin-top:8px">Browser models download on first test/use and are cached by the browser.</div>
-      <h3 style="margin-top:18px">Available browser models</h3>
-      ${table(["Model","Engine","Memory","Compatibility"],AI_CATALOG.filter(x=>x.engine!=="ollama"&&!x.disabled).map(entry=>{const cp=aiCompatibility(entry.value);return [esc(entry.label),esc(entry.engine==="cpu"?"CPU / WASM":entry.engine==="gpu-transformers"?"WebGPU / Transformers.js":"WebGPU / WebLLM"),esc(entry.memory),cp.ok?badge("Available","good"):badge("Unavailable in this browser","warn")]}))}
+      <p class="muted"><strong>No AI is the default.</strong> Nothing is downloaded or invoked until you explicitly select and apply a model here.</p>
+      <div class="form"><label>Selected model<select id="settingsAiSelect">${[...catalogueGroups().entries()].map(([group,entries])=>`<optgroup label="${esc(group)}">${entries.map(entry=>{const cp=aiCompatibility(entry.value);return `<option value="${esc(entry.value)}" ${entry.value===selectedValue?"selected":""} ${entry.disabled?"disabled":""}>${esc(entry.label)}${!cp.ok&&!entry.disabled?" · unavailable here":""}</option>`}).join("")}</optgroup>`).join("")}</select></label><div class="actions"><button class="btn primary" id="applyAiModel">Apply model</button><button class="btn" id="testSelectedAI">Test selected AI</button></div></div>
+      <div id="selectedAiCard" class="ai-config-card" style="margin-top:10px"></div>
+      <div id="browserAiDiag" class="muted" style="margin-top:8px">Browser models download only after selection and first test/use.</div>
     </section>
     <section class="panel"><h2>Ollama</h2><div class="form"><label>Host<input id="ollamaHost" value="${esc(c.baseUrl)}"></label><label>Chat model<select id="ollamaModel"><option value="${esc(c.model)}">${esc(c.model||"Detect installed models")}</option></select></label><label>Embedding model<select id="embedModel"><option value="${esc(c.embeddingModel||"")}">${esc(c.embeddingModel||"Keyword-only")}</option></select></label><label>Keep alive<select id="keepAlive">${["default","0","5m","15m","30m","1h","2h","4h"].map(x=>`<option ${c.keepAlive===x?"selected":""}>${x}</option>`).join("")}</select></label><label>Reasoning<select id="thinking">${["off","auto","on"].map(x=>`<option ${c.thinking===x?"selected":""}>${x}</option>`).join("")}</select><div class="actions"><button class="btn" id="checkOllama">Check Ollama</button><button class="btn" id="detectOllama">Detect & classify</button><button class="btn primary" id="testOllama">Test & Save</button></div><div id="ollamaDiag" class="muted">Expected local API: http://localhost:11434</div><div id="ollamaHelp" class="ollama-help" hidden></div></div></section>
-    <section class="panel"><h2>Project Controls Profile</h2><div class="form"><label>Specialism<select id="profile"><option>General Project Controls</option><option selected>Data Centre</option><option>Life Sciences / Pharma</option><option>Industrial / Process</option></select></label><div class="muted">The profile changes terminology and readiness reporting, not the AI model.</div></div></section>
-    <section class="panel"><h2>GitHub Pages deployment</h2><ol class="muted"><li>This toolkit remains fully static and GitHub Pages compatible.</li><li>Browser AI models are downloaded directly by the user's browser and cached locally.</li><li>For Ollama, allow the deployed origin using <code>OLLAMA_ORIGINS</code> and restart Ollama.</li><li>Do not place paid-provider secrets in frontend JavaScript.</li></ol></section>
+    <section class="panel"><h2>Project Controls Profile</h2><div class="form"><label>Specialism<select id="profile">${["General Project Controls","Data Centre","Life Sciences / Pharma","Industrial / Process"].map(x=>`<option ${state.profile===x?"selected":""}>${x}</option>`).join("")}</select></label><div class="actions"><button class="btn primary" id="applyProfile">Apply profile</button></div><div id="profileDiag" class="muted">Current profile: ${esc(state.profile)}</div></div></section>
+    <section class="panel"><h2>Set up Ollama on Windows</h2><ol class="muted"><li>Download <code>setup-ollama.bat</code> from this site/repository.</li><li>Right-click it and choose <strong>Run as administrator</strong>.</li><li>Enter this GitHub Pages origin when prompted, for example <code>https://your-name.github.io</code>.</li><li>The script installs Ollama with Windows Package Manager when needed, configures <code>OLLAMA_ORIGINS</code>, starts Ollama and pulls a small default model.</li><li>Return here, click <strong>Check Ollama</strong>, then <strong>Detect & classify</strong>, select a chat model, and use <strong>Test & Save</strong>.</li></ol><a class="btn" href="./setup-ollama.bat" download>Download setup-ollama.bat</a><p class="muted" style="margin-top:10px">The website remains static on GitHub Pages. Ollama runs locally on the user's Windows computer; no paid AI service is required.</p></section>
   </div>`;
-  const selected=selectedAIInfo();
-  $("selectedAiCard").innerHTML=`<div class="ai-config-title">${esc(aiLabel())}</div>
-    <div class="ai-config-meta"><span>${esc(selected.engine==="ollama"?"Ollama":selected.engine==="cpu"?"CPU / WASM":selected.engine==="gpu-transformers"?"WebGPU / Transformers.js":"WebGPU / WebLLM")}</span><span>${esc(selected.memory||"")}</span></div>
-    <div class="${selected.compatible?"ai-ok":"ai-warning"}">${selected.compatible?"Compatible with this browser.":esc(selected.compatibilityMessage)}</div>`;
-  $("testSelectedAI").disabled=selected.engine==="ollama"||!selected.compatible;
-  $("testSelectedAI").title=selected.engine==="ollama"?"Use Test & Save in the Ollama panel.":selected.compatibilityMessage||"Download/load the selected browser model and run a short inference test.";
-  $("testSelectedAI").onclick=async()=>{
-    const d=$("browserAiDiag");d.textContent=`Testing ${aiLabel()}…`;
-    const result=await testSelectedAI();
-    d.textContent=result.ok?`✓ ${result.message}`:`✕ ${result.message}`;
+  const refreshSelectedCard=()=>{
+    const selected=selectedAIInfo();
+    $("selectedAiCard").innerHTML=`<div class="ai-config-title">${esc(aiLabel())}</div><div class="ai-config-meta"><span>${esc(selected.engine==="none"?"Disabled":selected.engine==="ollama"?"Ollama":selected.engine==="cpu"?"CPU / WASM":selected.engine==="gpu-transformers"?"WebGPU / Transformers.js":"WebGPU / WebLLM")}</span><span>${esc(selected.memory||"")}</span></div><div class="${selected.compatible?"ai-ok":"ai-warning"}">${selected.engine==="none"?"No AI calls will be made.":selected.compatible?"Compatible with this browser.":esc(selected.compatibilityMessage)}</div>`;
+    $("testSelectedAI").disabled=selected.engine==="none"||selected.engine==="ollama"||!selected.compatible;
   };
+  refreshSelectedCard();
+  $("applyAiModel").onclick=async()=>{
+    const requested=$("settingsAiSelect").value,compat=aiCompatibility(requested);if(!compat.ok){alert(compat.reason);return}
+    try{await setPreferredAI(requested);renderAIModelDisplay();refreshSelectedCard();toast(`AI model: ${aiLabel(requested)}`)}catch(error){alert(error.message||String(error))}
+  };
+  $("testSelectedAI").onclick=async()=>{const d=$("browserAiDiag");d.textContent=`Testing ${aiLabel()}…`;const result=await testSelectedAI();d.textContent=result.ok?`✓ ${result.message}`:`✕ ${result.message}`};
+  $("applyProfile").onclick=()=>{state.profile=$("profile").value;localStorage.setItem("pcai.profile",state.profile);$("profileDiag").textContent=`Applied: ${state.profile}`;toast(`Profile applied: ${state.profile}`)};
 
   const showOllamaHelp=(resultOrError)=>{
     const box=$("ollamaHelp"),diag=$("ollamaDiag");
@@ -475,7 +493,7 @@ function renderSettings(){
     else showOllamaHelp(r);
   };
   $("detectOllama").onclick=async()=>{const d=$("ollamaDiag"),box=$("ollamaHelp");box.hidden=true;d.textContent="Detecting…";try{saveOllamaConfig({baseUrl:$("ollamaHost").value});const models=await inspectModels(),chat=models.filter(x=>x.supportsChat),embed=models.filter(x=>x.supportsEmbedding);$("ollamaModel").innerHTML=chat.map(x=>`<option value="${esc(x.name)}">${esc(x.name)}</option>`).join("")||`<option value="">No chat-capable models</option>`;$("embedModel").innerHTML=`<option value="">Keyword-only</option>`+embed.map(x=>`<option value="${esc(x.name)}">${esc(x.name)}</option>`).join("");if(chat.some(x=>x.name===c.model))$("ollamaModel").value=c.model;d.textContent=`✓ ${models.length} installed · ${chat.length} chat · ${embed.length} embedding`}catch(e){showOllamaHelp(e)}};
-  $("testOllama").onclick=async()=>{const d=$("ollamaDiag"),box=$("ollamaHelp");box.hidden=true;d.textContent="Testing Ollama…";try{saveOllamaConfig({baseUrl:$("ollamaHost").value,model:$("ollamaModel").value,embeddingModel:$("embedModel").value,keepAlive:$("keepAlive").value,thinking:$("thinking").value});const r=await testOllama({model:$("ollamaModel").value});d.textContent=r.ok?`✓ Ollama ready: ${r.selectedModel}`:`✕ ${r.message}`;if(r.ok){await setPreferredAI("ollama:auto");renderAIModelOptions()}else showOllamaHelp(r)}catch(e){showOllamaHelp(e)}};
+  $("testOllama").onclick=async()=>{const d=$("ollamaDiag"),box=$("ollamaHelp");box.hidden=true;d.textContent="Testing Ollama…";try{saveOllamaConfig({baseUrl:$("ollamaHost").value,model:$("ollamaModel").value,embeddingModel:$("embedModel").value,keepAlive:$("keepAlive").value,thinking:$("thinking").value});const r=await testOllama({model:$("ollamaModel").value});d.textContent=r.ok?`✓ Ollama ready: ${r.selectedModel}`:`✕ ${r.message}`;if(r.ok){await setPreferredAI("ollama:auto");renderAIModelDisplay()}else showOllamaHelp(r)}catch(e){showOllamaHelp(e)}};
 }
 
 init().catch(e=>{$("workspace").innerHTML=`<div class="panel"><h2>Startup error</h2><pre>${esc(e.stack||e.message)}</pre></div>`});

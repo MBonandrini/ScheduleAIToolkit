@@ -1,24 +1,78 @@
 <!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Planning Engine — GitHub Edition</title>
-<link rel="stylesheet" href="styles.css">
-</head><body>
-<div class="app">
-  <aside class="sidebar"><div class="brand"><h1>Planning Engine</h1><small>GitHub Edition · browser-native</small></div><div id="tree" class="tree"></div></aside>
-  <main class="main">
-    <div class="topbar">
-      <button class="btn" id="newProjectBtn">New Project</button><button class="btn" id="demoBtn">Load Demo</button>
-      <button class="btn" id="folderBtn">Import Project Folder</button><input id="folderInput" type="file" webkitdirectory multiple hidden>
-      <span class="spacer"></span><span id="saveStatus" class="muted">Local browser storage</span><button class="btn primary" id="buildBtn">Build Project Plan</button>
+<html lang="en" data-theme="navy">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Project Controls AI Suite</title>
+  <link rel="stylesheet" href="./assets/app.css?v=1.2.0">
+</head>
+<body>
+  <header class="suite-header">
+    <div class="brand">Project Controls AI Suite</div>
+    <nav id="tabs" class="tabs">
+      <button data-view="dashboard" class="active">Dashboard</button>
+      <button data-view="contracts">Contract Manager</button>
+      <button data-view="drawing">Drawing Measurement</button>
+      <button data-view="assessment">Schedule Assessment</button>
+      <button data-view="risk">Risk Analysis</button>
+      <button data-view="claims">Claims &amp; Forensics</button>
+      <button data-view="notebook">NotebookLM+</button>
+      <button data-view="builder">Schedule Builder</button>
+      <button data-view="settings">Settings</button>
+    </nav>
+    <div class="global-controls">
+      <label>Theme
+        <select id="themeSelect">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="navy">Light · Dark Blue Contrast</option>
+        </select>
+      </label>
+      <label>AI Model
+        <input id="aiDisplay" class="ai-display" aria-label="Selected AI model" value="No AI" readonly>
+      </label>
     </div>
-    <div class="content">
-      <div id="banner"></div>
-      <div class="tabs" id="tabs"></div>
-      <section id="view"></section>
-    </div>
-  </main>
-</div>
-<dialog id="settingsDialog"><div class="dialog-head"><strong>Free AI & Project Settings</strong><button class="btn" onclick="this.closest('dialog').close()">Close</button></div><div class="dialog-body" id="settingsBody"></div></dialog>
-<script type="module" src="js/app.mjs"></script>
-</body></html>
+  </header>
+
+  <div class="app-shell">
+    <aside id="repositoryPane" class="repository">
+      <div class="repo-head">
+        <div class="project-switcher">
+          <label for="projectSelect">Project</label>
+          <div>
+            <select id="projectSelect" class="project-name"></select>
+            <button id="newProjectBtn" title="New project" aria-label="New project">＋</button>
+          </div>
+        </div>
+        <button id="renameProjectBtn" class="repo-secondary-action">Rename project</button>
+        <div class="repo-actions">
+          <button id="addFilesBtn">Add files</button>
+          <button id="linkFolderBtn">Link folder</button>
+          <button id="folderFallbackBtn">Folder upload</button>
+        </div>
+        <input id="fileInput" type="file" multiple hidden>
+        <input id="folderInput" type="file" webkitdirectory multiple hidden>
+      </div>
+      <div class="repo-help">Checked files are shared AI context across the toolkit. XER/XML schedules are parsed automatically.</div>
+      <div id="repoFiles" class="repo-files"></div>
+      <div class="repo-section">
+        <div class="repo-section-title">Schedule revisions <span id="scheduleCount">0</span></div>
+        <div id="scheduleList"></div>
+      </div>
+    </aside>
+
+    <main id="workspace" class="workspace">
+      <div class="empty-state">Loading toolkit…</div>
+    </main>
+  </div>
+
+  <div id="progressHud" class="progress-hud" hidden>
+    <div><strong id="progressTitle">Working</strong><span id="progressPct">…</span></div>
+    <div id="progressDetail">Processing…</div>
+    <div class="progress-track"><div id="progressBar"></div></div>
+  </div>
+
+  <script type="module" src="./src/ui/app.js?v=1.2.0"></script>
+</body>
+</html>

@@ -3,7 +3,7 @@ import {esc,isoDate,parseDate,clamp} from "../core/utils.js";
 
 export const metric=(label,value,detail="")=>`<div class="metric"><small>${esc(label)}</small><strong>${esc(value)}</strong><small>${esc(detail)}</small></div>`;
 export const badge=(text,kind="")=>`<span class="badge ${kind}">${esc(text)}</span>`;
-export const table=(headers,rows)=>`<div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map(c=>`<td>${c??""}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${headers.length}" class="muted">No data</td></tr>`}</tbody></table></div>`;
+export const table=(headers,rows,{resizable=false}={})=>`<div class="table-wrap"><table class="${resizable?"resizable-table":""}"><thead><tr>${headers.map(h=>`<th>${esc(h)}${resizable?`<span class="col-resizer" aria-hidden="true"></span>`:""}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map(c=>`<td>${c??""}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${headers.length}" class="muted">No data</td></tr>`}</tbody></table></div>`;
 export function lineChart(series,{width=900,height=260}={}){
   if(!series?.length)return `<div class="empty-state">No chart data.</div>`;
   const all=series.flatMap(s=>s.values.map(v=>Number(v.y))).filter(Number.isFinite),min=Math.min(...all),max=Math.max(...all),span=max-min||1;
@@ -78,7 +78,7 @@ export function gantt(schedule,{activities=null,timescale="weekly",compression="
   <label>Bar compression <select id="ganttCompression"><option value="compact" ${compression==="compact"?"selected":""}>Compact / print</option><option value="standard" ${compression==="standard"?"selected":""}>Standard</option></select></label>
   <label><input type="checkbox" id="ganttRelationships" ${showRelationships?"checked":""}> Relationship emphasis</label></div>
   <div class="gantt-wrap"><div class="gantt" style="min-width:${timelineMin+410}px"><div class="gantt-row${rowClass}"><div class="gantt-left"><strong>WBS / Activity</strong></div><div class="gantt-time" style="background-size:${gridPct}% 100%"><span class="data-date" style="left:${dd}%"></span></div></div>${grouped}</div></div>
-  ${showRelationships?`<div class="muted" style="margin-top:6px">Relationship emphasis is enabled. Driving/critical relationships are analysed in Nodes & Links; browser rendering intentionally avoids thousands of crossing SVG lines on very large programmes.</div>`:""}</div>`;
+  ${showRelationships?`<div class="muted" style="margin-top:6px">Relationship emphasis is enabled. Driving/critical relationships are analysed in Nodes; browser rendering intentionally avoids thousands of crossing SVG lines on very large programmes.</div>`:""}</div>`;
 }
 export function calendarMonth(calendarYear,monthIndex){
   const month=calendarYear.months[monthIndex],first=new Date(calendarYear.year,monthIndex,1),offset=(first.getDay()+6)%7;

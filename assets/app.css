@@ -163,3 +163,28 @@ td{font-size:11px}
   .workspace{overflow:visible}.global-controls{width:100%}.global-controls select{min-width:0;max-width:none}
   .chatbox{grid-template-columns:1fr}.chat{height:650px}.metrics{grid-template-columns:repeat(2,1fr)}
 }
+
+/* v1.2.0 requested interaction refinements */
+.global-controls .ai-display{min-width:180px;max-width:310px;height:34px;border-radius:8px;padding:0 10px;background:var(--panel2);color:var(--text);border:1px solid var(--border);font:inherit;cursor:default}
+html[data-theme="navy"] .global-controls .ai-display{background:#15364c;border-color:#365a70;color:#fff}
+.resizable-table{table-layout:auto}
+.resizable-table th{position:sticky}
+.resizable-table th .col-resizer{position:absolute;right:-3px;top:0;width:7px;height:100%;cursor:col-resize;user-select:none;touch-action:none;z-index:3}
+.resizable-table th .col-resizer:hover{background:color-mix(in srgb,var(--accent) 35%,transparent)}
+.virtual-header,.virtual-row{display:grid;grid-template-columns:var(--va-cols);min-width:max-content;padding:6px;border-bottom:1px solid var(--border)}
+.virtual-header{position:sticky;top:0;height:32px;background:var(--panel);z-index:2;color:var(--muted);font-size:10px}
+.virtual-header strong{position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-right:5px}
+.virtual-row{position:absolute;left:0;right:0;height:32px;font-size:11px;align-items:center}
+.virtual-row span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-right:7px}
+.virtual-resizer{position:absolute;right:-3px;top:-6px;width:8px;height:32px;cursor:col-resize;touch-action:none;z-index:4}
+.cost-tree{border:1px solid var(--border);border-radius:8px;overflow:auto}
+.cost-row{display:grid;grid-template-columns:minmax(360px,2fr) repeat(5,minmax(95px,.7fr));align-items:center;border-bottom:1px solid var(--border);min-width:900px}
+.cost-row>span{padding:7px;text-align:right}
+.cost-row .cost-name{text-align:left;padding-left:calc(10px + var(--cost-depth,0) * 20px)}
+.cost-header{position:sticky;top:0;z-index:3;background:var(--panel);color:var(--muted);font-size:10px;font-weight:700}
+.cost-node>summary{cursor:pointer;background:var(--panel2);list-style-position:inside}
+.cost-node>summary:hover{filter:brightness(1.04)}
+.cost-node .cost-children{margin:0}
+.cost-activity{background:var(--panel)}
+.cost-activity .cost-name{padding-left:34px}
+@media(max-width:900px){.global-controls .ai-display{min-width:150px;max-width:230px}}
