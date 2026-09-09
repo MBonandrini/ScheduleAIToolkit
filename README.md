@@ -1,82 +1,64 @@
-# Project Controls AI Suite / Schedule AI Toolkit v1.2.0
+# Planning Engine — GitHub Edition (Free AI Only)
 
-A static GitHub Pages-compatible project-controls workbench for Primavera P6 XER and Microsoft Project XML analysis.
+A browser-native planning, estimating and schedule-generation workbench designed for GitHub Pages.
 
-## AI model architecture
+## Important: there are no paid AI services in this edition
 
-There is **one global AI model selector** in the suite header. Settings owns configuration and diagnostics; mini-tools do not keep separate model selectors or status badges.
+The application contains **no OpenAI/Anthropic/Gemini API integration, no paid proxy, no API-key field and no Cloudflare AI worker**.
 
-Restored browser model choices:
+The optional AI modes are:
 
-- Browser CPU/WASM — Qwen2.5 0.5B
-- Browser CPU/WASM — Qwen2.5 1.5B
-- Browser CPU/WASM — Llama 3.2 1B
-- Browser WebGPU / Transformers.js — Qwen2.5 0.5B
-- Browser WebGPU / Transformers.js — Qwen2.5 1.5B
-- Browser WebGPU / Transformers.js — Llama 3.2 1B
-- WebLLM — Llama 3.2 1B
-- WebLLM — Llama 3.2 3B
-- WebLLM — Llama 3.1 8B
-- WebLLM — Phi 3.5 Mini
-- Ollama — any installed chat-capable local model selected in Settings
+1. **Offline / deterministic only** — default. No AI is used.
+2. **Local Ollama** — free local inference on the user's own computer.
+3. **Browser AI (WebLLM/WebGPU)** — free in-browser inference. Model weights are downloaded on first use and cached locally by the browser.
 
-The default is **Qwen2.5 0.5B CPU/WASM** because it works without WebGPU or Ollama. If a saved WebGPU model is opened in a browser without WebGPU support, the suite automatically falls back to the lightweight CPU model instead of leaving chat in a broken state.
+The planning engine itself — WBS generation, quantities, man-hours, CPM, logic and QA — works without AI.
 
-### Browser AI downloads
+## Files
 
-Browser models download on first test/use and are cached by the browser. The bottom-right progress HUD reports download/loading progress and generation activity.
+- `index.html` + `styles.css` + `js/` — maintainable GitHub Pages deployment.
+- `PlanningEngine.html` — self-contained single HTML build.
+- `FREE_AI_SETUP.md` — setup instructions for Ollama and browser AI.
+- `tests/` — deterministic planning and free-AI adapter tests.
 
-Transformers.js is pinned to `4.2.0` and WebLLM to `0.2.85`.
+## What it does
 
-## Large schedule AI context
+- Maintains Current Information and Previous Reference Documents trees.
+- Stores imported files locally in IndexedDB.
+- Reads TXT/CSV/XER/XML/MPX/DXF/IFC directly.
+- Reads XLSX/XLSM through SheetJS, DOCX through Mammoth and PDF text through PDF.js.
+- Parses BOQ quantities/norms and scope systems/areas.
+- Parses XER history for durations and relationship patterns.
+- Generates WBS, activities, procurement chains, quantities, man-hours and CPM logic.
+- Calculates FS/SS/FF/SF relationships, dates, total float and critical activities.
+- Runs deterministic QA and constructability checks.
+- Continues working when drawings, BOQ, scope or historical schedules are missing.
+- Generates missing-information questions.
+- Exports project JSON and CSVs.
 
-Raw XER/XML text is **not dumped into small browser-model prompts**. The AI receives:
+## Local run
 
-1. structured schedule tool results;
-2. a compact schedule portfolio/revision summary;
-3. query-relevant excerpts from checked non-schedule repository files;
-4. filenames/metadata for checked schedule files.
+```bash
+python -m http.server 8000
+```
 
-This fixes the ONNX Runtime `Gather` / `indices element out of data bounds` failure that occurred when multiple XERs pushed the Qwen context to the 32,768-token boundary.
+Then open `http://127.0.0.1:8000/`.
 
-## Project Repository
+## GitHub Pages
 
-Checked files form the shared AI evidence context across the toolkit. XER/XML schedules are parsed automatically and become available as structured schedule evidence. The repository supports multiple projects, linked folders where the browser supports the File System Access API, and folder-upload fallback.
+Upload the package contents to the repository root and enable **Settings → Pages → Deploy from a branch → main / root**.
 
-## Themes
+## Browser limitations
 
-The first-run/default theme is **Light · Dark Blue Contrast**. The header Theme dropdown also provides **Dark** and **Light**. The Gantt remains light in every theme for professional print/export readability.
-
-## GitHub Pages deployment
-
-1. Copy the contents of this package into the repository root.
-2. Push to `main`.
-3. In **Settings → Pages**, select **GitHub Actions** as the source.
-4. The included deployment workflow runs the exhaustive release tests before Pages deployment.
-5. `.nojekyll` is included.
-
-All local JS module imports and worker URLs carry the v1.2.0 cache token so a new deployment does not mix old and new JavaScript modules.
-
-### Ollama on GitHub Pages
-
-Default local endpoint: `http://localhost:11434`.
-
-Use **Settings → Ollama → Check Ollama**, then **Detect & classify**, choose a chat-capable model, and **Test & Save**.
-
-If Ollama is not detected, the toolkit explains the three indistinguishable browser-side possibilities: not installed, installed but not running, or blocked by local-network/CORS policy. For GitHub Pages, allow the exact Pages origin in `OLLAMA_ORIGINS`, then restart Ollama.
+- `.mpp`: export to XER/XML/MPX for browser analysis.
+- DWG: use PDF/DXF/IFC.
+- Folder access is permissioned/imported; the browser cannot silently crawl local folders.
+- Browser WebGPU AI requires a compatible modern browser/device and enough memory for the selected model.
+- Browser AI model downloads can be large. The light Llama 3.2 1B preset is roughly 0.9 GB of VRAM at runtime according to WebLLM's current model configuration.
+- For weak/non-WebGPU machines, use Ollama or Offline mode.
 
 ## Tests
 
-Normal:
-
 ```bash
-npm test
+node --test tests/*.test.mjs
 ```
-
-Exhaustive:
-
-```bash
-npm run test:exhaustive
-```
-
-The suite covers parser regression/fuzzing, 50k/200k scale, deep network paths, deterministic Monte Carlo, schedule comparison, repository isolation, all AI agent roles, all restored browser-model routes, Ollama native/failure paths, the reported large-XER browser-AI regression, GitHub Pages import/deployment contracts, UI/theme contracts, security, and the master feature-completeness contract.
