@@ -30,29 +30,49 @@
     "sha256": "2683227db7cac9321a8dbc9bb80048ad58045084310bad0cb0e2791a915e19c6"
   },
   {
+    "path": "CHANGELOG_V1_2.md",
+    "bytes": 1587,
+    "sha256": "e1c9573720210b635134ad6eca1932ba48713039b365a9e017953dd486b95979"
+  },
+  {
+    "path": "CHANGELOG_V1_2_1.md",
+    "bytes": 1415,
+    "sha256": "3dc89c72d81fbc93433f5075b8f88cd1543f32fac9e36161764d987cb9af1b37"
+  },
+  {
     "path": "COMPREHENSIVE_TEST_REPORT.md",
     "bytes": 6988,
     "sha256": "9b9d9b8d907b99599ccd545a373314d6412e240ea0c9d75dec01e5273907a245"
   },
   {
     "path": "README.md",
-    "bytes": 3528,
-    "sha256": "e589287b3da63d226dc815839f26c037639fccc89f1dacd4d31f3a704984515e"
+    "bytes": 4605,
+    "sha256": "35e0b643401a6dc2745b965b6fa00d48d8c2518539c94fc2a7d3b43389cab201"
+  },
+  {
+    "path": "V1_2_1_VALIDATION_REPORT.md",
+    "bytes": 1536,
+    "sha256": "16aa044367035c2a76d25265d1f6901dae1de601e0b953c1d2eb1686dcd668c5"
   },
   {
     "path": "assets/app.css",
-    "bytes": 19334,
-    "sha256": "61188f6e4a47637ac893867611dcbaede8ef032b4cff7cd90ee6db301ac0a809"
+    "bytes": 22392,
+    "sha256": "5cb13e62447d97e0e3081f64f8ce1ac591fe69d1a3f79bdeae2972841b010178"
   },
   {
     "path": "index.html",
-    "bytes": 3207,
-    "sha256": "5b0337f47df85e68f53e3daf3f8664989dbb93e5223378f3f5db95e2c08e1c9f"
+    "bytes": 3182,
+    "sha256": "789e9d57846e490a35f900cb5b83376a241c7405419bc44b361aafbc5d6adfe9"
   },
   {
     "path": "package.json",
-    "bytes": 283,
-    "sha256": "162697fe4a4a1deb53a7bec242ffbbf198227127da5492074ffc3ceb5bdb255d"
+    "bytes": 284,
+    "sha256": "38b49b800f86da540dbf7ce5e2888555d0c1363bf64fa28b0f7509af455ed782"
+  },
+  {
+    "path": "setup-ollama.bat",
+    "bytes": 2065,
+    "sha256": "d6ec43f8db1f5f28aa5f1007d1e948470d1b8fda8db743aa649a93a3e73a900b"
   },
   {
     "path": "src/ai/browser.js",
@@ -61,8 +81,8 @@
   },
   {
     "path": "src/ai/catalog.js",
-    "bytes": 3624,
-    "sha256": "8de6859ac0e18eb75927dbbeaf93776a7e92016e3dead8b21e7ab59f5c2f757e"
+    "bytes": 3717,
+    "sha256": "7b4063ede448545e76ed26f0ecb60b80d9176fa5c33ce3a1d6065f467b1f40c9"
   },
   {
     "path": "src/ai/ollama.js",
@@ -71,8 +91,8 @@
   },
   {
     "path": "src/ai/runtime.js",
-    "bytes": 5506,
-    "sha256": "9e7d25e73f5f39ec62222fc29f6b989723d5a371e6d8f26787a1c820f3b2cabf"
+    "bytes": 5787,
+    "sha256": "9e7545cf6ea78e3b26b255ba3f735b08bad007a6132905dc131f2a43816daffb"
   },
   {
     "path": "src/ai/tools.js",
@@ -131,8 +151,8 @@
   },
   {
     "path": "src/core/model.js",
-    "bytes": 6949,
-    "sha256": "645ff2a862dec896f27b76ccec9b3ae3f17dcf9cb2761ce7f9a75a6e3cb9794b"
+    "bytes": 7396,
+    "sha256": "fbb9383284b642d2cdcf1e1cd803ffd40769c64de0ba222db3a9cd1e10369fd6"
   },
   {
     "path": "src/core/utils.js",
@@ -166,13 +186,13 @@
   },
   {
     "path": "src/ui/app.js",
-    "bytes": 61490,
-    "sha256": "b9b8b92b38878f70c9fef1745e37522eba04b8bf3c93bb02e3cb60920d2243bc"
+    "bytes": 68110,
+    "sha256": "60fc57bc5a057609bfa01f41880349bdae10b878520c020613da1f45f091f034"
   },
   {
     "path": "src/ui/render.js",
-    "bytes": 9826,
-    "sha256": "c20a2b6a7fee56f5d3393a30b672a1f2564b82b7ec9ab845905c808de50bc1f2"
+    "bytes": 10256,
+    "sha256": "b1838dd0064be79b9cac44363eb8f9087497957e0a6a01dbd0d24f3bc1908334"
   },
   {
     "path": "src/workers/client.js",
@@ -246,13 +266,13 @@
   },
   {
     "path": "tests/master-feature-contract.test.js",
-    "bytes": 4306,
-    "sha256": "08b7e505f5b92b9f3d5017ece84b17f34b6ac26960e3a87b39d445b9f50a02a5"
+    "bytes": 4401,
+    "sha256": "bccd8bbdf5baae43048f35847b21fa22e21f990883eb2c6e4efd82e891a76edf"
   },
   {
     "path": "tests/model-ui-regression.test.js",
-    "bytes": 2514,
-    "sha256": "a34276adfa2fb8fae7bbf1fe889196b7cf04b0aa7b7bdfb99b25e77a17178ee3"
+    "bytes": 2640,
+    "sha256": "4295da9763a7f725f9287a328eca87e5b9087a4b6e07e8a76f60ccad006dfa62"
   },
   {
     "path": "tests/msp-golden.test.js",
@@ -296,8 +316,8 @@
   },
   {
     "path": "tests/run-all.js",
-    "bytes": 2299,
-    "sha256": "05f62a30008387e26abd2dafa3bb0d55078eecf3c24fc7865ee866f412062d88"
+    "bytes": 2376,
+    "sha256": "d3fbb4f9586e5d9db190409fd16b2d7917b40a99e651e91fb6b137d95f2d2c36"
   },
   {
     "path": "tests/run-exhaustive.js",
@@ -311,7 +331,12 @@
   },
   {
     "path": "tests/ui-contract.test.js",
-    "bytes": 2160,
-    "sha256": "ee824c65c6b348ee71c44de199830dc4040c9e8c31aef83c7ac93c8d925cad76"
+    "bytes": 2222,
+    "sha256": "d7f186055ab8e2a16ad1102cafe916ffc6af155026d74912444778a96d8516f4"
+  },
+  {
+    "path": "tests/v1.2-requested-changes.test.js",
+    "bytes": 2693,
+    "sha256": "476a89ffcbfcdde2ce3682cb609944cf48a295bd8c086edfa19e70c1e53d2bf0"
   }
 ]

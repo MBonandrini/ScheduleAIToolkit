@@ -92,3 +92,11 @@ If WebGPU is unavailable, the toolkit will explain this before chat execution an
 The site starts with **No AI**. To enable AI, open **Settings**, choose a model, and click **Apply model**. For a fully local/free option, use Ollama and the included `setup-ollama.bat` Windows helper. The top-right AI field is intentionally read-only so model changes can only be made from Settings.
 
 Chat boxes send with **Enter** and create a new line with **Shift+Enter**.
+
+
+## v1.2.1 Schedule Assessment fixes
+
+- **Activity Register:** column boundaries are now visibly draggable. Widths persist in the browser using local storage.
+- **Critical Path:** the Critical / zero-float activity table now uses fixed `<colgroup>` widths with explicit drag handles; widths persist between visits.
+- **Milestone Control:** milestone recognition now checks normalized activity type, legacy/raw XER `task_type`, and stored schedules are re-hydrated when loaded. This covers Primavera codes including `TT_Mile`, `TT_StartMile`, and `TT_FinMile` and fixes older schedules already stored in IndexedDB.
+- Asset cache-busting updated to **v1.2.1** for GitHub Pages.

@@ -188,3 +188,15 @@ html[data-theme="navy"] .global-controls .ai-display{background:#15364c;border-c
 .cost-activity{background:var(--panel)}
 .cost-activity .cost-name{padding-left:34px}
 @media(max-width:900px){.global-controls .ai-display{min-width:150px;max-width:230px}}
+
+/* v1.2.1 explicit drag-to-resize columns */
+.resizable-wrap{position:relative}
+.resizable-table{width:max-content;min-width:100%;table-layout:fixed}
+.resizable-table th,.resizable-table td{overflow:hidden;text-overflow:ellipsis}
+.resizable-table th{white-space:nowrap;padding-right:13px}
+.resizable-table th .col-resizer{right:-1px;width:10px}
+.resizable-table th .col-resizer::after,.virtual-resizer::after{content:"";position:absolute;top:3px;bottom:3px;left:4px;width:2px;border-radius:2px;background:var(--border);opacity:.9}
+.resizable-table th .col-resizer:hover::after,.virtual-resizer:hover::after{background:var(--accent);opacity:1}
+.virtual-header strong{padding-right:13px}
+.virtual-resizer{right:-1px;width:10px}
+html.resizing-column,html.resizing-column *{cursor:col-resize!important;user-select:none!important}

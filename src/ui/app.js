@@ -2,7 +2,7 @@
 import {currentProject,projects,newProject,switchProject,restoreFolderHandles,renameProject,addFiles,listFiles,listSchedules,setFileChecked,removeFile,linkFolder,importFolderFallback,selectedContext,saveRisk,listRisks,saveClaim,listClaims} from "../repository/repository.js";
 import {preferredAI,setPreferredAI,askAI,aiLabel,AI_CATALOG,aiEntry,aiCompatibility,catalogueGroups,testSelectedAI} from "../ai/runtime.js";
 import {ollamaConfig,saveOllamaConfig,inspectModels,testOllama,probeOllama} from "../ai/ollama.js";
-import {scheduleSummary} from "../core/model.js";
+import {scheduleSummary,hydrateSchedule,isMilestoneActivity} from "../core/model.js";
 import {esc,isoDate,parseDate,daysBetween,toCSV,downloadBlob,uid,addDays} from "../core/utils.js";
 import {metric,table,lineChart,barChart,networkGraph,gantt,calendarMonth,badge} from "./render.js";
 import {scheduleHealth,forecastConfidence,plannerInbox} from "../analysis/health.js";
@@ -63,7 +63,7 @@ function bindShell(){
   globalThis.addEventListener("pc-progress",e=>updateProgress(e.detail||{}));
 }
 async function refreshData(){
-  state.files=await listFiles();state.schedules=await listSchedules();state.risks=await listRisks();state.claims=await listClaims();
+  state.files=await listFiles();state.schedules=(await listSchedules()).map(hydrateSchedule);state.risks=await listRisks();state.claims=await listClaims();
   state.schedules.sort((a,b)=>(parseDate(a.dataDate)?.getTime()||0)-(parseDate(b.dataDate)?.getTime()||0));
   if(!state.activeScheduleId||!state.schedules.some(s=>s.id===state.activeScheduleId))state.activeScheduleId=state.schedules.at(-1)?.id||null;
   const idx=state.schedules.findIndex(s=>s.id===state.activeScheduleId);
@@ -203,7 +203,7 @@ function renderAssessment(){
 function assessmentReport(s){
   const prev=previousSchedule(),h=scheduleHealth(s),comp=prev?compareSchedules(prev,s):null;
   switch(state.assessmentReport){
-    case"activities":return `<section class="panel"><h2>Virtualised activity register</h2><div id="virtualActivities" style="height:600px;overflow:auto;position:relative"></div></section>`;
+    case"activities":return `<section class="panel"><h2>Virtualised activity register</h2><p class="muted">Drag the vertical dividers in the column headings to resize each column. Widths are remembered on this browser.</p><div id="virtualActivities" style="height:600px;overflow:auto;position:relative"></div></section>`;
     case"comparison":{
       if(!prev)return `<section class="panel"><h2>Schedule Comparison</h2><p class="muted">Choose/import a comparative programme to analyse revision movement.</p></section>`;
       const changeRows=comp.changed.slice().sort((a,b)=>Math.abs(b.finishDays)-Math.abs(a.finishDays));
@@ -253,7 +253,7 @@ function assessmentReport(s){
     }
     case"critical":{
       const crit=s.activities.filter(a=>a.critical||a.totalFloat<=0);
-      return `${gantt(s,{activities:crit,criticalOnly:true,forceRed:true,timescale:state.ganttTimescale,compression:"compact"})}<section class="panel"><h2>Critical / zero-float activities</h2>${table(["Activity","WBS","Finish","TF"],crit.map(a=>[`${esc(a.id)} · ${esc(a.name)}`,esc(a.wbsPath),isoDate(a.currentFinish||a.finish),a.totalFloat.toFixed(1)]),{resizable:true})}</section>`;
+      return `${gantt(s,{activities:crit,criticalOnly:true,forceRed:true,timescale:state.ganttTimescale,compression:"compact"})}<section class="panel"><h2>Critical / zero-float activities</h2><p class="muted">Drag the vertical dividers in the headings to resize the table columns. Widths are remembered on this browser.</p>${table(["Activity","WBS","Finish","TF"],crit.map(a=>[`${esc(a.id)} · ${esc(a.name)}`,esc(a.wbsPath),isoDate(a.currentFinish||a.finish),a.totalFloat.toFixed(1)]),{resizable:true,resizeKey:"criticalPath"})}</section>`;
     }
     case"logic":{
       const n=networkHealth(s),oe=openEnds(s),cycles=detectCycles(s);
@@ -287,7 +287,7 @@ function assessmentReport(s){
       return `<section class="panel"><h2>Schedule Time Machine</h2><select id="timeActivity">${s.activities.slice(0,10000).map(a=>`<option value="${esc(a.id)}" ${a.id===id?"selected":""}>${esc(a.id)} · ${esc(a.name)}</option>`).join("")}</select>${lineChart([{name:"Forecast finish",values:vals}])}${table(["Revision","Data date","Start","Finish","TF","Progress","Critical"],hist.map(x=>[esc(x.scheduleName),isoDate(x.dataDate),isoDate(x.start),isoDate(x.finish),Number(x.totalFloat).toFixed(1),`${Number(x.percent).toFixed(1)}%`,x.critical?"Yes":"No"]))}</section>`;
     }
     case"milestones":{
-      const ms=s.activities.filter(a=>a.milestone),hist=milestoneHistory(state.schedules);
+      const ms=s.activities.filter(isMilestoneActivity),hist=milestoneHistory(state.schedules);
       return `<section class="panel"><h2>Milestone Control Centre</h2>${table(["Milestone","Forecast","Previous","Movement","Float","Confidence"],ms.map(a=>{const h=hist.find(x=>x.id===a.id)?.history||[],p=h.length>1?h.at(-2):null,move=p?daysBetween(p.finish,a.currentFinish||a.finish):0,conf=forecastConfidence(state.schedules,a.id);return[`${esc(a.id)} · ${esc(a.name)}`,isoDate(a.currentFinish||a.finish),isoDate(p?.finish),p?`${move>=0?"+":""}${move}d`:"—",a.totalFloat.toFixed(1),`${conf.score}% ${conf.label}`]}))}</section>`;
     }
     case"forecast":{
@@ -329,12 +329,28 @@ function renderTrace(s){
   const x=traceToMilestone(s,id);return table(["Sequence","Activity","Finish","TF"],x.drivingChain.map((a,i)=>[i+1,`${esc(a.id)} · ${esc(a.name)}`,isoDate(a.currentFinish||a.finish),a.totalFloat.toFixed(1)]));
 }
 function bindResizableTables(root=document){
-  root.querySelectorAll("table.resizable-table th .col-resizer").forEach(handle=>{
-    handle.onpointerdown=e=>{
-      e.preventDefault();const th=handle.parentElement,table=th.closest("table"),startX=e.clientX,startW=th.getBoundingClientRect().width;
-      const move=ev=>{const w=Math.max(60,startW+ev.clientX-startX);th.style.width=`${w}px`;th.style.minWidth=`${w}px`;table.style.tableLayout="fixed"};
-      const up=()=>{window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up)};window.addEventListener("pointermove",move);window.addEventListener("pointerup",up);
+  root.querySelectorAll(".table-wrap.resizable-wrap").forEach(wrap=>{
+    const table=wrap.querySelector("table.resizable-table"),headers=[...table?.querySelectorAll("thead th")||[]],cols=[...table?.querySelectorAll("colgroup col")||[]];
+    if(!table||!headers.length||cols.length!==headers.length)return;
+    const key=wrap.dataset.resizeKey?`pcai.tableWidths.${wrap.dataset.resizeKey}`:"";
+    let saved=[];try{saved=key?JSON.parse(localStorage.getItem(key)||"[]"):[]}catch(_){saved=[]}
+    const measured=headers.map((th,i)=>Math.max(60,Number(saved[i])||Math.round(th.getBoundingClientRect().width)||100));
+    const apply=widths=>{
+      widths.forEach((w,i)=>{if(cols[i])cols[i].style.width=`${Math.max(60,Math.round(w))}px`});
+      table.style.tableLayout="fixed";table.style.width=`${widths.reduce((n,w)=>n+Math.max(60,Math.round(w)),0)}px`;table.style.minWidth="100%";
     };
+    apply(measured);
+    headers.forEach((th,i)=>{
+      const handle=th.querySelector(".col-resizer");if(!handle)return;
+      handle.onpointerdown=e=>{
+        if(e.button!=null&&e.button!==0)return;e.preventDefault();e.stopPropagation();
+        const widths=cols.map((c,j)=>parseFloat(c.style.width)||measured[j]||headers[j].getBoundingClientRect().width),startX=e.clientX,startW=widths[i];
+        handle.setPointerCapture?.(e.pointerId);document.documentElement.classList.add("resizing-column");
+        const move=ev=>{widths[i]=Math.max(60,startW+ev.clientX-startX);apply(widths)};
+        const up=()=>{document.documentElement.classList.remove("resizing-column");if(key)localStorage.setItem(key,JSON.stringify(widths.map(Math.round)));window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up);window.removeEventListener("pointercancel",up)};
+        window.addEventListener("pointermove",move);window.addEventListener("pointerup",up);window.addEventListener("pointercancel",up);
+      };
+    });
   });
 }
 function money(v){return Number(v||0).toFixed(0)}
@@ -369,15 +385,23 @@ function bindAssessmentControls(s){
   if(state.assessmentReport==="timemachine")$("timeActivity")?.addEventListener("change",e=>{state.timeActivityId=e.target.value;renderAssessment()});
 }
 function mountVirtualActivities(container,activities){
-  if(!container)return;const rowH=32,headerH=32,total=activities.length;
-  const cols=[120,320,180,110,110,75,75];container.style.setProperty("--va-cols",cols.map(x=>`${x}px`).join(" "));
+  if(!container)return;const rowH=32,headerH=32,total=activities.length,key="pcai.activityRegisterWidths",defaults=[120,320,180,110,110,75,75];
+  let saved=[];try{saved=JSON.parse(localStorage.getItem(key)||"[]")}catch(_){saved=[]}
+  const cols=defaults.map((w,i)=>Math.max(60,Number(saved[i])||w));container.style.setProperty("--va-cols",cols.map(x=>`${x}px`).join(" "));
   const labels=["ID","Activity","WBS","Start","Finish","TF","%"];
-  container.innerHTML=`<div style="height:${headerH+total*rowH}px;position:relative;min-width:${cols.reduce((a,b)=>a+b,0)}px"><div class="virtual-header">${labels.map((x,i)=>`<strong>${x}<span class="virtual-resizer" data-vcol="${i}"></span></strong>`).join("")}</div><div id="virtualRows"></div></div>`;
-  const rows=$("virtualRows");const paint=()=>{
+  const totalWidth=()=>cols.reduce((a,b)=>a+b,0),apply=()=>{container.style.setProperty("--va-cols",cols.map(x=>`${Math.round(x)}px`).join(" "));if(container.firstElementChild)container.firstElementChild.style.minWidth=`${totalWidth()}px`};
+  container.innerHTML=`<div style="height:${headerH+total*rowH}px;position:relative;min-width:${totalWidth()}px"><div class="virtual-header">${labels.map((x,i)=>`<strong>${x}<span class="virtual-resizer" data-vcol="${i}" role="separator" aria-orientation="vertical" aria-label="Resize ${esc(x)} column" title="Drag to resize column"></span></strong>`).join("")}</div><div id="virtualRows"></div></div>`;
+  const rows=container.querySelector("#virtualRows");const paint=()=>{
     const top=container.scrollTop,from=Math.max(0,Math.floor((top-headerH)/rowH)-8),count=Math.ceil(container.clientHeight/rowH)+16,to=Math.min(total,from+count);
     rows.innerHTML=activities.slice(from,to).map((a,i)=>`<div class="virtual-row" style="top:${headerH+(from+i)*rowH}px"><span>${esc(a.id)}</span><span title="${esc(a.name)}">${esc(a.name)}</span><span title="${esc(a.wbsPath)}">${esc(a.wbsPath)}</span><span>${isoDate(a.currentStart||a.start)}</span><span>${isoDate(a.currentFinish||a.finish)}</span><span>${a.totalFloat.toFixed(1)}</span><span>${a.percent.toFixed(1)}</span></div>`).join("");
   };
-  container.querySelectorAll(".virtual-resizer").forEach(handle=>handle.onpointerdown=e=>{e.preventDefault();const i=Number(handle.dataset.vcol),startX=e.clientX,startW=cols[i];const move=ev=>{cols[i]=Math.max(60,startW+ev.clientX-startX);container.style.setProperty("--va-cols",cols.map(x=>`${x}px`).join(" "));container.firstElementChild.style.minWidth=`${cols.reduce((a,b)=>a+b,0)}px`};const up=()=>{window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up)};window.addEventListener("pointermove",move);window.addEventListener("pointerup",up)});
+  container.querySelectorAll(".virtual-resizer").forEach(handle=>handle.onpointerdown=e=>{
+    if(e.button!=null&&e.button!==0)return;e.preventDefault();e.stopPropagation();const i=Number(handle.dataset.vcol),startX=e.clientX,startW=cols[i];
+    handle.setPointerCapture?.(e.pointerId);document.documentElement.classList.add("resizing-column");
+    const move=ev=>{cols[i]=Math.max(60,startW+ev.clientX-startX);apply()};
+    const up=()=>{document.documentElement.classList.remove("resizing-column");localStorage.setItem(key,JSON.stringify(cols.map(Math.round)));window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up);window.removeEventListener("pointercancel",up)};
+    window.addEventListener("pointermove",move);window.addEventListener("pointerup",up);window.addEventListener("pointercancel",up)
+  });
   container.onscroll=paint;paint();
 }
 
