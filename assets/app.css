@@ -238,3 +238,56 @@ html.resizing-column,html.resizing-column *{cursor:col-resize!important;user-sel
 @media(max-width:1450px){.report-nav{grid-template-columns:repeat(auto-fit,minmax(108px,1fr))}.quality-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}}
 @media(max-width:1100px){.workspace{padding:15px}.schedule-slot-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}.chart-shell svg{min-width:560px}.view-head{flex-wrap:wrap}}
 @media(max-width:780px){.workspace{padding:10px}.report-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule-slot-grid{grid-template-columns:1fr}.comparison-selectors{display:grid;grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.quality-grid{grid-template-columns:1fr}.network-viewport{height:500px}.gantt-toolbar{display:grid;grid-template-columns:1fr}.gantt-toolbar label{justify-content:space-between}}
+
+/* ================================================================
+   v1.4.0 interaction, threshold graphics and fixed Notebook workspace
+   ================================================================ */
+.deleted-change,.critical-text{color:var(--danger)!important;font-weight:800}
+.narrative-activity-detail{margin-top:12px;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--panel)}
+.narrative-activity-detail>summary{cursor:pointer;padding:11px 13px;background:var(--panel2);font-weight:800;position:sticky;top:0;z-index:3}
+.narrative-activity-detail[open]>summary{border-bottom:1px solid var(--border)}
+.narrative-activity-detail .table-wrap{border:0;border-radius:0;max-height:min(58vh,680px);overflow:auto}
+
+/* Threshold-first DCMA graphics: actual result + acceptance line on one scale. */
+.threshold-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.threshold-card{border:1px solid var(--border);background:var(--panel2);border-radius:9px;padding:12px;display:grid;gap:9px;min-height:145px}
+.threshold-card>header{display:flex;align-items:start;justify-content:space-between;gap:8px}.threshold-card header small{display:block;color:var(--muted);margin-top:2px}
+.threshold-chart{--threshold:50;--actual:50;position:relative;height:54px;margin-top:5px;padding-top:13px}
+.threshold-track{position:relative;height:16px;border:1px solid var(--border);border-radius:3px;background:color-mix(in srgb,var(--danger) 12%,var(--panel));overflow:visible}
+.threshold-safe{position:absolute;inset:0 auto 0 0;width:calc(var(--threshold)*1%);background:color-mix(in srgb,var(--good) 24%,var(--panel));border-right:1px dashed color-mix(in srgb,var(--good) 70%,var(--text))}
+.threshold-actual{position:absolute;top:-5px;left:calc(var(--actual)*1%);width:8px;height:26px;border-radius:2px;transform:translateX(-50%);background:var(--danger);box-shadow:0 0 0 2px var(--panel2)}
+.threshold-actual.pass{background:var(--good)}.threshold-actual.fail{background:var(--danger)}
+.threshold-marker{position:absolute;top:-11px;left:calc(var(--threshold)*1%);height:38px;border-left:2px solid var(--text);opacity:.72}
+.threshold-marker:before{content:"Limit";position:absolute;top:-14px;left:3px;font-size:8px;color:var(--muted);white-space:nowrap}
+.threshold-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:5px}
+.threshold-result{font-weight:850}.threshold-result.pass{color:var(--good)}.threshold-result.fail{color:var(--danger)}
+
+/* P6-style Gantt relationship geometry and adaptive timescale labels. */
+.gantt-scale-row{min-height:70px!important}.gantt-scale{overflow:visible}
+.gantt-scale-segment{position:absolute;top:0;bottom:0;border-left:1px solid #cdd8df;padding:3px 2px;color:#536c7c;display:flex;justify-content:center;align-items:flex-start;overflow:hidden;font-size:var(--scale-font,9px);line-height:1.05;white-space:nowrap}
+.gantt-scale-segment b{font-weight:650;display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.gantt-scale-segment.scale-small{--scale-font:8px}.gantt-scale-segment.scale-tiny{--scale-font:7px}
+.gantt-scale-segment.scale-vertical{align-items:center;overflow:visible}.gantt-scale-segment.scale-vertical b{transform:rotate(90deg);transform-origin:center center;white-space:nowrap;overflow:visible;text-overflow:clip}
+.gantt-toolbar input[type="date"]{border:1px solid #bdcbd4;border-radius:6px;padding:5px;background:#fff;color:#18242c;min-width:132px}
+.gantt-link.p6-link{stroke-linejoin:miter;stroke-linecap:square;shape-rendering:geometricPrecision;opacity:.78}
+
+/* NotebookLM+ split workspace: chat composer remains visible at the bottom. */
+.workspace.workspace-fixed{overflow:hidden;height:100%;padding-bottom:18px;display:flex;flex-direction:column}
+.workspace.workspace-fixed>.view-head{flex:0 0 auto}
+.workspace.workspace-fixed>.notebook-layout{flex:1 1 auto;min-height:0}
+.notebook-layout{display:grid;grid-template-columns:minmax(420px,1fr) minmax(300px,390px);gap:12px;width:100%;min-height:0;height:calc(100vh - var(--header-h) - 125px)}
+.notebook-chat-column{min-width:0;min-height:0;height:100%}.notebook-chat{height:100%!important;min-height:0!important;margin:0!important;grid-template-rows:minmax(0,1fr) auto}
+.notebook-chat .messages{min-height:0;overflow:auto}.notebook-chat .chatbox{position:relative;bottom:auto;z-index:4}
+.notebook-output-pane{min-width:0;min-height:0;height:100%;overflow:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--panel);box-shadow:var(--shadow);padding:12px;display:grid;gap:9px;align-content:start}
+.output-pane-head{position:sticky;top:-12px;z-index:5;background:var(--panel);padding:4px 2px 9px;border-bottom:1px solid var(--border)}.output-pane-head h2{margin:0}.output-pane-head p{margin:3px 0 0;color:var(--muted);font-size:10px}
+.notebook-output-card{border:1px solid var(--border);border-radius:8px;background:var(--panel2);padding:10px;display:grid;gap:8px;min-width:0}
+.output-card-head{display:flex;gap:8px;align-items:start;justify-content:space-between}.output-card-head>div{min-width:0}.output-card-head strong{display:block}.output-card-head small{display:block;color:var(--muted);margin-top:2px;line-height:1.3}.btn.compact{padding:6px 8px;font-size:9px;white-space:nowrap}
+.output-actions{display:flex;gap:5px;flex-wrap:wrap}.output-card-preview{min-width:0;max-height:230px;overflow:auto}.output-card-preview:empty{display:none}.output-preview{margin-top:0;min-height:0}.output-preview small{display:block;color:var(--muted);margin-top:3px}.output-preview pre{white-space:pre-wrap;font-family:inherit;margin:0}.graphic-mini svg{width:100%;height:auto}.report-mini{font-size:10px;line-height:1.4}.report-mini h1{font-size:14px}.report-mini h2{font-size:11px;margin-top:9px}
+
+/* Bring-your-own-key cloud AI controls. */
+.cloud-ai-panel{display:grid;gap:10px}.cloud-provider{border:1px solid var(--border);border-radius:8px;background:var(--panel2);padding:10px}.cloud-provider-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px}.cloud-provider-head span{font-size:9px;color:var(--muted)}.cloud-key-warning{padding-top:3px;border-top:1px solid var(--border)}
+
+/* Keep centre content bounded; wide artefacts scroll inside their own controls. */
+.workspace{min-width:0;max-width:100%;overscroll-behavior:contain}.workspace>.grid,.workspace>.panel,.workspace>.metrics,.workspace>.report-nav,.workspace>.filterbar{max-width:100%}.table-wrap,.chart-shell,.gantt-wrap,.network-widget{max-width:100%}
+@media(max-width:1100px){.notebook-layout{grid-template-columns:minmax(0,1fr) 320px}}
+@media(max-width:820px){.workspace.workspace-fixed{overflow:auto;height:auto}.notebook-layout{display:grid;grid-template-columns:1fr;height:auto}.notebook-chat-column{height:62vh;min-height:470px}.notebook-output-pane{height:auto;max-height:none;overflow:visible}.gantt-scale-row{min-height:76px!important}}

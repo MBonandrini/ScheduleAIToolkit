@@ -1,4 +1,4 @@
-# Project Controls AI Suite / Schedule AI Toolkit v1.3.0
+# Project Controls AI Suite / Schedule AI Toolkit v1.4.0
 
 A static GitHub Pages-compatible project-controls workbench for Primavera P6 XER, Microsoft Project XML and Microsoft Project MPP-derived schedule analysis.
 
@@ -12,19 +12,37 @@ A static GitHub Pages-compatible project-controls workbench for Primavera P6 XER
 
 ## GitHub Pages
 
-This site is intentionally static. No API key should be embedded in the repository.
+This site remains a static GitHub Pages application. No API key is embedded in the repository or release package.
 
 1. Copy the **contents** of this package into the repository root.
 2. Push to `main`.
-3. In **Repository Settings → Pages**, select **GitHub Actions** as the source.
-4. The included `.github/workflows/pages.yml` runs `npm run test:exhaustive` before deployment.
-5. Deployment proceeds only when the test job passes.
+3. Use your existing GitHub Pages deployment configuration.
+4. Keep the included `.nojekyll` file in the repository root.
 
-The included `.nojekyll` file prevents Jekyll processing.
+Asset URLs are cache-bumped to `v=1.4.0` so browsers request the revised JavaScript/CSS after deployment.
+
+## AI options
+
+AI is disabled until the user selects a model in **Settings**.
+
+Available categories include:
+- local Ollama;
+- browser CPU/WASM;
+- browser WebGPU/WebLLM where supported;
+- Google Gemini using the user's own API key;
+- xAI Grok using the user's own API key.
+
+### Gemini / Grok locally stored keys
+
+Settings now contains password boxes for Gemini and Grok API keys plus editable model names. The user can **Save locally**, **Test**, or **Clear** each key. Keys are stored in that browser profile's `localStorage`; they are not committed to Git and are not inserted into source files.
+
+Default cloud model names in v1.4.0:
+- Gemini: `gemini-3.8-flash`
+- Grok: `grok-4.6`
+
+**Security note:** browser-local storage is persistent and convenient, but a long-lived API key in a browser is not a server-side secret. For a production/shared deployment, a backend/Worker proxy with server-side secret storage is safer. The direct local-key option is retained because this build is designed to let an individual user bring their own key on their own computer.
 
 ## Local Ollama (optional)
-
-AI remains off until explicitly selected. For a free/local model:
 
 1. Run `setup-ollama.bat`, or install/start Ollama yourself.
 2. Open **Settings → Ollama**.
@@ -37,7 +55,7 @@ For a hosted GitHub Pages site, the browser must be permitted to reach the local
 
 ## Microsoft Project `.mpp` import
 
-A browser-hosted GitHub Pages site cannot reliably decode Microsoft Project's proprietary binary MPP format using ordinary browser JavaScript alone. v1.3 therefore keeps the conversion **local on the user's PC** and does not upload the MPP file to a paid/cloud service.
+A browser-hosted GitHub Pages site cannot reliably decode Microsoft Project's proprietary binary MPP format using ordinary browser JavaScript alone. The supplied local bridge keeps conversion on the user's PC and does not upload the MPP file to a paid/cloud service.
 
 ### Windows setup
 
@@ -45,38 +63,54 @@ A browser-hosted GitHub Pages site cannot reliably decode Microsoft Project's pr
 2. Run `setup-mpp-bridge.bat`.
 3. The helper checks for Node.js 20+, installs the local parser dependency under `tools/`, and starts the parser at `http://127.0.0.1:8765`.
 4. Leave that command window open while importing `.mpp` files.
-5. In the site, import or link the MPP file normally. The site sends the binary file to the **local loopback parser only**, receives MSPDI XML, and parses it into the internal schedule model.
+5. Import or link the MPP file normally. The site sends the binary file to the **local loopback parser only**, receives MSPDI XML, and parses it into the internal schedule model.
 6. Use **Schedule Assessment → Activity Register → Edit this schedule in Schedule Builder** to copy the parsed schedule into the editable builder.
 
 The converted model includes WBS/summary hierarchy, activities, milestones, dates/durations, constraints, calendars, predecessor links, resources, assignments, work/units and cost fields where present in the source MSPDI data.
 
-## v1.3 Schedule Assessment highlights
+## v1.4 Schedule Assessment highlights
 
-- Explicit schedule dropdowns for Schedule Comparison, Week-on-Week, Delay Analysis, Baseline & Lookahead, Time Machine and multi-schedule Forensic Review.
-- Critical Path and WBS/Gantt have weeks/months/quarters/years timescales, relationship links, and a draggable WBS/Activity band.
-- Logic & Health and Forecast Confidence expose definitions on hover.
-- DCMA-style checks include visual quality graphics beneath the statistics.
-- S-Curve/Histogram can be based on activities, units/man-hours, cost or a selected resource; chart points/bars show exact hover values and Friday week-ending labels.
-- Nodes have relationship/issue hover details and zoom controls.
-- Baseline & Lookahead shows four-week activity detail grouped by WBS.
-- Schedule Narrative includes phase/WBS, resource/manpower, cost, near-term work and roadblock commentary.
+### Schedule Comparison
+The comparison now covers:
+- activities;
+- relationships;
+- calendar master data and activity calendar assignment changes;
+- resource master data;
+- activity/resource assignment and loading changes.
+
+Deleted activities, relationships, calendars, resources and assignments are shown in red.
+
+### Critical Path and WBS/Gantt
+Both views now provide:
+- Weeks / Months / Quarters / Years timescale selection;
+- explicit Timescale Start and Timescale Finish date controls;
+- Full Range reset;
+- adaptive timescale text that shrinks/rotates when segments are narrow;
+- orthogonal P6-style dependency lines;
+- draggable WBS/Activity width;
+- relationship-line visibility control.
+
+### DCMA-style checks
+The visual section now uses threshold graphics rather than arbitrary decorative chart types. Every visual compares the measured value directly with its applicable limit and displays the PASS/FAIL result.
+
+### Schedule Narrative
+The narrative includes a collapsed activity-detail register containing all activities. Critical and zero-float activity values are red.
+
+Other v1.3 functionality remains: explicit schedule dropdowns for comparison views, multi-schedule Forensic Review, S-Curve/Histogram basis selection, exact chart hover values, Friday week-ending labels, smarter Nodes, Time Machine, and detailed Baseline & Lookahead.
 
 ## NotebookLM+
 
-NotebookLM+ now has **Chat** and **Outputs** tabs. Outputs include:
+NotebookLM+ is now a two-pane workspace:
+- **left:** project chat, with the message composer kept at the bottom of the available centre-pane height;
+- **right:** an Outputs studio.
 
-- downloadable HTML project-controls report;
-- downloadable SVG schedule summary graphic;
-- downloadable activity-data CSV;
-- audio-ready briefing script with local browser speech playback and downloadable text script.
+There is no separate Outputs tab. The output studio provides:
+- Report → custom prompt → HTML preview/download;
+- Graphic → custom prompt → SVG preview/download;
+- Data Extract → custom prompt/filter → CSV download;
+- Audio Brief → custom prompt → local speech playback + text-script download.
 
-The browser SpeechSynthesis API can speak text but does not reliably expose its generated audio bytes, so the site does not falsely offer a WAV/MP3 download that it cannot produce.
-
-## AI architecture
-
-AI configuration is centralised in **Settings**. The supported catalogue can include browser CPU/WASM, WebGPU/WebLLM and Ollama models, but **No AI** is the startup/default state. Unsupported saved browser GPU selections can fall back safely rather than leaving chat controls unusable.
-
-Checked Project Repository files are shared context across the toolkit. Parsed schedules are exposed through structured schedule-query tools so large XER/XML/MPP schedules do not need to be injected wholesale into every prompt.
+If AI is enabled, Report and Audio customisation can use the selected model. With No AI selected, deterministic schedule outputs still work.
 
 ## Tests
 
@@ -92,6 +126,6 @@ Full release suite:
 npm run test:exhaustive
 ```
 
-The full suite covers parser fuzzing, large XER volume tests, deep network tests, comparison/forensic functions, Monte Carlo determinism, Ollama compatibility/failure handling, repository isolation, AI context integration, GitHub Pages import/dependency checks, security contracts, MSPDI golden parsing, v1.2 regressions and v1.3 request-specific contracts.
+The full suite covers parser fuzzing, large XER volume tests, deep network tests, comparison/forensic functions, Monte Carlo determinism, Ollama compatibility/failure handling, cloud-AI routing contracts, repository isolation, AI context integration, GitHub Pages import/dependency checks, security contracts, MSPDI golden parsing, v1.2/v1.3 regressions and v1.4 request-specific tests.
 
-See `V1_3_VALIDATION_REPORT.md` and `CHANGELOG_V1_3.md` for release detail.
+See `V1_4_VALIDATION_REPORT.md` and `CHANGELOG_V1_4.md` for release detail.

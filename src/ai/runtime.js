@@ -1,6 +1,7 @@
 
 import {chat as ollamaChat,ollamaConfig} from "./ollama.js";
 import {browserCPU,browserTransformersGPU,browserMLC,releaseBrowserAI,testBrowserAI} from "./browser.js";
+import {cloudChat,cloudConfig,testCloudAI} from "./cloud.js";
 import {AI_CATALOG,DEFAULT_AI_VALUE,aiEntry,aiCompatibility,catalogueGroups} from "./catalog.js";
 import {toolRegistry,inferTool} from "./tools.js";
 import {selectedContext} from "../repository/repository.js";
@@ -25,6 +26,8 @@ export function aiLabel(value=preferredAI()){
   const e=aiEntry(value);
   if(e.engine==="none")return "No AI";
   if(e.engine==="ollama")return `Ollama${ollamaConfig().model?` · ${ollamaConfig().model}`:" · selected local model"}`;
+  if(e.engine==="gemini")return `Gemini · ${cloudConfig("gemini").model}`;
+  if(e.engine==="grok")return `Grok · ${cloudConfig("grok").model}`;
   return e.label;
 }
 function progress(x){globalThis.dispatchEvent?.(new CustomEvent("pc-progress",{detail:x}))}
@@ -65,6 +68,8 @@ ${repo.text}`;
   else if(entry.engine==="gpu-transformers")out=await browserTransformersGPU(messages,{model:entry.model,dtype:entry.dtype||"q4",onProgress});
   else if(entry.engine==="mlc")out=await browserMLC(messages,{model:entry.model,onProgress});
   else if(entry.engine==="ollama")out=await ollamaChat(messages,{onProgress});
+  else if(entry.engine==="gemini")out=await cloudChat("gemini",messages,{model:cloudConfig("gemini").model,onProgress});
+  else if(entry.engine==="grok")out=await cloudChat("grok",messages,{model:cloudConfig("grok").model,onProgress});
   else throw new Error("This AI option is not available yet.");
   return {...out,aiValue:entry.value,aiLabel:aiLabel(entry.value),sources:repo.files.map(f=>({id:f.id,name:f.name,category:f.category,relativePath:f.relativePath})),structuredTool:call?.name||null};
 }
@@ -73,6 +78,7 @@ export async function testSelectedAI({onProgress=null}={}){
   if(entry.engine==="none")return {ok:true,message:"AI is disabled by default. Select a model in Settings when required.",entry};
   if(!compat.ok)return {ok:false,message:compat.reason,entry};
   if(entry.engine==="ollama")return {ok:true,message:"Use the Ollama Test & Save control in Settings for a full local-server test.",entry};
+  if(entry.engine==="gemini"||entry.engine==="grok"){const r=await testCloudAI(entry.engine);return {...r,entry}}
   try{const r=await testBrowserAI(entry,{onProgress:onProgress||((x)=>progress(x))});return {ok:r.ok,message:r.ok?`${entry.label} responded correctly.`:`${entry.label} returned: ${r.text}`,entry}}
   catch(error){return {ok:false,message:error.message||String(error),entry}}
 }

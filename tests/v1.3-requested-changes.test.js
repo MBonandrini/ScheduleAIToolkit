@@ -19,12 +19,12 @@ export async function run(){
   assert.ok(app.includes("Array(10).fill")&&app.includes("up to 10 schedules"));
   assert.ok(app.includes("resourceChangeSummary")&&app.includes("logicAdded")&&app.includes("logicRemoved"));
   assert.ok(app.includes("healthDefinition")&&app.includes("help-term"));
-  assert.ok(app.includes("Quality graphics")&&app.includes("quality-grid"));
+  assert.ok(app.includes("Threshold graphics")&&app.includes("quality-grid"));
   assert.ok(app.includes("Basis <select id=\"scurveBasis\"")&&app.includes("Individual resource"));
   assert.ok(app.includes("X-axis dates are Fridays")&&app.includes("rotateLabels:true"));
   assert.ok(app.includes("Schedule Time Machine")&&app.includes("<strong>Purpose:</strong>"));
   assert.ok(app.includes("Next four weeks · detailed by WBS")&&app.includes("lookahead-wbs"));
-  assert.ok(app.includes("NotebookLM+")&&app.includes("data-notebook-tab=\"outputs\"")&&app.includes("Download SVG")&&app.includes("Download activity CSV")&&app.includes("Download script"));
+  assert.ok(app.includes("NotebookLM+")&&app.includes("notebook-output-pane")&&app.includes("Download SVG")&&app.includes("Download CSV")&&app.includes("Download script"));
   assert.ok(css.includes("grid-template-columns:repeat(auto-fit")&&css.includes(".workspace,.workspace>*{min-width:0"));
   assert.ok(css.includes(".gantt-divider")&&css.includes(".gantt-rel-overlay")&&css.includes(".network-viewport")&&css.includes(".network-zoom-label"));
   const gh=gantt(schedule,{timescale:"weekly",showRelationships:true,leftWidth:450});assert.ok(gh.includes("Weeks")&&gh.includes("Months")&&gh.includes("Quarters")&&gh.includes("Years"));assert.ok(gh.includes("gantt-divider")&&gh.includes("gantt-rel-overlay")&&gh.includes("WBS / Activity"));assert.ok(/2026-01-0?9/.test(gh),"weekly Gantt should show a Friday scale label");

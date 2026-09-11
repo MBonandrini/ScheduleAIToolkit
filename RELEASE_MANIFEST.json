@@ -1,12 +1,12 @@
 {
-  "release": "1.3.0",
-  "generatedAt": "2026-09-11T10:10:00+01:00",
-  "fileCount": 74,
+  "release": "1.4.0",
+  "generatedAt": "2026-09-11T12:50:00+01:00",
+  "fileCount": 78,
   "files": [
     {
       "path": ".final-test-results.json",
-      "bytes": 864,
-      "sha256": "9f83ef98c35347c9e480653ce6fcae367897d467e210f933fc6f64916405581f"
+      "bytes": 1134,
+      "sha256": "ad1386750022ad88a46ce83a2d25d0f958f32e6016fe88ba8618a0ec4d78ba62"
     },
     {
       "path": ".github/workflows/pages.yml",
@@ -49,14 +49,19 @@
       "sha256": "3c7edbe5a37ae88d537cf7626041356e06d1a950f40fad09bdd299fd54489ce1"
     },
     {
+      "path": "CHANGELOG_V1_4.md",
+      "bytes": 3685,
+      "sha256": "791b5a3f0adf6611420ccd88bfb6b7f7dd952cf55664515463bf1080435ce865"
+    },
+    {
       "path": "COMPREHENSIVE_TEST_REPORT.md",
       "bytes": 6988,
       "sha256": "9b9d9b8d907b99599ccd545a373314d6412e240ea0c9d75dec01e5273907a245"
     },
     {
       "path": "README.md",
-      "bytes": 5481,
-      "sha256": "62d9622e06c705458a57d4cf6bb474fec5c4f39ae50c9a140ab28a02294240c9"
+      "bytes": 6598,
+      "sha256": "07312da268df05b11cdf122daa97c52efd56077bbe9865edab05b000b42520aa"
     },
     {
       "path": "V1_2_1_VALIDATION_REPORT.md",
@@ -69,19 +74,24 @@
       "sha256": "258cdd0ffb8539f35747ee0758e4d2a2fcaf7d1e36a0c7d2da8183e36c3174e9"
     },
     {
+      "path": "V1_4_VALIDATION_REPORT.md",
+      "bytes": 3300,
+      "sha256": "f0552dbe23b40ef81947f68e626ac262c8bf1c4f4d6bf26979eaf282f58e67d4"
+    },
+    {
       "path": "assets/app.css",
-      "bytes": 30835,
-      "sha256": "bcf578bbd259f238a6466932f278ad244890443d3a98a17e4593cf7710ee5eec"
+      "bytes": 37810,
+      "sha256": "0adcd6c4e4afd4453234bccde02607626ea8d044a14d6726cc98f7a6bf003d58"
     },
     {
       "path": "index.html",
       "bytes": 3250,
-      "sha256": "eae93992052aeec823f1a8ed837e4a8a5ec986fef77a2254586641a2542704c7"
+      "sha256": "5da21f3e5fb7deeb423e659e4184950da97609f607612c474e94411ee0ce2c1a"
     },
     {
       "path": "package.json",
       "bytes": 284,
-      "sha256": "c63d5eccc5697c1f049f674b02a5a7fa5918c4987a6b1601640ac0daaa2bc51c"
+      "sha256": "35744c04580834862d8aa12a09ce8e6ebbc582318ece655bd14f5227aa79c4d0"
     },
     {
       "path": "setup-mpp-bridge.bat",
@@ -100,8 +110,13 @@
     },
     {
       "path": "src/ai/catalog.js",
-      "bytes": 3717,
-      "sha256": "7b4063ede448545e76ed26f0ecb60b80d9176fa5c33ce3a1d6065f467b1f40c9"
+      "bytes": 4047,
+      "sha256": "7560c651197b4da58ceaee2cc4aad0309ddf654611e109afef773fe85ca4fe0b"
+    },
+    {
+      "path": "src/ai/cloud.js",
+      "bytes": 4344,
+      "sha256": "a186f75e55f6effe6f1100d27913d3db3403014086158d6a4944a954e874ba62"
     },
     {
       "path": "src/ai/ollama.js",
@@ -110,8 +125,8 @@
     },
     {
       "path": "src/ai/runtime.js",
-      "bytes": 5787,
-      "sha256": "9e7545cf6ea78e3b26b255ba3f735b08bad007a6132905dc131f2a43816daffb"
+      "bytes": 6345,
+      "sha256": "c44f9cb08c557e5dfb1372294754a1192fb0e53de6c56cabe84188422f8b27e8"
     },
     {
       "path": "src/ai/tools.js",
@@ -130,8 +145,8 @@
     },
     {
       "path": "src/analysis/comparison.js",
-      "bytes": 5465,
-      "sha256": "66149503200fa8e763fc9e7ece80bb73a05f8405675d9e69c7ba88b33e37e334"
+      "bytes": 10173,
+      "sha256": "bcb519976d531cf59c4f627c782ff3d07c34c8797f9057232b743ad1f0a912d1"
     },
     {
       "path": "src/analysis/datacentre.js",
@@ -205,13 +220,13 @@
     },
     {
       "path": "src/ui/app.js",
-      "bytes": 106635,
-      "sha256": "70c57355c9437bfb29812b17a8bfe065be8fc1ce34b4bb4ca8c59c5a96a87a88"
+      "bytes": 120169,
+      "sha256": "865b9581ed062e3c5cf0d6a853f5f50dc2e2064f6f8c4df1459b28b8651add1d"
     },
     {
       "path": "src/ui/render.js",
-      "bytes": 17491,
-      "sha256": "df07a5b1df5d7cb1dee58093b39ebd4dccbe4e32bb38831ab7b370c18b2d4425"
+      "bytes": 18647,
+      "sha256": "a317a24f4b325c527fd0f9804c3341da0069336fc630f226d941c053cccdbb94"
     },
     {
       "path": "src/workers/client.js",
@@ -335,8 +350,8 @@
     },
     {
       "path": "tests/run-all.js",
-      "bytes": 2453,
-      "sha256": "28a6b63c02afce6f20c50419cb6b61691be12ccb5c72735467e05beb70870d20"
+      "bytes": 2530,
+      "sha256": "4b4198407c420afe6d71251b2c1ec943850571a78b85b68f8b92455244b3fc99"
     },
     {
       "path": "tests/run-exhaustive.js",
@@ -355,13 +370,18 @@
     },
     {
       "path": "tests/v1.2-requested-changes.test.js",
-      "bytes": 2691,
-      "sha256": "ab347934eacbef74d2c864e71b3352f35c5e0beae861099300716995efee9d80"
+      "bytes": 2697,
+      "sha256": "593e345b292b0881e763f8aee10997d2008f3e941f511c937a0b6110565e150f"
     },
     {
       "path": "tests/v1.3-requested-changes.test.js",
-      "bytes": 5775,
-      "sha256": "01b83b1962b5130575d62e3f77e1e33365e075c29d3d317c4db0a3fcbb4baeca"
+      "bytes": 5759,
+      "sha256": "0a0eac2d68ec2f1232b0cc4dfd6769565167a30cd2e8b4799271aa3fdd830a61"
+    },
+    {
+      "path": "tests/v1.4-requested-changes.test.js",
+      "bytes": 5958,
+      "sha256": "3515aa48731dbedf6fe456b5c7e94e696ea1bc361bf8856ffa9bb15ae004355b"
     },
     {
       "path": "tools/mpp-bridge.mjs",

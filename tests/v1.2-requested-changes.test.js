@@ -31,7 +31,7 @@ export async function run(){
   assert.ok(app.includes('(await listSchedules()).map(hydrateSchedule)'));
   assert.ok(app.includes('costTreeMarkup')&&css.includes('.cost-node')&&css.includes('.cost-activity'));
   assert.ok(app.includes('applyProfile')&&app.includes('pcai.profile'));
-  assert.ok(app.includes('Set up Ollama on Windows')&&/v=1\.3\.0/.test(html));
+  assert.ok(app.includes('Set up Ollama on Windows')&&/v=1\.[3-9]\.\d+/.test(html));
   assert.ok(bat.includes('winget install --id Ollama.Ollama')&&bat.includes('OLLAMA_ORIGINS')&&bat.includes('ollama pull'));
   return "v1.2-requested-changes";
 }

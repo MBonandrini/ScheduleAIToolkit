@@ -78,19 +78,23 @@ function scaleSegments(min,max,timescale){
     else if(timescale==="monthly")label=cursor.toLocaleDateString(undefined,{month:"short",year:"2-digit"});
     else if(timescale==="quarterly")label=`Q${Math.floor(cursor.getMonth()/3)+1} ${cursor.getFullYear()}`;
     else label=String(cursor.getFullYear());
-    out.push(`<span style="left:${left}%;width:${width}%" title="${esc(label)}">${esc(label)}</span>`);cursor=next;
+    const fitClass=width<2.8?" scale-vertical scale-tiny":width<5.2?" scale-vertical":width<9?" scale-small":"";
+    const fontSize=Math.max(6,Math.min(10,6+width*.48));
+    out.push(`<span class="gantt-scale-segment${fitClass}" style="left:${left}%;width:${width}%;--scale-font:${fontSize.toFixed(1)}px" title="${esc(label)}"><b>${esc(label)}</b></span>`);cursor=next;
   }
   return out.join("");
 }
-export function gantt(schedule,{activities=null,timescale="weekly",compression="standard",criticalOnly=false,forceRed=false,showRelationships=true,leftWidth=410,resizeKey="gantt"}={}){
+export function gantt(schedule,{activities=null,timescale="weekly",compression="standard",criticalOnly=false,forceRed=false,showRelationships=true,leftWidth=410,resizeKey="gantt",startDate="",endDate=""}={}){
   const acts=(activities||schedule.activities||[]).filter(a=>!criticalOnly||a.critical||a.totalFloat<=0);
   const dates=acts.flatMap(a=>[a.currentStart||a.start,a.currentFinish||a.finish,a.baselineStart,a.baselineFinish]).map(parseDate).filter(Boolean);
   if(!dates.length)return `<div class="gantt-panel panel"><div class="empty-state">No usable activity dates.</div></div>`;
-  let min=Math.min(...dates.map(d=>d.getTime())),max=Math.max(...dates.map(d=>d.getTime()));if(max<=min)max=min+86400000;
+  const autoMin=Math.min(...dates.map(d=>d.getTime())),autoMax=Math.max(...dates.map(d=>d.getTime()));
+  let min=parseDate(startDate)?.getTime()||autoMin,max=parseDate(endDate)?.getTime()||autoMax;if(max<=min)max=min+86400000;
   const span=max-min,pos=v=>{const d=parseDate(v);return d?clamp((d.getTime()-min)/span*100,0,100):0};
   const totalDays=Math.max(1,span/86400000),stepDays=timescale==="annual"?365:timescale==="quarterly"?91:timescale==="monthly"?30:7;
   const gridPct=Math.max(.35,stepDays/totalDays*100),timelineMin=compression==="compact"?760:timescale==="weekly"?1400:1100,rowClass=compression==="compact"?" compact":"";
   const renderActivity=a=>{
+    const st=parseDate(a.currentStart||a.start),fn=parseDate(a.currentFinish||a.finish);if((fn&&fn.getTime()<min)||(st&&st.getTime()>max))return "";
     const s=pos(a.currentStart||a.start),f=pos(a.currentFinish||a.finish),bs=pos(a.baselineStart),bf=pos(a.baselineFinish),crit=forceRed||a.critical||a.totalFloat<=0;
     const current=a.milestone?`<span class="milestone ${crit?"critical":""}" style="left:${f}%" title="${esc(a.id)} · ${esc(a.name)} · ${isoDate(a.currentFinish||a.finish)}"></span>`:
       `<span class="bar ${crit?"critical":""}" style="left:${Math.min(s,f)}%;width:${Math.max(.25,Math.abs(f-s))}%" title="${esc(a.id)} · ${esc(a.name)} · ${isoDate(a.currentStart||a.start)} → ${isoDate(a.currentFinish||a.finish)} · TF ${Number(a.totalFloat||0).toFixed(1)}d"><i style="width:${Math.max(0,Math.min(100,a.percent||0))}%"></i></span>`;
@@ -98,18 +102,19 @@ export function gantt(schedule,{activities=null,timescale="weekly",compression="
     const actual=a.actualStart?`<span class="actual-mark" style="left:${pos(a.actualStart)}%" title="Actual start ${isoDate(a.actualStart)}"></span>`:"";
     return `<div class="gantt-row${rowClass}" data-activity-id="${esc(a.id)}"><div class="gantt-left" title="${esc(a.wbsPath)}"><span class="gantt-code">${esc(a.id)}</span> · ${esc(a.name)}</div><div class="gantt-time" style="background-size:${gridPct}% 100%">${baseline}${current}${actual}</div></div>`;
   };
-  const groups=new Map();for(const a of acts){const key=a.wbsPath||"Unassigned WBS";if(!groups.has(key))groups.set(key,[]);groups.get(key).push(a)}
+  const groups=new Map();for(const a of acts){const st=parseDate(a.currentStart||a.start),fn=parseDate(a.currentFinish||a.finish);if((fn&&fn.getTime()<min)||(st&&st.getTime()>max))continue;const key=a.wbsPath||"Unassigned WBS";if(!groups.has(key))groups.set(key,[]);groups.get(key).push(a)}
   const grouped=[...groups.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([wbs,list])=>{
     const starts=list.map(a=>parseDate(a.currentStart||a.start)).filter(Boolean),finishes=list.map(a=>parseDate(a.currentFinish||a.finish)).filter(Boolean),gs=starts.length?pos(new Date(Math.min(...starts.map(d=>d.getTime())))):0,gf=finishes.length?pos(new Date(Math.max(...finishes.map(d=>d.getTime())))):0;
     return `<details class="gantt-group" open><summary><span>${esc(wbs)} <small>${list.length} activities</small></span><span class="summary-time"><i style="left:${Math.min(gs,gf)}%;width:${Math.max(.3,Math.abs(gf-gs))}%"></i></span></summary>${list.map(renderActivity).join("")}</details>`;
   }).join("");
-  const dd=pos(schedule.dataDate),title=criticalOnly?"Critical Path Gantt":"WBS / Activity Gantt",scale=scaleSegments(min,max,timescale);
-  return `<div class="panel gantt-panel" data-gantt-panel data-resize-key="${esc(resizeKey)}"><h2>${title}</h2><div class="muted">${acts.length} activities · ${isoDate(new Date(min))} to ${isoDate(new Date(max))}</div>
+  const dd=pos(schedule.dataDate),title=criticalOnly?"Critical Path Gantt":"WBS / Activity Gantt",scale=scaleSegments(min,max,timescale),shownCount=[...groups.values()].reduce((n,x)=>n+x.length,0),autoStart=isoDate(new Date(autoMin)),autoFinish=isoDate(new Date(autoMax));
+  return `<div class="panel gantt-panel" data-gantt-panel data-resize-key="${esc(resizeKey)}"><h2>${title}</h2><div class="muted">${shownCount} visible activities · ${isoDate(new Date(min))} to ${isoDate(new Date(max))}</div>
   <div class="gantt-toolbar"><label>Timescale <select id="ganttTimescale"><option value="weekly" ${timescale==="weekly"?"selected":""}>Weeks</option><option value="monthly" ${timescale==="monthly"?"selected":""}>Months</option><option value="quarterly" ${timescale==="quarterly"?"selected":""}>Quarters</option><option value="annual" ${timescale==="annual"?"selected":""}>Years</option></select></label>
+  <label>Timescale start <input id="ganttStartDate" type="date" value="${esc(startDate||autoStart)}"></label><label>Timescale finish <input id="ganttFinishDate" type="date" value="${esc(endDate||autoFinish)}"></label><button class="btn gantt-reset-range" id="ganttResetRange" type="button">Full range</button>
   <label>Row density <select id="ganttCompression"><option value="compact" ${compression==="compact"?"selected":""}>Compact</option><option value="standard" ${compression==="standard"?"selected":""}>Standard</option></select></label>
   <label><input type="checkbox" id="ganttRelationships" ${showRelationships?"checked":""}> Show relationship links</label></div>
   <div class="gantt-wrap"><div class="gantt" style="--gantt-left:${Math.max(220,Number(leftWidth)||410)}px;min-width:${timelineMin+Math.max(220,Number(leftWidth)||410)}px" data-show-relationships="${showRelationships?"1":"0"}"><svg class="gantt-rel-overlay" aria-hidden="true"></svg><div class="gantt-row gantt-scale-row${rowClass}"><div class="gantt-left gantt-left-header"><strong>WBS / Activity</strong><span class="gantt-divider" role="separator" aria-orientation="vertical" title="Drag to resize WBS / Activity column"></span></div><div class="gantt-time gantt-scale" style="background-size:${gridPct}% 100%"><span class="data-date" style="left:${dd}%" title="Data date ${isoDate(schedule.dataDate)}"></span>${scale}</div></div>${grouped}</div></div>
-  <div class="gantt-footnote muted">Relationship links are drawn between visible activities. Collapse/expand WBS bands or resize the activity column and the links redraw automatically.</div></div>`;
+  <div class="gantt-footnote muted">Relationship links use square P6-style elbows between visible activities. Use the date boxes to focus the timescale, collapse/expand WBS bands, or drag the WBS/Activity divider.</div></div>`;
 }
 export function calendarMonth(calendarYear,monthIndex){
   const month=calendarYear.months[monthIndex],first=new Date(calendarYear.year,monthIndex,1),offset=(first.getDay()+6)%7;
