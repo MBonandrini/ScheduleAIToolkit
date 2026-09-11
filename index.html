@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title>Project Controls AI Suite</title>
-  <link rel="stylesheet" href="./assets/app.css?v=1.2.1">
+  <link rel="stylesheet" href="./assets/app.css?v=1.3.0">
 </head>
 <body>
   <header class="suite-header">
@@ -54,10 +54,10 @@
         <input id="fileInput" type="file" multiple hidden>
         <input id="folderInput" type="file" webkitdirectory multiple hidden>
       </div>
-      <div class="repo-help">Checked files are shared AI context across the toolkit. XER/XML schedules are parsed automatically.</div>
+      <div class="repo-help">Checked files are shared AI context across the toolkit. XER/XML parse in-browser. MPP imports use the local MPP parser. <a href="./setup-mpp-bridge.bat" download>MPP setup</a>.</div>
       <div id="repoFiles" class="repo-files"></div>
       <div class="repo-section">
-        <div class="repo-section-title">Schedule revisions <span id="scheduleCount">0</span></div>
+        <div class="repo-section-title">Schedules <span id="scheduleCount">0</span></div>
         <div id="scheduleList"></div>
       </div>
     </aside>
@@ -73,6 +73,6 @@
     <div class="progress-track"><div id="progressBar"></div></div>
   </div>
 
-  <script type="module" src="./src/ui/app.js?v=1.2.1"></script>
+  <script type="module" src="./src/ui/app.js?v=1.3.0"></script>
 </body>
 </html>

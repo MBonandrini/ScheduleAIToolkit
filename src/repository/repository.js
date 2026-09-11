@@ -25,7 +25,7 @@ export async function addFiles(files,{category="Other",checked=true,source="uplo
   for(const file of Array.from(files||[])){
     const rec={id:uid("file"),projectId:project.id,name:file.name,size:file.size||0,type:file.type||"",category,checked,source,relativePath:relativePath||file.webkitRelativePath||file.name,blob:file,lastModified:file.lastModified||Date.now(),createdAt:new Date().toISOString()};
     await db.put("files",rec);out.push(rec);
-    if(/\.(xer|xml)$/i.test(file.name)){
+    if(/\.(xer|xml|mpp)$/i.test(file.name)){
       try{
         const parsed=await parseScheduleOffThread(file);
         for(const s of parsed.schedules){s.id=uid("schedule");s.projectId=project.id;s.sourceFileId=rec.id;s.sourceName=file.name;await db.put("schedules",s)}
@@ -81,7 +81,7 @@ export async function selectedContext({maxFileChars=12000,maxTotalChars=36000,qu
   const files=await checkedFiles(),blocks=[];let total=0;
   for(const f of files){
     if(total>=maxTotalChars)break;
-    const ext=(f.name.split(".").pop()||"").toLowerCase(),isSchedule=ext==="xer"||ext==="xml";
+    const ext=(f.name.split(".").pop()||"").toLowerCase(),isSchedule=ext==="xer"||ext==="xml"||ext==="mpp";
     const meta=`FILE: ${f.name}\nCATEGORY: ${f.category}\nPATH: ${f.relativePath}\nSIZE: ${f.size||0} bytes`;
     if(isSchedule&&skipScheduleText){blocks.push(`${meta}\nTYPE: Parsed schedule file — use structured schedule evidence supplied separately.`);continue}
     if(!TEXT_EXT.has(ext)){blocks.push(`${meta}\nTYPE: Binary/non-text project evidence.`);continue}
@@ -124,7 +124,7 @@ export async function linkFolder(){
   for(const {file,path} of rows){
     const rec={id:uid("file"),projectId:project.id,name:file.name,size:file.size,type:file.type,category:"Bulk Information",checked:true,source:"linked-folder",relativePath:path,folderKey:key,lastModified:file.lastModified,createdAt:new Date().toISOString()};
     await db.put("files",rec);saved.push(rec);
-    if(/\.(xer|xml)$/i.test(file.name)){
+    if(/\.(xer|xml|mpp)$/i.test(file.name)){
       try{const parsed=await parseScheduleOffThread(file);for(const s of parsed.schedules){s.id=uid("schedule");s.projectId=project.id;s.sourceFileId=rec.id;s.sourceName=file.name;await db.put("schedules",s)}}catch(e){rec.parseError=e.message;await db.put("files",rec)}
     }
   }

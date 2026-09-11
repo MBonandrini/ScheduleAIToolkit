@@ -12,7 +12,7 @@ export async function run(){
   assert.ok(html.includes("Dark")&&html.includes("Light · Dark Blue Contrast"));assert.ok(!html.includes("Slate")&&!html.includes("Midnight")&&!html.includes("Sand"));
   assert.ok(!/tab-icon/.test(html));
   assert.ok(html.indexOf("Schedule Builder")<html.indexOf("Settings"));
-  for(const feature of ["Planner's Inbox","Data-centre readiness","Why Did My Date Move?","Calendar Analyser","Weekly S-Curve","Weekly Histogram","Executive Schedule Narrative","Schedule Time Machine","Milestone Control Centre","Network graph intelligence","Data-centre lifecycle readiness"])assert.ok(app.includes(feature),feature);
+  for(const feature of ["Planner's Inbox","Readiness","Why Did My Date Move?","Calendar Analyser","Weekly S-Curve","Weekly Histogram","Executive Schedule Narrative","Schedule Time Machine","Milestone Control Centre","Network graph intelligence","Data-centre lifecycle readiness"])assert.ok(app.includes(feature),feature);
   assert.ok(css.includes(".gantt-panel{background:#fff!important"));
   assert.ok(css.includes(".bar.critical{background:#c83932"));
   assert.ok(app.includes("Virtualised activity register"));

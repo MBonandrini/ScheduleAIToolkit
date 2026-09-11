@@ -1,0 +1,7 @@
+{
+  "name": "project-controls-mpp-bridge",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=20"},
+  "dependencies": {"@byteink/mppjs": "0.1.7"}
+}
