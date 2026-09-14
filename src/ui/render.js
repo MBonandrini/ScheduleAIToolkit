@@ -1,149 +1,531 @@
-import {esc,isoDate,parseDate,clamp,addDays} from "../core/utils.js";
-
-export const metric=(label,value,detail="",help="")=>`<div class="metric${help?" metric-help":""}"${help?` title="${esc(help)}" data-help="${esc(help)}"`:""}><small>${esc(label)}${help?` <span class="help-dot" aria-hidden="true">?</span>`:""}</small><strong>${esc(value)}</strong><small>${esc(detail)}</small></div>`;
-export const badge=(text,kind="")=>`<span class="badge ${kind}">${esc(text)}</span>`;
-export const table=(headers,rows,{resizable=false,resizeKey=""}={})=>`<div class="table-wrap${resizable?" resizable-wrap":""}"${resizable&&resizeKey?` data-resize-key="${esc(resizeKey)}"`:""}><table class="${resizable?"resizable-table":""}">${resizable?`<colgroup>${headers.map(()=>`<col>`).join("")}</colgroup>`:""}<thead><tr>${headers.map((h,i)=>`<th>${esc(h)}${resizable?`<span class="col-resizer" data-col-index="${i}" role="separator" aria-orientation="vertical" aria-label="Resize ${esc(h)} column" title="Drag to resize column"></span>`:""}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map(c=>`<td>${c??""}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${headers.length}" class="muted">No data</td></tr>`}</tbody></table></div>`;
-
-function chartLegend(series){
-  return `<div class="chart-legend">${series.map((s,i)=>`<span><i class="chart-key chart-key-${i%6}"></i>${esc(s.name||s.label||`Series ${i+1}`)}</span>`).join("")}</div>`;
+/**
+ * Shared HTML/SVG renderers for tables, charts, networks and P6-style Gantts.
+ * Renderers are deterministic: they receive normalized data and return markup;
+ * application state and persistence remain in app.js/app-state.js.
+ */
+import {
+  esc,
+  isoDate,
+  parseDate,
+  clamp,
+  addDays
+} from "../core/utils.js";
+export const metric = (label, value, detail = "", help = "") => `<div class="metric${help? " metric-help": ""}"${help? ` title="${esc(help)}" data-help="${esc(help)}"`: ""}><small>${esc(label)}${help? ` <span class="help-dot" aria-hidden="true">?</span>`: ""}</small><strong>${esc(value)}</strong><small>${esc(detail)}</small></div>`;
+export const badge = (text, kind = "") => `<span class="badge ${kind}">${esc(text)}</span>`;
+export const table = (headers, rows, {
+  resizable = false, resizeKey = ""
 }
-export function lineChart(series,{width=900,height=280,xLabels=[],rotateLabels=false,valueSuffix=""}={}){
-  if(!series?.length||!series.some(s=>s.values?.length))return `<div class="empty-state">No chart data.</div>`;
-  const all=series.flatMap(s=>(s.values||[]).map(v=>Number(v.y))).filter(Number.isFinite),min=Math.min(...all),max=Math.max(...all),span=max-min||1;
-  const n=Math.max(2,...series.map(s=>s.values?.length||0)),left=42,right=18,top=22,bottom=rotateLabels?82:42,plotH=height-top-bottom,plotW=width-left-right;
-  const xAt=i=>left+i/Math.max(1,n-1)*plotW,yAt=v=>top+plotH-(Number(v)-min)/span*plotH;
-  const grid=Array.from({length:5},(_,i)=>{const y=top+i/4*plotH,val=max-i/4*span;return `<line x1="${left}" y1="${y}" x2="${width-right}" y2="${y}" class="chart-grid"/><text x="5" y="${y+3}" class="chart-axis-label">${Number(val).toFixed(1)}</text>`}).join("");
-  const paths=series.map((s,si)=>{
-    const pts=(s.values||[]).map((v,i)=>`${xAt(i)},${yAt(v.y)}`).join(" ");
-    const points=(s.values||[]).map((v,i)=>`<circle cx="${xAt(i)}" cy="${yAt(v.y)}" r="3.5" class="chart-point chart-series-${si%6}"><title>${esc(xLabels[i]||String(v.x??i))} · ${esc(s.name||s.label||`Series ${si+1}`)}: ${Number(v.y).toFixed(2)}${esc(valueSuffix)}</title></circle>`).join("");
-    return `<polyline points="${pts}" fill="none" class="chart-line chart-series-${si%6}" stroke-width="${si?2:3}"/>${points}`;
+= {
+}) => `<div class="table-wrap${resizable? " resizable-wrap": ""}"${resizable && resizeKey? ` data-resize-key="${esc(resizeKey)}"`: ""}><table class="${resizable? "resizable-table": ""}">${resizable? `<colgroup>${headers.map(() => `<col>`).join("")}</colgroup>`: ""}<thead><tr>${headers.map((h, i) => `<th>${esc(h)}${resizable? `<span class="col-resizer" data-col-index="${i}" role="separator" aria-orientation="vertical" aria-label="Resize ${esc(h)} column" title="Drag to resize column"></span>`: ""}</th>`).join("")}</tr></thead><tbody>${rows.length? rows.map(r => `<tr>${r.map(c => `<td>${c ?? ""}</td>`).join("")}</tr>`).join(""): `<tr><td colspan="${headers.length}" class="muted">No data</td></tr>`}</tbody></table></div>`;
+function chartLegend(series) {
+  return`<div class="chart-legend">${series.map((s, i) => `<span><i class="chart-key chart-key-${i % 6}"></i>${esc(s.name || s.label || `Series ${i + 1}`)}</span>`).join("")}</div>`;
+}
+export function lineChart(series, {
+  width = 900, height = 280, xLabels = [], rotateLabels = false, valueSuffix = ""
+}
+= {
+}) {
+  if (!series?.length || !series.some(s => s.values?.length))return`<div class="empty-state">No chart data.</div>`;
+  const all = series.flatMap(s => (s.values || []).map(v => Number(v.y))).filter(Number.isFinite),
+  min = Math.min(...all),
+  max = Math.max(...all),
+  span = max - min || 1;
+  const n = Math.max(2, ...series.map(s => s.values?.length || 0)),
+  left = 42,
+  right = 18,
+  top = 22,
+  bottom = rotateLabels? 82: 42,
+  plotH = height - top - bottom,
+  plotW = width - left - right;
+  const xAt = i => left + i / Math.max(1, n - 1) * plotW,
+  yAt = v => top + plotH - (Number(v) - min) / span * plotH;
+  const grid = Array.from( {
+    length: 5
+  }, (_, i) => {
+    const y = top + i / 4 * plotH, val = max - i / 4 * span; return`<line x1="${left}" y1="${y}" x2="${width - right}" y2="${y}" class="chart-grid"/><text x="5" y="${y + 3}" class="chart-axis-label">${Number(val).toFixed(1)}</text>`
   }).join("");
-  const step=Math.max(1,Math.ceil(n/16));
-  const labels=Array.from({length:n},(_,i)=>i%step===0?`<text x="${xAt(i)}" y="${height-bottom+18}" class="chart-axis-label chart-x-label" text-anchor="${rotateLabels?"start":"middle"}" ${rotateLabels?`transform="rotate(90 ${xAt(i)} ${height-bottom+18})"`:""}>${esc(String(xLabels[i]??i))}</text>`:"").join("");
-  return `<div class="chart-shell">${chartLegend(series)}<svg class="svg-chart${rotateLabels?" rotated-axis":""}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">${grid}${paths}${labels}</svg></div>`;
+  const paths = series.map((s, si) => {
+    const pts = (s.values || []).map((v, i) => `${xAt(i)},${yAt(v.y)}`).join(" "); const points = (s.values || []).map((v, i) => `<circle cx="${xAt(i)}" cy="${yAt(v.y)}" r="3.5" class="chart-point chart-series-${si % 6}"><title>${esc(xLabels[i] || String(v.x ?? i))} · ${esc(s.name || s.label || `Series ${si + 1}`)}: ${Number(v.y).toFixed(2)}${esc(valueSuffix)}</title></circle>`).join(""); return`<polyline points="${pts}" fill="none" class="chart-line chart-series-${si % 6}" stroke-width="${si? 2: 3}"/>${points}`;
+  }).join("");
+  const step = Math.max(1, Math.ceil(n / 16));
+  const labels = Array.from( {
+    length: n
+  }, (_, i) => i % step===0? `<text x="${xAt(i)}" y="${height - bottom + 18}" class="chart-axis-label chart-x-label" text-anchor="${rotateLabels? "start": "middle"}" ${rotateLabels? `transform="rotate(90 ${xAt(i)} ${height - bottom + 18})"`: ""}>${esc(String(xLabels[i] ?? i))}</text>`: "").join("");
+  return`<div class="chart-shell">${chartLegend(series)}<svg class="svg-chart${rotateLabels? " rotated-axis": ""}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">${grid}${paths}${labels}</svg></div>`;
 }
-
-export function barChart(rows,{width=900,height=280,labelKey="label",series=[],xLabels=null,rotateLabels=false,valueSuffix=""}={}){
-  if(!rows?.length||!series?.length)return `<div class="empty-state">No chart data.</div>`;
-  const vals=rows.flatMap(r=>series.map(s=>Number(r[s.key]||0))),max=Math.max(1,...vals),left=38,right=16,top=20,bottom=rotateLabels?84:42,plotH=height-top-bottom,plotW=width-left-right;
-  const groupW=plotW/rows.length,barW=Math.max(1.5,groupW/Math.max(2,series.length+1));
-  const grid=Array.from({length:5},(_,i)=>{const y=top+i/4*plotH,val=max-i/4*max;return `<line x1="${left}" y1="${y}" x2="${width-right}" y2="${y}" class="chart-grid"/><text x="5" y="${y+3}" class="chart-axis-label">${Number(val).toFixed(0)}</text>`}).join("");
-  const bars=[];
-  rows.forEach((r,i)=>{
-    series.forEach((s,j)=>{
-      const v=Number(r[s.key]||0),h=(v/max)*plotH,x=left+i*groupW+j*barW+barW*.22,y=top+plotH-h;
-      bars.push(`<rect x="${x}" y="${y}" width="${Math.max(1,barW*.68)}" height="${h}" rx="1.5" class="chart-bar chart-series-${j%6}"><title>${esc((xLabels?.[i])??r[labelKey]??"")} · ${esc(s.label||s.name||s.key)}: ${v.toFixed(2)}${esc(valueSuffix)}</title></rect>`);
+export function barChart(rows, {
+  width = 900, height = 280, labelKey = "label", series = [], xLabels = null, rotateLabels = false, valueSuffix = ""
+}
+= {
+}) {
+  if (!rows?.length || !series?.length)return`<div class="empty-state">No chart data.</div>`;
+  const vals = rows.flatMap(r => series.map(s => Number(r[s.key] || 0))),
+  max = Math.max(1, ...vals),
+  left = 38,
+  right = 16,
+  top = 20,
+  bottom = rotateLabels? 84: 42,
+  plotH = height - top - bottom,
+  plotW = width - left - right;
+  const groupW = plotW / rows.length,
+  barW = Math.max(1.5, groupW / Math.max(2, series.length + 1));
+  const grid = Array.from( {
+    length: 5
+  }, (_, i) => {
+    const y = top + i / 4 * plotH, val = max - i / 4 * max; return`<line x1="${left}" y1="${y}" x2="${width - right}" y2="${y}" class="chart-grid"/><text x="5" y="${y + 3}" class="chart-axis-label">${Number(val).toFixed(0)}</text>`
+  }).join("");
+  const bars = [];
+  rows.forEach((r, i) => {
+    series.forEach((s, j) => {
+      const v = Number(r[s.key] || 0), h = (v / max) * plotH, x = left + i * groupW + j * barW + barW * .22, y = top + plotH - h; bars.push(`<rect x="${x}" y="${y}" width="${Math.max(1, barW * .68)}" height="${h}" rx="1.5" class="chart-bar chart-series-${j % 6}"><title>${esc((xLabels?.[i]) ?? r[labelKey] ?? "")} · ${esc(s.label || s.name || s.key)}: ${v.toFixed(2)}${esc(valueSuffix)}</title></rect>`);
     });
   });
-  const step=Math.max(1,Math.ceil(rows.length/16)),labels=rows.map((r,i)=>i%step===0?`<text x="${left+i*groupW+groupW*.35}" y="${height-bottom+18}" class="chart-axis-label chart-x-label" text-anchor="${rotateLabels?"start":"middle"}" ${rotateLabels?`transform="rotate(90 ${left+i*groupW+groupW*.35} ${height-bottom+18})"`:""}>${esc(String((xLabels?.[i])??r[labelKey]??"").slice(0,18))}</text>`:"").join("");
-  return `<div class="chart-shell">${chartLegend(series)}<svg class="svg-chart${rotateLabels?" rotated-axis":""}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">${grid}${bars.join("")}${labels}</svg></div>`;
+  const step = Math.max(1, Math.ceil(rows.length / 16)),
+  labels = rows.map((r, i) => i % step===0? `<text x="${left + i * groupW + groupW * .35}" y="${height - bottom + 18}" class="chart-axis-label chart-x-label" text-anchor="${rotateLabels? "start": "middle"}" ${rotateLabels? `transform="rotate(90 ${left + i * groupW + groupW * .35} ${height - bottom + 18})"`: ""}>${esc(String((xLabels?.[i]) ?? r[labelKey] ?? "").slice(0, 18))}</text>`: "").join("");
+  return`<div class="chart-shell">${chartLegend(series)}<svg class="svg-chart${rotateLabels? " rotated-axis": ""}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">${grid}${bars.join("")}${labels}</svg></div>`;
 }
-
-function relationshipText(r){return `${r.predId} ${r.type||"FS"}${Number(r.lag||0)?` ${Number(r.lag)>0?"+":""}${Number(r.lag).toFixed(1)}d`:""} → ${r.succId}`}
-export function networkGraph(schedule,{maxNodes=120}={}){
-  const critical=(schedule.activities||[]).filter(a=>a.critical||a.totalFloat<=0);
-  const pool=(critical.length?critical:schedule.activities||[]).slice(0,maxNodes);
-  if(!pool.length)return `<div class="empty-state">No network data.</div>`;
-  const ids=new Set(pool.map(a=>a.id)),rels=(schedule.relationships||[]).filter(r=>ids.has(r.predId)&&ids.has(r.succId));
-  const incoming=new Map(pool.map(a=>[a.id,[]])),outgoing=new Map(pool.map(a=>[a.id,[]]));
-  for(const r of rels){incoming.get(r.succId)?.push(r);outgoing.get(r.predId)?.push(r)}
-  const indegree=new Map(pool.map(a=>[a.id,incoming.get(a.id)?.length||0])),layer=new Map(pool.map(a=>[a.id,0])),queue=pool.filter(a=>indegree.get(a.id)===0).map(a=>a.id);
-  while(queue.length){const id=queue.shift(),base=layer.get(id)||0;for(const r of outgoing.get(id)||[]){layer.set(r.succId,Math.max(layer.get(r.succId)||0,base+1));indegree.set(r.succId,(indegree.get(r.succId)||0)-1);if(indegree.get(r.succId)===0)queue.push(r.succId)}}
-  const maxKnown=Math.max(0,...layer.values());for(const a of pool)if((indegree.get(a.id)||0)>0)layer.set(a.id,Math.max(layer.get(a.id)||0,maxKnown+1));
-  const layers=new Map();for(const a of pool){const l=layer.get(a.id)||0;if(!layers.has(l))layers.set(l,[]);layers.get(l).push(a)}
-  for(const xs of layers.values())xs.sort((a,b)=>(parseDate(a.currentStart||a.start)?.getTime()||0)-(parseDate(b.currentStart||b.start)?.getTime()||0)||String(a.id).localeCompare(String(b.id)));
-  const maxLayer=Math.max(0,...layers.keys()),maxLane=Math.max(1,...[...layers.values()].map(x=>x.length)),width=Math.max(1100,(maxLayer+1)*190+120),height=Math.max(420,maxLane*78+100),coords=new Map();
-  for(const [l,xs] of layers.entries())xs.forEach((a,i)=>coords.set(a.id,{x:55+l*190,y:55+i*78,a}));
-  const marker=`<defs><marker id="netArrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L7,3 z" class="network-arrow"/></marker></defs>`;
-  const lines=rels.map(r=>{const p=coords.get(r.predId),s=coords.get(r.succId);if(!p||!s)return"";const x1=p.x+138,y1=p.y+20,x2=s.x,y2=s.y+20,mx=x1+Math.max(28,(x2-x1)*.45);return `<path d="M${x1} ${y1} C${mx} ${y1},${mx} ${y2},${x2} ${y2}" class="network-link" marker-end="url(#netArrow)"><title>${esc(relationshipText(r))}</title></path>`}).join("");
-  const nodes=pool.map(a=>{const c=coords.get(a.id),crit=a.critical||a.totalFloat<=0,ins=incoming.get(a.id)||[],outs=outgoing.get(a.id)||[],issues=[];if(!ins.length)issues.push("Open start");if(!outs.length)issues.push("Open finish");if(Number(a.totalFloat)<0)issues.push(`Negative float ${Number(a.totalFloat).toFixed(1)}d`);if(a.constraintType)issues.push(`Constraint ${a.constraintType}${a.constraintDate?` ${isoDate(a.constraintDate)}`:""}`);if(a.milestone)issues.push("Milestone");
-    const tip=[`${a.id} · ${a.name}`,`WBS: ${a.wbsPath||"—"}`,`Status: ${a.status||"—"}`,`Start: ${isoDate(a.currentStart||a.start)||"—"}`,`Finish: ${isoDate(a.currentFinish||a.finish)||"—"}`,`TF: ${Number(a.totalFloat||0).toFixed(1)}d`,`Incoming: ${ins.length}${ins.length?` — ${ins.slice(0,8).map(relationshipText).join("; ")}`:""}`,`Outgoing: ${outs.length}${outs.length?` — ${outs.slice(0,8).map(relationshipText).join("; ")}`:""}`,`Issues: ${issues.join("; ")||"None detected"}`].join("\n");
-    return `<g class="network-node${crit?" critical":""}"><rect x="${c.x}" y="${c.y}" width="138" height="42" rx="7"/><text x="${c.x+7}" y="${c.y+16}" class="network-node-id">${esc(a.id.slice(0,19))}</text><text x="${c.x+7}" y="${c.y+32}" class="network-node-name">${esc((a.name||"").slice(0,22))}</text><title>${esc(tip)}</title></g>`}).join("");
-  return `<div class="network-widget" data-network-widget data-zoom="1"><div class="network-toolbar"><button class="btn" data-net-zoom="out" title="Zoom out">−</button><span class="network-zoom-label">100%</span><button class="btn" data-net-zoom="in" title="Zoom in">＋</button><button class="btn" data-net-zoom="reset">Reset</button><span class="muted">${pool.length} nodes · ${rels.length} visible relationships</span></div><div class="network-viewport"><div class="network-canvas" style="width:${width}px;height:${height}px"><svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-label="Schedule network diagram">${marker}${lines}${nodes}</svg></div></div></div>`;
+function relationshipText(r) {
+  return`${r.predId} ${r.type || "FS"}${Number(r.lag || 0)? ` ${Number(r.lag)>0? "+": ""}${Number(r.lag).toFixed(1)}d`: ""} → ${r.succId}`
 }
-
-function scaleSegments(min,max,timescale){
-  const out=[],span=max-min||1,start=new Date(min);let cursor;
-  if(timescale==="weekly"){cursor=new Date(start);cursor.setHours(0,0,0,0);const mondayOffset=(cursor.getDay()+6)%7;cursor.setDate(cursor.getDate()-mondayOffset)}
-  else if(timescale==="monthly"){cursor=new Date(start.getFullYear(),start.getMonth(),1)}
-  else if(timescale==="quarterly"){cursor=new Date(start.getFullYear(),Math.floor(start.getMonth()/3)*3,1)}
-  else cursor=new Date(start.getFullYear(),0,1);
-  let guard=0;
-  while(cursor.getTime()<=max&&guard++<1000){
-    const next=new Date(cursor);
-    if(timescale==="weekly")next.setDate(next.getDate()+7);else if(timescale==="monthly")next.setMonth(next.getMonth()+1);else if(timescale==="quarterly")next.setMonth(next.getMonth()+3);else next.setFullYear(next.getFullYear()+1);
-    const left=clamp((cursor.getTime()-min)/span*100,0,100),right=clamp((next.getTime()-min)/span*100,0,100),width=Math.max(.2,right-left);
-    let label="";
-    if(timescale==="weekly")label=isoDate(addDays(cursor,4));
-    else if(timescale==="monthly")label=cursor.toLocaleDateString(undefined,{month:"short",year:"2-digit"});
-    else if(timescale==="quarterly")label=`Q${Math.floor(cursor.getMonth()/3)+1} ${cursor.getFullYear()}`;
-    else label=String(cursor.getFullYear());
-    const fitClass=width<2.8?" scale-vertical scale-tiny":width<5.2?" scale-vertical":width<9?" scale-small":"";
-    const fontSize=Math.max(6,Math.min(10,6+width*.48));
-    out.push(`<span class="gantt-scale-segment${fitClass}" style="left:${left}%;width:${width}%;--scale-font:${fontSize.toFixed(1)}px" title="${esc(label)}"><b>${esc(label)}</b></span>`);cursor=next;
+export function networkGraph(schedule, {
+  maxNodes = 120
+}
+= {
+}) {
+  const critical = (schedule.activities || []).filter(a => a.critical || a.totalFloat<=0);
+  const pool = (critical.length? critical: schedule.activities || []).slice(0, maxNodes);
+  if (!pool.length)return`<div class="empty-state">No network data.</div>`;
+  const ids = new Set(pool.map(a => a.id)),
+  rels = (schedule.relationships || []).filter(r => ids.has(r.predId) && ids.has(r.succId));
+  const incoming = new Map(pool.map(a => [a.id, []])),
+  outgoing = new Map(pool.map(a => [a.id, []]));
+  for (const r of rels) {
+    incoming.get(r.succId)?.push(r);
+    outgoing.get(r.predId)?.push(r)
+  }
+  const indegree = new Map(pool.map(a => [a.id, incoming.get(a.id)?.length || 0])),
+  layer = new Map(pool.map(a => [a.id, 0])),
+  queue = pool.filter(a => indegree.get(a.id)===0).map(a => a.id);
+  while (queue.length) {
+    const id = queue.shift(),
+    base = layer.get(id) || 0;
+    for (const r of outgoing.get(id) || []) {
+      layer.set(r.succId, Math.max(layer.get(r.succId) || 0, base + 1));
+      indegree.set(r.succId, (indegree.get(r.succId) || 0) - 1);
+      if (indegree.get(r.succId)===0)queue.push(r.succId)
+    }
+  }
+  const maxKnown = Math.max(0, ...layer.values());
+  for (const a of pool)if ((indegree.get(a.id) || 0)>0)layer.set(a.id, Math.max(layer.get(a.id) || 0, maxKnown + 1));
+  const layers = new Map();
+  for (const a of pool) {
+    const l = layer.get(a.id) || 0;
+    if (!layers.has(l))layers.set(l, []);
+    layers.get(l).push(a)
+  }
+  for (const xs of layers.values())xs.sort((a, b) => (parseDate(a.currentStart || a.start)?.getTime() || 0) - (parseDate(b.currentStart || b.start)?.getTime() || 0) || String(a.id).localeCompare(String(b.id)));
+  const maxLayer = Math.max(0, ...layers.keys()),
+  maxLane = Math.max(1, ...[...layers.values()].map(x => x.length)),
+  width = Math.max(1100, (maxLayer + 1) * 190 + 120),
+  height = Math.max(420, maxLane * 78 + 100),
+  coords = new Map();
+  for (const[l, xs]of layers.entries())xs.forEach((a, i) => coords.set(a.id, {
+    x: 55 + l * 190, y: 55 + i * 78, a
+  }));
+  const marker = `<defs><marker id="netArrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L7,3 z" class="network-arrow"/></marker></defs>`;
+  const lines = rels.map(r => {
+    const p = coords.get(r.predId), s = coords.get(r.succId); if (!p || !s)return ""; const x1 = p.x + 138, y1 = p.y + 20, x2 = s.x, y2 = s.y + 20, mx = x1 + Math.max(28, (x2 - x1) * .45); return`<path d="M${x1} ${y1} C${mx} ${y1},${mx} ${y2},${x2} ${y2}" class="network-link" marker-end="url(#netArrow)"><title>${esc(relationshipText(r))}</title></path>`
+  }).join("");
+  const nodes = pool.map(a => {
+    const c = coords.get(a.id), crit = a.critical || a.totalFloat<=0, ins = incoming.get(a.id) || [], outs = outgoing.get(a.id) || [], issues = []; if (!ins.length)issues.push("Open start"); if (!outs.length)issues.push("Open finish"); if (Number(a.totalFloat)<0)issues.push(`Negative float ${Number(a.totalFloat).toFixed(1)}d`); if (a.constraintType)issues.push(`Constraint ${a.constraintType}${a.constraintDate? ` ${isoDate(a.constraintDate)}`: ""}`); if (a.milestone)issues.push("Milestone"); const tip = [`${a.id} · ${a.name}`, `WBS: ${a.wbsPath || "—"}`, `Status: ${a.status || "—"}`, `Start: ${isoDate(a.currentStart || a.start) || "—"}`, `Finish: ${isoDate(a.currentFinish || a.finish) || "—"}`, `TF: ${Number(a.totalFloat || 0).toFixed(1)}d`, `Incoming: ${ins.length}${ins.length? ` — ${ins.slice(0, 8).map(relationshipText).join("; ")}`: ""}`, `Outgoing: ${outs.length}${outs.length? ` — ${outs.slice(0, 8).map(relationshipText).join("; ")}`: ""}`, `Issues: ${issues.join("; ") || "None detected"}`].join("\n"); return`<g class="network-node${crit? " critical": ""}"><rect x="${c.x}" y="${c.y}" width="138" height="42" rx="7"/><text x="${c.x + 7}" y="${c.y + 16}" class="network-node-id">${esc(a.id.slice(0, 19))}</text><text x="${c.x + 7}" y="${c.y + 32}" class="network-node-name">${esc((a.name || "").slice(0, 22))}</text><title>${esc(tip)}</title></g>`
+  }).join("");
+  return`<div class="network-widget" data-network-widget data-zoom="1"><div class="network-toolbar"><button class="btn" data-net-zoom="out" title="Zoom out">−</button><span class="network-zoom-label">100%</span><button class="btn" data-net-zoom="in" title="Zoom in">＋</button><button class="btn" data-net-zoom="reset">Reset</button><span class="muted">${pool.length} nodes · ${rels.length} visible relationships</span></div><div class="network-viewport"><div class="network-canvas" style="width:${width}px;height:${height}px"><svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-label="Schedule network diagram">${marker}${lines}${nodes}</svg></div></div></div>`;
+}
+function scaleSegments(min, max, timescale) {
+  const out = [],
+  span = max - min || 1,
+  start = new Date(min);
+  let cursor;
+  if (timescale==="weekly") {
+    cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
+    const mondayOffset = (cursor.getDay() + 6) % 7;
+    cursor.setDate(cursor.getDate() - mondayOffset)
+  } else if (timescale==="monthly") {
+    cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+  } else if (timescale==="quarterly") {
+    cursor = new Date(start.getFullYear(), Math.floor(start.getMonth() / 3) * 3, 1)
+  } else cursor = new Date(start.getFullYear(), 0, 1);
+  let guard = 0;
+  while (cursor.getTime()<=max && guard++<1000) {
+    const next = new Date(cursor);
+    if (timescale==="weekly")next.setDate(next.getDate() + 7);
+    else if (timescale==="monthly")next.setMonth(next.getMonth() + 1);
+    else if (timescale==="quarterly")next.setMonth(next.getMonth() + 3);
+    else next.setFullYear(next.getFullYear() + 1);
+    const left = clamp((cursor.getTime() - min) / span * 100, 0, 100),
+    right = clamp((next.getTime() - min) / span * 100, 0, 100),
+    width = Math.max(.2, right - left);
+    let label = "";
+    if (timescale==="weekly")label = isoDate(addDays(cursor, 4));
+    else if (timescale==="monthly")label = cursor.toLocaleDateString(undefined, {
+      month: "short", year: "2-digit"
+    });
+    else if (timescale==="quarterly")label = `Q${Math.floor(cursor.getMonth() / 3) + 1} ${cursor.getFullYear()}`;
+    else label = String(cursor.getFullYear());
+    const fitClass = width<2.8? " scale-vertical scale-tiny": width<5.2? " scale-vertical": width<9? " scale-small": "";
+    const fontSize = Math.max(6, Math.min(10, 6 + width * .48));
+    out.push(`<span class="gantt-scale-segment${fitClass}" style="left:${left}%;width:${width}%;--scale-font:${fontSize.toFixed(1)}px" title="${esc(label)}"><b>${esc(label)}</b></span>`);
+    cursor = next;
   }
   return out.join("");
 }
-export const GANTT_FIELDS={
-  id:{label:"Activity ID",width:105,value:a=>a.id||""},name:{label:"Activity Name",width:260,value:a=>a.name||""},wbs:{label:"WBS",width:220,value:(a,ctx)=>ctx?.fullWbsPath?ctx.fullWbsPath(a):(a.wbsPath||"")},status:{label:"Status",width:105,value:a=>a.status||""},
-  start:{label:"Start",width:92,value:a=>isoDate(a.currentStart||a.start)},finish:{label:"Finish",width:92,value:a=>isoDate(a.currentFinish||a.finish)},baselineStart:{label:"BL Start",width:92,value:a=>isoDate(a.baselineStart)},baselineFinish:{label:"BL Finish",width:92,value:a=>isoDate(a.baselineFinish)},
-  originalDuration:{label:"Original Dur",width:88,value:a=>Number(a.originalDuration||0).toFixed(1)},remainingDuration:{label:"Remain Dur",width:88,value:a=>Number(a.remainingDuration||0).toFixed(1)},totalFloat:{label:"Total Float",width:82,value:a=>Number(a.totalFloat||0).toFixed(1)},freeFloat:{label:"Free Float",width:82,value:a=>Number(a.freeFloat||0).toFixed(1)},percent:{label:"% Complete",width:82,value:a=>`${Number(a.percent||0).toFixed(1)}%`},
-  calendar:{label:"Calendar",width:150,value:a=>a.calendarName||a.calendarId||""},constraint:{label:"Primary Constraint",width:150,value:a=>[a.constraintType,isoDate(a.constraintDate)].filter(Boolean).join(" · ")},resource:{label:"Primary Resource",width:155,value:(a,ctx)=>ctx.primaryResource(a)},
-  budgetUnits:{label:"Budget Units",width:95,value:a=>Number(a.budgetUnits||0).toFixed(1)},actualUnits:{label:"Actual Units",width:95,value:a=>Number(a.actualUnits||0).toFixed(1)},remainingUnits:{label:"Remaining Units",width:105,value:a=>Number(a.remainingUnits||0).toFixed(1)},budgetCost:{label:"Budget Cost",width:100,value:a=>Number(a.budgetCost||0).toFixed(0)},actualCost:{label:"Actual Cost",width:100,value:a=>Number(a.actualCost||0).toFixed(0)},remainingCost:{label:"Remaining Cost",width:110,value:a=>Number(a.remainingCost||0).toFixed(0)}
+export const GANTT_FIELDS = {
+  id: {
+    label: "Activity ID",
+    width: 105,
+    value: a => a.id || ""
+  },
+  name: {
+    label: "Activity Name",
+    width: 260,
+    value: a => a.name || ""
+  },
+  wbs: {
+    label: "WBS",
+    width: 220,
+    value: (a, ctx) => ctx?.fullWbsPath? ctx.fullWbsPath(a): (a.wbsPath || "")
+  },
+  status: {
+    label: "Status",
+    width: 105,
+    value: a => a.status || ""
+  },
+  start: {
+    label: "Start",
+    width: 92,
+    value: a => isoDate(a.currentStart || a.start)
+  },
+  finish: {
+    label: "Finish",
+    width: 92,
+    value: a => isoDate(a.currentFinish || a.finish)
+  },
+  baselineStart: {
+    label: "BL Start",
+    width: 92,
+    value: a => isoDate(a.baselineStart)
+  },
+  baselineFinish: {
+    label: "BL Finish",
+    width: 92,
+    value: a => isoDate(a.baselineFinish)
+  },
+  originalDuration: {
+    label: "Original Dur",
+    width: 88,
+    value: a => Number(a.originalDuration || 0).toFixed(1)
+  },
+  remainingDuration: {
+    label: "Remain Dur",
+    width: 88,
+    value: a => Number(a.remainingDuration || 0).toFixed(1)
+  },
+  totalFloat: {
+    label: "Total Float",
+    width: 82,
+    value: a => Number(a.totalFloat || 0).toFixed(1)
+  },
+  freeFloat: {
+    label: "Free Float",
+    width: 82,
+    value: a => Number(a.freeFloat || 0).toFixed(1)
+  },
+  percent: {
+    label: "% Complete",
+    width: 82,
+    value: a => `${Number(a.percent || 0).toFixed(1)}%`
+  },
+  calendar: {
+    label: "Calendar",
+    width: 150,
+    value: a => a.calendarName || a.calendarId || ""
+  },
+  constraint: {
+    label: "Primary Constraint",
+    width: 150,
+    value: a => [a.constraintType, isoDate(a.constraintDate)].filter(Boolean).join(" · ")
+  },
+  resource: {
+    label: "Primary Resource",
+    width: 155,
+    value: (a, ctx) => ctx.primaryResource(a)
+  },
+  budgetUnits: {
+    label: "Budget Units",
+    width: 95,
+    value: a => Number(a.budgetUnits || 0).toFixed(1)
+  },
+  actualUnits: {
+    label: "Actual Units",
+    width: 95,
+    value: a => Number(a.actualUnits || 0).toFixed(1)
+  },
+  remainingUnits: {
+    label: "Remaining Units",
+    width: 105,
+    value: a => Number(a.remainingUnits || 0).toFixed(1)
+  },
+  budgetCost: {
+    label: "Budget Cost",
+    width: 100,
+    value: a => Number(a.budgetCost || 0).toFixed(0)
+  },
+  actualCost: {
+    label: "Actual Cost",
+    width: 100,
+    value: a => Number(a.actualCost || 0).toFixed(0)
+  },
+  remainingCost: {
+    label: "Remaining Cost",
+    width: 110,
+    value: a => Number(a.remainingCost || 0).toFixed(0)
+  }
 };
-const DEFAULT_GANTT_FIELDS=["id","name","start","finish","originalDuration","remainingDuration","totalFloat","status","percent"];
-function normaliseGanttFields(fields){const keys=(fields||DEFAULT_GANTT_FIELDS).filter(k=>GANTT_FIELDS[k]);return keys.length?keys:DEFAULT_GANTT_FIELDS}
-function ganttFieldChooser(fields){
-  const active=new Set(fields),available=Object.entries(GANTT_FIELDS).filter(([k])=>!active.has(k));
-  return `<details class="gantt-config-box"><summary>Columns / Field Chooser</summary><div class="gantt-field-chooser"><div><strong>Available Fields</strong><select id="ganttFieldsAvailable" multiple size="11">${available.map(([k,d])=>`<option value="${esc(k)}">${esc(d.label)}</option>`).join("")}</select></div><div class="gantt-field-buttons"><button class="btn" id="ganttFieldAdd" type="button">Add →</button><button class="btn" id="ganttFieldRemove" type="button">← Remove</button><button class="btn" id="ganttFieldUp" type="button">Move up</button><button class="btn" id="ganttFieldDown" type="button">Move down</button><button class="btn" id="ganttFieldReset" type="button">Reset</button></div><div><strong>Displayed Fields</strong><select id="ganttFieldsDisplayed" multiple size="11">${fields.map(k=>`<option value="${esc(k)}">${esc(GANTT_FIELDS[k].label)}</option>`).join("")}</select></div></div><p class="muted">Add/remove/reorder fields like the P6 Columns dialog. Drag individual column dividers in the Gantt header to resize them.</p></details>`;
+const DEFAULT_GANTT_FIELDS = ["id", "name", "start", "finish", "originalDuration", "remainingDuration", "totalFloat", "status", "percent"];
+function normaliseGanttFields(fields) {
+  const keys = (fields || DEFAULT_GANTT_FIELDS).filter(k => GANTT_FIELDS[k]);
+  return keys.length? keys: DEFAULT_GANTT_FIELDS
 }
-function ganttBarChooser(b){
-  const checked=x=>x?"checked":"";return `<details class="gantt-config-box"><summary>Bars, labels & display</summary><div class="gantt-custom-grid"><label><input id="ganttShowBaseline" type="checkbox" ${checked(b.showBaseline)}> Baseline bars</label><label><input id="ganttShowActual" type="checkbox" ${checked(b.showActual)}> Actual markers</label><label><input id="ganttShowProgress" type="checkbox" ${checked(b.showProgress)}> Progress fill</label><label><input id="ganttShowDataDate" type="checkbox" ${checked(b.showDataDate)}> Data-date line</label><label><input id="ganttGroupWbs" type="checkbox" ${checked(b.groupWbs)}> Group by WBS</label><label>Bar label <select id="ganttBarLabel"><option value="none" ${b.labelMode==="none"?"selected":""}>None</option><option value="id" ${b.labelMode==="id"?"selected":""}>Activity ID</option><option value="name" ${b.labelMode==="name"?"selected":""}>Activity name</option><option value="id-name" ${b.labelMode==="id-name"?"selected":""}>ID + Name</option></select></label><label>Normal bar <input id="ganttNormalColor" type="color" value="${esc(b.normalColor)}"></label><label>Critical bar <input id="ganttCriticalColor" type="color" value="${esc(b.criticalColor)}"></label><label>Baseline <input id="ganttBaselineColor" type="color" value="${esc(b.baselineColor)}"></label><label>Progress <input id="ganttProgressColor" type="color" value="${esc(b.progressColor)}"></label><label>Bar height <input id="ganttBarHeight" type="range" min="7" max="22" step="1" value="${Number(b.barHeight||12)}"><span>${Number(b.barHeight||12)}px</span></label></div><div class="actions"><button class="btn primary" id="ganttApplyStyle" type="button">Apply display settings</button><button class="btn" id="ganttResetStyle" type="button">Reset display</button></div></details>`;
+function ganttFieldChooser(fields) {
+  const active = new Set(fields),
+  available = Object.entries(GANTT_FIELDS).filter(([k]) => !active.has(k));
+  return`<details class="gantt-config-box"><summary>Columns / Field Chooser</summary><div class="gantt-field-chooser"><div><strong>Available Fields</strong><select id="ganttFieldsAvailable" multiple size="11">${available.map(([k, d]) => `<option value="${esc(k)}">${esc(d.label)}</option>`).join("")}</select></div><div class="gantt-field-buttons"><button class="btn" id="ganttFieldAdd" type="button">Add →</button><button class="btn" id="ganttFieldRemove" type="button">← Remove</button><button class="btn" id="ganttFieldUp" type="button">Move up</button><button class="btn" id="ganttFieldDown" type="button">Move down</button><button class="btn" id="ganttFieldReset" type="button">Reset</button></div><div><strong>Displayed Fields</strong><select id="ganttFieldsDisplayed" multiple size="11">${fields.map(k => `<option value="${esc(k)}">${esc(GANTT_FIELDS[k].label)}</option>`).join("")}</select></div></div><p class="muted">Add/remove/reorder fields like the P6 Columns dialog. Drag individual column dividers in the Gantt header to resize them.</p></details>`;
 }
-export function gantt(schedule,{activities=null,timescale="weekly",compression="standard",criticalOnly=false,forceRed=false,showRelationships=true,leftWidth=410,resizeKey="gantt",startDate="",endDate="",fields=null,fieldWidths={},layoutKey="wbs",barSettings={},collapsedWbsIds=[]}={}){
-  const acts=(activities||schedule.activities||[]).filter(a=>!criticalOnly||a.critical||a.totalFloat<=0),visibleFields=normaliseGanttFields(fields),resources=new Map((schedule.resources||[]).map(r=>[String(r.id),r.name||r.id])),assignmentsByActivity=new Map();
-  for(const x of schedule.assignments||[]){const k=String(x.activityId||"");if(!assignmentsByActivity.has(k))assignmentsByActivity.set(k,[]);assignmentsByActivity.get(k).push(x)}
-  const wbsMap=new Map((schedule.wbs||[]).map(w=>[String(w.id),w])),pathCache=new Map();
-  const wbsPathFor=id=>{const key=String(id||"");if(pathCache.has(key))return pathCache.get(key);const parts=[],seen=new Set();let cur=wbsMap.get(key),guard=0;while(cur&&guard++<100&&!seen.has(String(cur.id))){seen.add(String(cur.id));parts.unshift(cur.name||cur.code||cur.id);cur=wbsMap.get(String(cur.parentId||""))}const path=parts.filter(Boolean).join(" / ");pathCache.set(key,path);return path};
-  const ctx={primaryResource:a=>{const x=(a.assignments||[])[0]||assignmentsByActivity.get(String(a.id||""))?.[0]||assignmentsByActivity.get(String(a.uid||""))?.[0];return x?resources.get(String(x.resourceId))||String(x.resourceId):""},fullWbsPath:a=>wbsPathFor(a.wbsId)||a.wbsPath||""};
-  const b={showBaseline:true,showActual:true,showProgress:true,showDataDate:true,groupWbs:true,labelMode:"none",normalColor:"#2b78a8",criticalColor:"#c63535",baselineColor:"#7f8f99",progressColor:"#5aa874",barHeight:12,...barSettings};
-  const dates=acts.flatMap(a=>[a.currentStart||a.start,a.currentFinish||a.finish,a.baselineStart,a.baselineFinish]).map(parseDate).filter(Boolean);if(!dates.length)return `<div class="gantt-panel panel"><div class="empty-state">No usable activity dates.</div></div>`;
-  const autoMin=Math.min(...dates.map(d=>d.getTime())),autoMax=Math.max(...dates.map(d=>d.getTime()));let min=parseDate(startDate)?.getTime()||autoMin,max=parseDate(endDate)?.getTime()||autoMax;if(max<=min)max=min+86400000;
-  const span=max-min,pos=v=>{const d=parseDate(v);return d?clamp((d.getTime()-min)/span*100,0,100):0},totalDays=Math.max(1,span/86400000),stepDays=timescale==="annual"?365:timescale==="quarterly"?91:timescale==="monthly"?30:7,gridPct=Math.max(.35,stepDays/totalDays*100),timelineMin=compression==="compact"?760:timescale==="weekly"?1400:1100,rowClass=compression==="compact"?" compact":"";
-  const widths=visibleFields.map(k=>Math.max(60,Number(fieldWidths?.[k])||GANTT_FIELDS[k].width)),leftTotal=Math.max(220,widths.reduce((n,x)=>n+x,0)),fieldTemplate=widths.map(x=>`${Math.round(x)}px`).join(" ");
-  const fieldCells=(a,isHeader=false)=>visibleFields.map((k,i)=>isHeader?`<div class="gantt-field-head" data-gfield="${esc(k)}"><span>${esc(GANTT_FIELDS[k].label)}</span><i class="gantt-field-resizer" data-gcol="${esc(k)}" title="Drag to resize ${esc(GANTT_FIELDS[k].label)}"></i></div>`:`<div class="gantt-field-cell ${k==="name"?"activity-name":""}" title="${esc(GANTT_FIELDS[k].value(a,ctx))}">${esc(GANTT_FIELDS[k].value(a,ctx))}</div>`).join("");
-  const labelFor=a=>b.labelMode==="id"?a.id:b.labelMode==="name"?a.name:b.labelMode==="id-name"?`${a.id} · ${a.name}`:"";
-  const renderActivity=a=>{const st=parseDate(a.currentStart||a.start),fn=parseDate(a.currentFinish||a.finish);if((fn&&fn.getTime()<min)||(st&&st.getTime()>max))return "";const s=pos(a.currentStart||a.start),f=pos(a.currentFinish||a.finish),bs=pos(a.baselineStart),bf=pos(a.baselineFinish),crit=forceRed||a.critical||a.totalFloat<=0,label=labelFor(a),progress=b.showProgress?`<i style="width:${Math.max(0,Math.min(100,a.percent||0))}%"></i>`:"";
-    const current=a.milestone?`<span class="milestone ${crit?"critical":""}" style="left:${f}%" title="${esc(a.id)} · ${esc(a.name)} · ${isoDate(a.currentFinish||a.finish)}"></span>${label?`<span class="gantt-bar-label" style="left:${Math.min(99,f+.5)}%">${esc(label)}</span>`:""}`:`<span class="bar ${crit?"critical":""}" style="left:${Math.min(s,f)}%;width:${Math.max(.25,Math.abs(f-s))}%" title="${esc(a.id)} · ${esc(a.name)} · ${isoDate(a.currentStart||a.start)} → ${isoDate(a.currentFinish||a.finish)} · TF ${Number(a.totalFloat||0).toFixed(1)}d">${progress}</span>${label?`<span class="gantt-bar-label" style="left:${Math.min(98,Math.max(s,f)+.4)}%">${esc(label)}</span>`:""}`;
-    const baseline=b.showBaseline&&a.baselineStart&&!a.milestone?`<span class="baseline-bar" style="left:${Math.min(bs,bf)}%;width:${Math.max(.2,Math.abs(bf-bs))}%" title="Baseline ${isoDate(a.baselineStart)} → ${isoDate(a.baselineFinish)}"></span>`:"",actual=b.showActual&&a.actualStart?`<span class="actual-mark" style="left:${pos(a.actualStart)}%" title="Actual start ${isoDate(a.actualStart)}"></span>`:"";
-    return `<div class="gantt-row${rowClass}" data-activity-id="${esc(a.id)}"><div class="gantt-left gantt-fields-row" style="--gantt-field-template:${fieldTemplate}">${fieldCells(a)}</div><div class="gantt-time" style="background-size:${gridPct}% 100%">${baseline}${current}${actual}</div></div>`};
-  const inRange=acts.filter(a=>{const st=parseDate(a.currentStart||a.start),fn=parseDate(a.currentFinish||a.finish);return !((fn&&fn.getTime()<min)||(st&&st.getTime()>max))});
-  const directByWbs=new Map(),fallback=[];for(const a of inRange){const id=String(a.wbsId||"");if(id&&wbsMap.has(id)){if(!directByWbs.has(id))directByWbs.set(id,[]);directByWbs.get(id).push(a)}else fallback.push(a)}
-  const wbsSourceIndex=new Map((schedule.wbs||[]).map((w,i)=>[String(w.id),i]));
-  const wbsSeq=w=>{const v=w?.seqNum??w?.raw?.seq_num;if(v==null||String(v).trim()==="")return null;const n=Number(v);return Number.isFinite(n)?n:null};
-  const wbsCompare=(x,y)=>{const sx=wbsSeq(x),sy=wbsSeq(y);if(sx!=null&&sy!=null&&sx!==sy)return sx-sy;if(sx!=null&&sy==null)return -1;if(sx==null&&sy!=null)return 1;const ix=Number.isFinite(Number(x?.sourceOrder))?Number(x.sourceOrder):wbsSourceIndex.get(String(x?.id))??Number.MAX_SAFE_INTEGER,iy=Number.isFinite(Number(y?.sourceOrder))?Number(y.sourceOrder):wbsSourceIndex.get(String(y?.id))??Number.MAX_SAFE_INTEGER;if(ix!==iy)return ix-iy;return String(x?.code||x?.name||x?.id||"").localeCompare(String(y?.code||y?.name||y?.id||""),undefined,{numeric:true,sensitivity:"base"})};
-  const includeEmptyWbs=!criticalOnly;
-  const selectedWbs=new Set();if(includeEmptyWbs){for(const w of schedule.wbs||[])selectedWbs.add(String(w.id))}else{for(const id of directByWbs.keys()){let cur=wbsMap.get(id),guard=0;while(cur&&guard++<100){selectedWbs.add(String(cur.id));cur=wbsMap.get(String(cur.parentId||""))}}}
-  const childMap=new Map();for(const w of schedule.wbs||[]){const id=String(w.id),pid=String(w.parentId||"");if(!selectedWbs.has(id))continue;if(!childMap.has(pid))childMap.set(pid,[]);childMap.get(pid).push(w)}for(const xs of childMap.values())xs.sort(wbsCompare);
-  const descCache=new Map(),descActivities=id=>{id=String(id);if(descCache.has(id))return descCache.get(id);const out=[...(directByWbs.get(id)||[])];for(const child of childMap.get(id)||[])out.push(...descActivities(child.id));descCache.set(id,out);return out};
-  const collapsed=new Set((collapsedWbsIds||[]).map(String));
-  const renderWbs=(w,depth=0)=>{const id=String(w.id),all=descActivities(id),direct=directByWbs.get(id)||[],children=childMap.get(id)||[];if(!all.length&&!includeEmptyWbs)return "";const starts=all.map(a=>parseDate(a.currentStart||a.start)).filter(Boolean),finishes=all.map(a=>parseDate(a.currentFinish||a.finish)).filter(Boolean),gs=starts.length?pos(new Date(Math.min(...starts.map(d=>d.getTime())))):0,gf=finishes.length?pos(new Date(Math.max(...finishes.map(d=>d.getTime())))):0,isCollapsed=collapsed.has(id),fullPath=wbsPathFor(id)||w.name||w.code||id;
-    const label=`<span class="gantt-wbs-label" style="--wbs-depth:${depth}" title="${esc(fullPath)}"><i class="gantt-wbs-twist">${isCollapsed?"▸":"▾"}</i><strong>${esc(w.code||w.name||id)}</strong><span>${esc(w.name&&w.code&&w.name!==w.code?w.name:"")}</span><small>${all.length} activit${all.length===1?"y":"ies"}</small></span>`;
-    const summaryBar=all.length?`<i style="left:${Math.min(gs,gf)}%;width:${Math.max(.3,Math.abs(gf-gs))}%"></i>`:"";
-    return `<div class="gantt-wbs-node${isCollapsed?" collapsed":""}" data-wbs-id="${esc(id)}" data-wbs-depth="${depth}" data-wbs-seq="${esc(wbsSeq(w)??"")}"><div class="gantt-wbs-summary" data-wbs-summary="${esc(id)}" title="Double-click to collapse / expand ${esc(fullPath)}"><span class="gantt-summary-fields" style="--gantt-field-template:${fieldTemplate}"><span style="grid-column:1/-1">${label}</span></span><span class="summary-time">${summaryBar}</span></div><div class="gantt-wbs-children">${direct.map(renderActivity).join("")}${children.map(c=>renderWbs(c,depth+1)).join("")}</div></div>`};
-  let grouped="";if(b.groupWbs){const roots=[];for(const w of schedule.wbs||[]){const id=String(w.id),pid=String(w.parentId||"");if(selectedWbs.has(id)&&(!pid||!selectedWbs.has(pid)))roots.push(w)}roots.sort(wbsCompare);grouped=roots.map(w=>renderWbs(w,0)).join("");if(fallback.length){const starts=fallback.map(a=>parseDate(a.currentStart||a.start)).filter(Boolean),finishes=fallback.map(a=>parseDate(a.currentFinish||a.finish)).filter(Boolean),gs=starts.length?pos(new Date(Math.min(...starts.map(d=>d.getTime())))):0,gf=finishes.length?pos(new Date(Math.max(...finishes.map(d=>d.getTime())))):0;grouped+=`<div class="gantt-wbs-node"><div class="gantt-wbs-summary"><span class="gantt-summary-fields" style="--gantt-field-template:${fieldTemplate}"><span style="grid-column:1/-1"><span class="gantt-wbs-label" style="--wbs-depth:0"><strong>Unassigned WBS</strong><small>${fallback.length} activities</small></span></span></span><span class="summary-time"><i style="left:${Math.min(gs,gf)}%;width:${Math.max(.3,Math.abs(gf-gs))}%"></i></span></div><div class="gantt-wbs-children">${fallback.map(renderActivity).join("")}</div></div>`}}else grouped=inRange.map(renderActivity).join("");
-  const dd=pos(schedule.dataDate),title=criticalOnly?"Critical Path Gantt":"WBS / Activity Gantt",scale=scaleSegments(min,max,timescale),shownCount=inRange.length,autoStart=isoDate(new Date(autoMin)),autoFinish=isoDate(new Date(autoMax));
-  const rootStyle=`--gantt-left:${leftTotal}px;--gantt-bar:${esc(b.normalColor)};--gantt-critical:${esc(b.criticalColor)};--gantt-baseline:${esc(b.baselineColor)};--gantt-progress:${esc(b.progressColor)};--gantt-bar-height:${Number(b.barHeight||12)}px;min-width:${timelineMin+leftTotal}px`;
-  return `<div class="panel gantt-panel professional-gantt" data-gantt-panel data-resize-key="${esc(resizeKey)}" data-layout-key="${esc(layoutKey)}"><div class="gantt-title-row"><div><h2>${title}</h2><div class="muted">${shownCount} visible activities · ${isoDate(new Date(min))} to ${isoDate(new Date(max))} · ${visibleFields.length} displayed fields</div></div><span class="badge">P6-style layout</span></div>
-  <div class="gantt-toolbar"><label>Timescale <select id="ganttTimescale"><option value="weekly" ${timescale==="weekly"?"selected":""}>Weeks</option><option value="monthly" ${timescale==="monthly"?"selected":""}>Months</option><option value="quarterly" ${timescale==="quarterly"?"selected":""}>Quarters</option><option value="annual" ${timescale==="annual"?"selected":""}>Years</option></select></label><label>Timescale start <input id="ganttStartDate" type="date" value="${esc(startDate||autoStart)}"></label><label>Timescale finish <input id="ganttFinishDate" type="date" value="${esc(endDate||autoFinish)}"></label><button class="btn gantt-reset-range" id="ganttResetRange" type="button">Full range</button><label>Row density <select id="ganttCompression"><option value="compact" ${compression==="compact"?"selected":""}>Compact</option><option value="standard" ${compression==="standard"?"selected":""}>Standard</option></select></label><label><input type="checkbox" id="ganttRelationships" ${showRelationships?"checked":""}> Relationship lines</label></div>
+function ganttBarChooser(b) {
+  const checked = x => x? "checked": "";
+  return`<details class="gantt-config-box"><summary>Bars, labels & display</summary><div class="gantt-custom-grid"><label><input id="ganttShowBaseline" type="checkbox" ${checked(b.showBaseline)}> Baseline bars</label><label><input id="ganttShowActual" type="checkbox" ${checked(b.showActual)}> Actual markers</label><label><input id="ganttShowProgress" type="checkbox" ${checked(b.showProgress)}> Progress fill</label><label><input id="ganttShowDataDate" type="checkbox" ${checked(b.showDataDate)}> Data-date line</label><label><input id="ganttGroupWbs" type="checkbox" ${checked(b.groupWbs)}> Group by WBS</label><label>Bar label <select id="ganttBarLabel"><option value="none" ${b.labelMode==="none"? "selected": ""}>None</option><option value="id" ${b.labelMode==="id"? "selected": ""}>Activity ID</option><option value="name" ${b.labelMode==="name"? "selected": ""}>Activity name</option><option value="id-name" ${b.labelMode==="id-name"? "selected": ""}>ID + Name</option></select></label><label>Normal bar <input id="ganttNormalColor" type="color" value="${esc(b.normalColor)}"></label><label>Critical bar <input id="ganttCriticalColor" type="color" value="${esc(b.criticalColor)}"></label><label>Baseline <input id="ganttBaselineColor" type="color" value="${esc(b.baselineColor)}"></label><label>Progress <input id="ganttProgressColor" type="color" value="${esc(b.progressColor)}"></label><label>Bar height <input id="ganttBarHeight" type="range" min="7" max="22" step="1" value="${Number(b.barHeight || 12)}"><span>${Number(b.barHeight || 12)}px</span></label></div><div class="actions"><button class="btn primary" id="ganttApplyStyle" type="button">Apply display settings</button><button class="btn" id="ganttResetStyle" type="button">Reset display</button></div></details>`;
+}
+/**
+ * Render the professional split-table/Gantt view. WBS rows use the imported WBS
+ * dictionary (including empty parents) and P6 sequence order where available.
+ * Collapsed WBS IDs remove descendant rows/bars while preserving source data.
+ */
+export function gantt(schedule, {
+  activities = null, timescale = "weekly", compression = "standard", criticalOnly = false, forceRed = false, showRelationships = true, leftWidth = 410, resizeKey = "gantt", startDate = "", endDate = "", fields = null, fieldWidths = {
+  }, layoutKey = "wbs", barSettings = {
+  }, collapsedWbsIds = []
+}
+= {
+}) {
+  const acts = (activities || schedule.activities || []).filter(a => !criticalOnly || a.critical || a.totalFloat<=0),
+  visibleFields = normaliseGanttFields(fields),
+  resources = new Map((schedule.resources || []).map(r => [String(r.id), r.name || r.id])),
+  assignmentsByActivity = new Map();
+  for (const x of schedule.assignments || []) {
+    const k = String(x.activityId || "");
+    if (!assignmentsByActivity.has(k))assignmentsByActivity.set(k, []);
+    assignmentsByActivity.get(k).push(x)
+  }
+  const wbsMap = new Map((schedule.wbs || []).map(w => [String(w.id), w])),
+  pathCache = new Map();
+  const wbsPathFor = id => {
+    const key = String(id || "");
+    if (pathCache.has(key))return pathCache.get(key);
+    const parts = [],
+    seen = new Set();
+    let cur = wbsMap.get(key),
+    guard = 0;
+    while (cur && guard++<100 && !seen.has(String(cur.id))) {
+      seen.add(String(cur.id));
+      parts.unshift(cur.name || cur.code || cur.id);
+      cur = wbsMap.get(String(cur.parentId || ""))
+    }
+    const path = parts.filter(Boolean).join(" / ");
+    pathCache.set(key, path);
+    return path
+  };
+  const ctx = {
+    primaryResource: a => {
+      const x = (a.assignments || [])[0] || assignmentsByActivity.get(String(a.id || ""))?.[0] || assignmentsByActivity.get(String(a.uid || ""))?.[0];
+      return x? resources.get(String(x.resourceId)) || String(x.resourceId): ""
+    },
+    fullWbsPath: a => wbsPathFor(a.wbsId) || a.wbsPath || ""
+  };
+  const b = {
+    showBaseline: true,
+    showActual: true,
+    showProgress: true,
+    showDataDate: true,
+    groupWbs: true,
+    labelMode: "none",
+    normalColor: "#2b78a8",
+    criticalColor: "#c63535",
+    baselineColor: "#7f8f99",
+    progressColor: "#5aa874",
+    barHeight: 12,
+    ...barSettings
+  };
+  const dates = acts.flatMap(a => [a.currentStart || a.start, a.currentFinish || a.finish, a.baselineStart, a.baselineFinish]).map(parseDate).filter(Boolean);
+  if (!dates.length)return`<div class="gantt-panel panel"><div class="empty-state">No usable activity dates.</div></div>`;
+  const autoMin = Math.min(...dates.map(d => d.getTime())),
+  autoMax = Math.max(...dates.map(d => d.getTime()));
+  let min = parseDate(startDate)?.getTime() || autoMin,
+  max = parseDate(endDate)?.getTime() || autoMax;
+  if (max<=min)max = min + 86400000;
+  const span = max - min,
+  pos = v => {
+    const d = parseDate(v);
+    return d? clamp((d.getTime() - min) / span * 100, 0, 100): 0
+  },
+  totalDays = Math.max(1, span / 86400000),
+  stepDays = timescale==="annual"? 365: timescale==="quarterly"? 91: timescale==="monthly"? 30: 7,
+  gridPct = Math.max(.35, stepDays / totalDays * 100),
+  timelineMin = compression==="compact"? 760: timescale==="weekly"? 1400: 1100,
+  rowClass = compression==="compact"? " compact": "";
+  const widths = visibleFields.map(k => Math.max(60, Number(fieldWidths?.[k]) || GANTT_FIELDS[k].width)),
+  leftTotal = Math.max(220, widths.reduce((n, x) => n + x, 0)),
+  fieldTemplate = widths.map(x => `${Math.round(x)}px`).join(" ");
+  const fieldCells = (a, isHeader = false) => visibleFields.map((k, i) => isHeader? `<div class="gantt-field-head" data-gfield="${esc(k)}"><span>${esc(GANTT_FIELDS[k].label)}</span><i class="gantt-field-resizer" data-gcol="${esc(k)}" title="Drag to resize ${esc(GANTT_FIELDS[k].label)}"></i></div>`: `<div class="gantt-field-cell ${k==="name"? "activity-name": ""}" title="${esc(GANTT_FIELDS[k].value(a, ctx))}">${esc(GANTT_FIELDS[k].value(a, ctx))}</div>`).join("");
+  const labelFor = a => b.labelMode==="id"? a.id: b.labelMode==="name"? a.name: b.labelMode==="id-name"? `${a.id} · ${a.name}`: "";
+  const renderActivity = a => {
+    const st = parseDate(a.currentStart || a.start),
+    fn = parseDate(a.currentFinish || a.finish);
+    if ((fn && fn.getTime()<min) || (st && st.getTime()>max))return "";
+    const s = pos(a.currentStart || a.start),
+    f = pos(a.currentFinish || a.finish),
+    bs = pos(a.baselineStart),
+    bf = pos(a.baselineFinish),
+    crit = forceRed || a.critical || a.totalFloat<=0,
+    label = labelFor(a),
+    progress = b.showProgress? `<i style="width:${Math.max(0, Math.min(100, a.percent || 0))}%"></i>`: "";
+    const current = a.milestone? `<span class="milestone ${crit? "critical": ""}" style="left:${f}%" title="${esc(a.id)} · ${esc(a.name)} · ${isoDate(a.currentFinish || a.finish)}"></span>${label? `<span class="gantt-bar-label" style="left:${Math.min(99, f + .5)}%">${esc(label)}</span>`: ""}`: `<span class="bar ${crit? "critical": ""}" style="left:${Math.min(s, f)}%;width:${Math.max(.25, Math.abs(f - s))}%" title="${esc(a.id)} · ${esc(a.name)} · ${isoDate(a.currentStart || a.start)} → ${isoDate(a.currentFinish || a.finish)} · TF ${Number(a.totalFloat || 0).toFixed(1)}d">${progress}</span>${label? `<span class="gantt-bar-label" style="left:${Math.min(98, Math.max(s, f) + .4)}%">${esc(label)}</span>`: ""}`;
+    const baseline = b.showBaseline && a.baselineStart && !a.milestone? `<span class="baseline-bar" style="left:${Math.min(bs, bf)}%;width:${Math.max(.2, Math.abs(bf - bs))}%" title="Baseline ${isoDate(a.baselineStart)} → ${isoDate(a.baselineFinish)}"></span>`: "",
+    actual = b.showActual && a.actualStart? `<span class="actual-mark" style="left:${pos(a.actualStart)}%" title="Actual start ${isoDate(a.actualStart)}"></span>`: "";
+    return`<div class="gantt-row${rowClass}" data-activity-id="${esc(a.id)}"><div class="gantt-left gantt-fields-row" style="--gantt-field-template:${fieldTemplate}">${fieldCells(a)}</div><div class="gantt-time" style="background-size:${gridPct}% 100%">${baseline}${current}${actual}</div></div>`
+  };
+  const inRange = acts.filter(a => {
+    const st = parseDate(a.currentStart || a.start), fn = parseDate(a.currentFinish || a.finish); return !((fn && fn.getTime()<min) || (st && st.getTime()>max))
+  });
+  const directByWbs = new Map(),
+  fallback = [];
+  for (const a of inRange) {
+    const id = String(a.wbsId || "");
+    if (id && wbsMap.has(id)) {
+      if (!directByWbs.has(id))directByWbs.set(id, []);
+      directByWbs.get(id).push(a)
+    } else fallback.push(a)
+  }
+  const wbsSourceIndex = new Map((schedule.wbs || []).map((w, i) => [String(w.id), i]));
+  const wbsSeq = w => {
+    const v = w?.seqNum ?? w?.raw?.seq_num;
+    if (v==null || String(v).trim()==="")return null;
+    const n = Number(v);
+    return Number.isFinite(n)? n: null
+  };
+  const wbsCompare = (x, y) => {
+    const sx = wbsSeq(x),
+    sy = wbsSeq(y);
+    if (sx!=null && sy!=null && sx!==sy)return sx - sy;
+    if (sx!=null && sy==null)return - 1;
+    if (sx==null && sy!=null)return 1;
+    const ix = Number.isFinite(Number(x?.sourceOrder))? Number(x.sourceOrder): wbsSourceIndex.get(String(x?.id)) ?? Number.MAX_SAFE_INTEGER,
+    iy = Number.isFinite(Number(y?.sourceOrder))? Number(y.sourceOrder): wbsSourceIndex.get(String(y?.id)) ?? Number.MAX_SAFE_INTEGER;
+    if (ix!==iy)return ix - iy;
+    return String(x?.code || x?.name || x?.id || "").localeCompare(String(y?.code || y?.name || y?.id || ""), undefined, {
+      numeric: true, sensitivity: "base"
+    })
+  };
+  const includeEmptyWbs = !criticalOnly;
+  const selectedWbs = new Set();
+  if (includeEmptyWbs) {
+    for (const w of schedule.wbs || [])selectedWbs.add(String(w.id))
+  } else {
+    for (const id of directByWbs.keys()) {
+      let cur = wbsMap.get(id),
+      guard = 0;
+      while (cur && guard++<100) {
+        selectedWbs.add(String(cur.id));
+        cur = wbsMap.get(String(cur.parentId || ""))
+      }
+    }
+  }
+  const childMap = new Map();
+  for (const w of schedule.wbs || []) {
+    const id = String(w.id),
+    pid = String(w.parentId || "");
+    if (!selectedWbs.has(id))continue;
+    if (!childMap.has(pid))childMap.set(pid, []);
+    childMap.get(pid).push(w)
+  }
+  for (const xs of childMap.values())xs.sort(wbsCompare);
+  const descCache = new Map(),
+  descActivities = id => {
+    id = String(id);
+    if (descCache.has(id))return descCache.get(id);
+    const out = [...(directByWbs.get(id) || [])];
+    for (const child of childMap.get(id) || [])out.push(...descActivities(child.id));
+    descCache.set(id, out);
+    return out
+  };
+  const collapsed = new Set((collapsedWbsIds || []).map(String));
+  const renderWbs = (w, depth = 0) => {
+    const id = String(w.id),
+    all = descActivities(id),
+    direct = directByWbs.get(id) || [],
+    children = childMap.get(id) || [];
+    if (!all.length && !includeEmptyWbs)return "";
+    const starts = all.map(a => parseDate(a.currentStart || a.start)).filter(Boolean),
+    finishes = all.map(a => parseDate(a.currentFinish || a.finish)).filter(Boolean),
+    gs = starts.length? pos(new Date(Math.min(...starts.map(d => d.getTime())))): 0,
+    gf = finishes.length? pos(new Date(Math.max(...finishes.map(d => d.getTime())))): 0,
+    isCollapsed = collapsed.has(id),
+    fullPath = wbsPathFor(id) || w.name || w.code || id;
+    const label = `<span class="gantt-wbs-label" style="--wbs-depth:${depth}" title="${esc(fullPath)}"><i class="gantt-wbs-twist">${isCollapsed? "▸": "▾"}</i><strong>${esc(w.code || w.name || id)}</strong><span>${esc(w.name && w.code && w.name!==w.code? w.name: "")}</span><small>${all.length} activit${all.length===1? "y": "ies"}</small></span>`;
+    const summaryBar = all.length? `<i style="left:${Math.min(gs, gf)}%;width:${Math.max(.3, Math.abs(gf - gs))}%"></i>`: "";
+    return`<div class="gantt-wbs-node${isCollapsed? " collapsed": ""}" data-wbs-id="${esc(id)}" data-wbs-depth="${depth}" data-wbs-seq="${esc(wbsSeq(w) ?? "")}"><div class="gantt-wbs-summary" data-wbs-summary="${esc(id)}" title="Double-click to collapse / expand ${esc(fullPath)}"><span class="gantt-summary-fields" style="--gantt-field-template:${fieldTemplate}"><span style="grid-column:1/-1">${label}</span></span><span class="summary-time">${summaryBar}</span></div><div class="gantt-wbs-children">${direct.map(renderActivity).join("")}${children.map(c => renderWbs(c, depth + 1)).join("")}</div></div>`
+  };
+  let grouped = "";
+  if (b.groupWbs) {
+    const roots = [];
+    for (const w of schedule.wbs || []) {
+      const id = String(w.id),
+      pid = String(w.parentId || "");
+      if (selectedWbs.has(id) && (!pid || !selectedWbs.has(pid)))roots.push(w)
+    }
+    roots.sort(wbsCompare);
+    grouped = roots.map(w => renderWbs(w, 0)).join("");
+    if (fallback.length) {
+      const starts = fallback.map(a => parseDate(a.currentStart || a.start)).filter(Boolean),
+      finishes = fallback.map(a => parseDate(a.currentFinish || a.finish)).filter(Boolean),
+      gs = starts.length? pos(new Date(Math.min(...starts.map(d => d.getTime())))): 0,
+      gf = finishes.length? pos(new Date(Math.max(...finishes.map(d => d.getTime())))): 0;
+      grouped+=`<div class="gantt-wbs-node"><div class="gantt-wbs-summary"><span class="gantt-summary-fields" style="--gantt-field-template:${fieldTemplate}"><span style="grid-column:1/-1"><span class="gantt-wbs-label" style="--wbs-depth:0"><strong>Unassigned WBS</strong><small>${fallback.length} activities</small></span></span></span><span class="summary-time"><i style="left:${Math.min(gs, gf)}%;width:${Math.max(.3, Math.abs(gf - gs))}%"></i></span></div><div class="gantt-wbs-children">${fallback.map(renderActivity).join("")}</div></div>`
+    }
+  } else grouped = inRange.map(renderActivity).join("");
+  const dd = pos(schedule.dataDate),
+  title = criticalOnly? "Critical Path Gantt": "WBS / Activity Gantt",
+  scale = scaleSegments(min, max, timescale),
+  shownCount = inRange.length,
+  autoStart = isoDate(new Date(autoMin)),
+  autoFinish = isoDate(new Date(autoMax));
+  const rootStyle = `--gantt-left:${leftTotal}px;--gantt-bar:${esc(b.normalColor)};--gantt-critical:${esc(b.criticalColor)};--gantt-baseline:${esc(b.baselineColor)};--gantt-progress:${esc(b.progressColor)};--gantt-bar-height:${Number(b.barHeight || 12)}px;min-width:${timelineMin + leftTotal}px`;
+  return`<div class="panel gantt-panel professional-gantt" data-gantt-panel data-resize-key="${esc(resizeKey)}" data-layout-key="${esc(layoutKey)}"><div class="gantt-title-row"><div><h2>${title}</h2><div class="muted">${shownCount} visible activities · ${isoDate(new Date(min))} to ${isoDate(new Date(max))} · ${visibleFields.length} displayed fields</div></div><span class="badge">P6-style layout</span></div>
+  <div class="gantt-toolbar"><label>Timescale <select id="ganttTimescale"><option value="weekly" ${timescale==="weekly"? "selected": ""}>Weeks</option><option value="monthly" ${timescale==="monthly"? "selected": ""}>Months</option><option value="quarterly" ${timescale==="quarterly"? "selected": ""}>Quarters</option><option value="annual" ${timescale==="annual"? "selected": ""}>Years</option></select></label><label>Timescale start <input id="ganttStartDate" type="date" value="${esc(startDate || autoStart)}"></label><label>Timescale finish <input id="ganttFinishDate" type="date" value="${esc(endDate || autoFinish)}"></label><button class="btn gantt-reset-range" id="ganttResetRange" type="button">Full range</button><label>Row density <select id="ganttCompression"><option value="compact" ${compression==="compact"? "selected": ""}>Compact</option><option value="standard" ${compression==="standard"? "selected": ""}>Standard</option></select></label><label><input type="checkbox" id="ganttRelationships" ${showRelationships? "checked": ""}> Relationship lines</label></div>
   <div class="gantt-config-grid">${ganttFieldChooser(visibleFields)}${ganttBarChooser(b)}</div>
-  <div class="gantt-wrap"><div class="gantt" style="${rootStyle}" data-show-relationships="${showRelationships?"1":"0"}"><svg class="gantt-rel-overlay" aria-hidden="true"></svg><div class="gantt-row gantt-scale-row${rowClass}"><div class="gantt-left gantt-fields-header" style="--gantt-field-template:${fieldTemplate}">${fieldCells({},true)}<span class="gantt-divider legacy-gantt-divider" hidden aria-hidden="true"></span></div><div class="gantt-time gantt-scale" style="background-size:${gridPct}% 100%">${b.showDataDate?`<span class="data-date" style="left:${dd}%" title="Data date ${isoDate(schedule.dataDate)}"></span>`:""}${scale}</div></div>${grouped}</div></div>
+  <div class="gantt-wrap"><div class="gantt" style="${rootStyle}" data-show-relationships="${showRelationships? "1": "0"}"><svg class="gantt-rel-overlay" aria-hidden="true"></svg><div class="gantt-row gantt-scale-row${rowClass}"><div class="gantt-left gantt-fields-header" style="--gantt-field-template:${fieldTemplate}">${fieldCells( {
+  }, true)}<span class="gantt-divider legacy-gantt-divider" hidden aria-hidden="true"></span></div><div class="gantt-time gantt-scale" style="background-size:${gridPct}% 100%">${b.showDataDate? `<span class="data-date" style="left:${dd}%" title="Data date ${isoDate(schedule.dataDate)}"></span>`: ""}${scale}</div></div>${grouped}</div></div>
   <div class="gantt-footnote muted">The WBS is rendered as a full parent/child hierarchy from the schedule's WBS table. Double-click any WBS band to collapse/expand its descendant WBS rows, activities and Gantt bars. Relationship lines use orthogonal P6-style elbows.</div></div>`;
 }
-
-export function calendarMonth(calendarYear,monthIndex){
-  const month=calendarYear.months[monthIndex],first=new Date(calendarYear.year,monthIndex,1),offset=(first.getDay()+6)%7;
-  const blanks=Array.from({length:offset},()=>`<span class="day"></span>`).join("");
-  const days=month.days.map(d=>`<span class="day ${d.exception?"exception":!d.working?"nonwork":""}">${d.day}</span>`).join("");
-  return `<div class="calendar-month"><h4>${first.toLocaleDateString(undefined,{month:"long"})}</h4><div class="calendar-week">${["M","T","W","T","F","S","S"].map(x=>`<span>${x}</span>`).join("")}</div><div class="calendar-days">${blanks}${days}</div></div>`;
+export function calendarMonth(calendarYear, monthIndex) {
+  const month = calendarYear.months[monthIndex],
+  first = new Date(calendarYear.year, monthIndex, 1),
+  offset = (first.getDay() + 6) % 7;
+  const blanks = Array.from( {
+    length: offset
+  }, () => `<span class="day"></span>`).join("");
+  const days = month.days.map(d => `<span class="day ${d.exception? "exception": !d.working? "nonwork": ""}">${d.day}</span>`).join("");
+  return`<div class="calendar-month"><h4>${first.toLocaleDateString(undefined, {
+    month: "long"
+  })}</h4><div class="calendar-week">${["M", "T", "W", "T", "F", "S", "S"].map(x => `<span>${x}</span>`).join("")}</div><div class="calendar-days">${blanks}${days}</div></div>`;
 }

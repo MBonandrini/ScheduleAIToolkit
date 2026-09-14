@@ -1,212 +1,70 @@
-# Project Controls AI Suite / Schedule AI Toolkit v1.5.2
+# Project Controls AI Suite v2.1.1
 
-A static GitHub Pages-compatible project-controls workbench for Primavera P6 XER, Microsoft Project XML and Microsoft Project MPP-derived schedule analysis.
+A static, browser-based project-controls toolkit designed for GitHub Pages. The application works primarily in-browser and stores project/repository data in the browser's IndexedDB/local storage.
 
-## Key behaviour
+## Deploy to GitHub Pages
 
-- **No AI is used by default.** AI can be enabled only from **Settings**. The top-right model field is read-only.
-- Chat boxes send with **Enter** and insert a new line with **Shift+Enter**.
-- Uploaded schedules are treated as **independent files/projects** unless the user explicitly selects them together in a comparison, lineage, forensic or time-machine view.
-- XER and Microsoft Project XML are parsed in-browser.
-- Binary `.mpp` files use the included **local MPP parser bridge**, then are normalised into the same internal schedule model used by XER/XML.
+1. Copy the contents of this package to the root of your GitHub repository.
+2. Keep the supplied folder structure (`assets/`, `src/`, `tools/`).
+3. Enable GitHub Pages for the repository, or use the included Pages workflow if your repository deploys through GitHub Actions.
+4. Open `index.html` through the GitHub Pages URL. Do not open it directly from the local filesystem for normal use because browser security rules differ for `file://` pages.
 
-## GitHub Pages
+The application is marked **v2.1.1** in the header. Static assets use the `v=2.1.1` cache key.
 
-This site remains a static GitHub Pages application. No API key is embedded in the repository or release package.
+## Supported schedule/file workflows
 
-1. Copy the **contents** of this package into the repository root.
-2. Push to `main`.
-3. Use your existing GitHub Pages deployment configuration.
-4. Keep the included `.nojekyll` file in the repository root.
+- Primavera P6 XER: parsed in-browser.
+- Microsoft Project XML/MSPDI: parsed in-browser.
+- Microsoft Project MPP: use the local MPP bridge (`setup-mpp-bridge.bat`). The bridge converts MPP to MSPDI XML locally; the browser then uses the standard XML parser.
+- PDF schedule alignment: requires a readable PDF text layer.
+- BOQ alignment: CSV is native; XLS/XLSX uses the browser spreadsheet helper when needed.
 
-Asset URLs are cache-bumped to `v=1.5.2` so browsers request the revised JavaScript/CSS after deployment.
+## Optional AI providers
 
-## AI options
+No AI is selected by default. Configure a provider from **Settings** before using AI-assisted features.
 
-AI is disabled until the user selects a model in **Settings**.
+Supported routes include:
 
-Available categories include:
-- local Ollama;
-- browser CPU/WASM;
-- browser WebGPU/WebLLM where supported;
-- Google Gemini using the user's own API key;
-- xAI Grok using the user's own API key;
-- OpenAI GPT models using the user's own OpenAI API key;
-- Anthropic Claude using the user's own Anthropic API key.
+- Local Ollama (`setup-ollama.bat`)
+- Browser-local models where supported by the browser/device
+- Gemini
+- xAI / Grok
+- OpenAI
+- Anthropic Claude
 
-### Gemini / Grok / OpenAI / Claude locally stored keys
+Cloud API keys entered in Settings are stored in that browser profile's local storage and are not included in this source package. For a multi-user production deployment, route cloud calls through a server-side proxy rather than exposing long-lived keys in client-side storage.
 
-Settings now contains password boxes for Gemini, Grok, OpenAI and Anthropic Claude API keys plus editable model names. The user can **Save locally**, **Test**, or **Clear** each key. Keys are stored in that browser profile's `localStorage`; they are not committed to Git and are not inserted into source files.
 
-Default cloud model names in v1.5.2:
-- Gemini: `gemini-3.8-flash`
-- Grok: `grok-4.6`
-- OpenAI: `gpt-5.6`
-- Anthropic Claude: `claude-sonnet-5`
+## Schedule Builder generation pipeline
 
-**Security note:** browser-local storage is persistent and convenient, but a long-lived API key in a browser is not a server-side secret. OpenAI explicitly recommends keeping API keys out of client-side application code; Anthropic direct-browser access is therefore enabled only because this toolkit is intentionally a bring-your-own-key local-browser workflow. For a production/shared deployment, a backend/Worker proxy with server-side secret storage is safer. The direct local-key option is retained because this build is designed to let an individual user bring their own key on their own computer.
+The final Schedule Builder generation now runs a visible nine-stage sequence after the AI draft: WBS build, calendar build, structured activity naming/smart IDs, calendar assignment, duration assignment, logic assignment, milestone-fit checking, logic testing, and final detailed checks/repairs. Structured activity names use the pattern `Area - Elevation - Discipline - Service - Step`, while generated IDs include responsibility and discipline codes.
 
-## Local Ollama (optional)
+## Monte Carlo options
 
-1. Run `setup-ollama.bat`, or install/start Ollama yourself.
-2. Open **Settings → Ollama**.
-3. Use **Check Ollama**.
-4. Select the Ollama model in Settings and click **Apply model**.
+Risk Analysis supports configurable iterations, random seed, uncertainty range, Triangular/Beta-PERT/Normal/Uniform duration distributions, target activity/milestone, target completion date, custom percentile, histogram resolution, mapped Risk Register impacts, and remaining-work-only simulation. Results include a completion-outcome histogram with P50/P80/planned markers plus the probability of meeting the selected target date.
 
-Default local endpoint: `http://localhost:11434`.
+## Local Ollama
 
-For a hosted GitHub Pages site, the browser must be permitted to reach the local Ollama service and `OLLAMA_ORIGINS` must allow the Pages origin. The supplied BAT file explains/configures the local Windows setup.
+Run `setup-ollama.bat` on Windows, then use **Settings → Ollama** to check connectivity and select a local model. GitHub Pages-to-loopback access depends on browser local-network permissions and the configured `OLLAMA_ORIGINS` value.
 
-## Microsoft Project `.mpp` import
+## Local MPP bridge
 
-A browser-hosted GitHub Pages site cannot reliably decode Microsoft Project's proprietary binary MPP format using ordinary browser JavaScript alone. The supplied local bridge keeps conversion on the user's PC and does not upload the MPP file to a paid/cloud service.
+Run `setup-mpp-bridge.bat`. The helper under `tools/` requires Node.js 20+ and the dependency declared in `tools/package.json`.
 
-### Windows setup
+## Source layout
 
-1. Keep the complete package folder structure, including `tools/`.
-2. Run `setup-mpp-bridge.bat`.
-3. The helper checks for Node.js 20+, installs the local parser dependency under `tools/`, and starts the parser at `http://127.0.0.1:8765`.
-4. Leave that command window open while importing `.mpp` files.
-5. Import or link the MPP file normally. The site sends the binary file to the **local loopback parser only**, receives MSPDI XML, and parses it into the internal schedule model.
-6. Use **Schedule Assessment → Activity Register → Edit this schedule in Schedule Builder** to copy the parsed schedule into the editable builder.
+- `src/core/` — canonical schedule model and shared utilities
+- `src/parsers/` — XER, MSPDI/XML and PDF schedule parsing
+- `src/repository/` — IndexedDB project/file/schedule persistence
+- `src/analysis/` — health, comparison, forensic, risk, network, time-series and calendar logic
+- `src/builder/` — deterministic Schedule Builder generation/validation pipeline
+- `src/measurement/` — BOQ update/alignment logic
+- `src/ai/` — model catalogue and provider/runtime adapters
+- `src/ui/` — application controller, UI state and renderers
+- `src/workers/` — large-calculation Web Workers
+- `assets/` — application stylesheet
+- `tools/` — optional local MPP helper
 
-The converted model includes WBS/summary hierarchy, activities, milestones, dates/durations, constraints, calendars, predecessor links, resources, assignments, work/units and cost fields where present in the source MSPDI data.
+## Notes
 
-## v1.5 Professional Gantt / profile / builder additions
-
-### Critical Path and WBS/Gantt
-Both Gantt views now use a reusable P6-style layout system. Open **Columns / Field Chooser** to add, remove or reorder activity fields. Each displayed column can be resized by dragging its header divider, and Critical Path / WBS layouts are stored independently in browser local storage.
-
-The Gantt display panel also controls baseline bars, actual markers, progress fill, data-date line, WBS grouping, bar labels, bar height and normal/critical/baseline/progress colours. Existing Weeks / Months / Quarters / Years, timescale start/finish and P6-style orthogonal relationship-line controls remain.
-
-### S-Curve / Histogram
-Profiles can now be filtered by:
-- basis: activities, loaded units/man-hours, cost, or a single resource;
-- multiple selected resources;
-- From / To dates;
-- Expand 4 weeks / Contract 4 weeks / Full range;
-- Planned / Actual / Forecast series independently.
-
-### Risk and Claims CSV
-Risk Analysis and Claims & Forensics each provide CSV Import and Export. CSV handling supports quoted fields/embedded commas. Import/export works without an active schedule; schedule-specific simulations/evidence packs still require a selected schedule.
-
-### Schedule Builder wizard
-The Schedule Builder is now a 12-step guided workflow covering schedule type, Level 3/4/5 detail, specifications, disciplines, phases, responsibility matrix, milestones, similar schedules, reference documents, reference drawings/models, calendars/public holidays, and final Review & Generate. The generated/editable activity table includes individual row deletion plus a **Remove all** action with confirmation. The separate chat panel beneath Schedule Builder has been removed so the builder is focused on the wizard and activity editor.
-
-Calendar setup supports 5-day, 6-day, 7-day and custom working weeks, hours per day, multiple calendars, applicability, country/national-holiday profiles and custom non-working dates. The default is **No national profile** until the user deliberately selects a country. Built-in holiday profiles are planning aids and must be checked against contractual/project-specific calendars.
-
-Only explicitly selected specifications/documents/drawings are passed into the AI context. Final generation is disabled until a compatible AI engine is applied in Settings, then a progress bar/log shows generation and normalisation into the editable schedule table.
-
-## v1.4 Schedule Assessment highlights
-
-### Schedule Comparison
-The comparison now covers:
-- activities;
-- relationships;
-- calendar master data and activity calendar assignment changes;
-- resource master data;
-- activity/resource assignment and loading changes.
-
-Deleted activities, relationships, calendars, resources and assignments are shown in red.
-
-### Critical Path and WBS/Gantt
-Both views now provide:
-- Weeks / Months / Quarters / Years timescale selection;
-- explicit Timescale Start and Timescale Finish date controls;
-- Full Range reset;
-- adaptive timescale text that shrinks/rotates when segments are narrow;
-- orthogonal P6-style dependency lines;
-- draggable WBS/Activity width;
-- relationship-line visibility control.
-
-### DCMA-style checks
-The visual section now uses threshold graphics rather than arbitrary decorative chart types. Every visual compares the measured value directly with its applicable limit and displays the PASS/FAIL result.
-
-### Schedule Narrative
-The narrative includes a collapsed activity-detail register containing all activities. Critical and zero-float activity values are red.
-
-Other v1.3 functionality remains: explicit schedule dropdowns for comparison views, multi-schedule Forensic Review, S-Curve/Histogram basis selection, exact chart hover values, Friday week-ending labels, smarter Nodes, Time Machine, and detailed Baseline & Lookahead.
-
-## NotebookLM+
-
-NotebookLM+ is now a two-pane workspace:
-- **left:** project chat, with the message composer kept at the bottom of the available centre-pane height;
-- **right:** an Outputs studio.
-
-There is no separate Outputs tab. The output studio provides:
-- Report → custom prompt → HTML preview/download;
-- Graphic → custom prompt → SVG preview/download;
-- Data Extract → custom prompt/filter → CSV download;
-- Audio Brief → custom prompt → local speech playback + text-script download.
-
-If AI is enabled, Report and Audio customisation can use the selected model. With No AI selected, deterministic schedule outputs still work.
-
-## Tests
-
-Normal regression suite:
-
-```bash
-npm test
-```
-
-Full release suite:
-
-```bash
-npm run test:exhaustive
-```
-
-The full suite covers parser fuzzing, large XER volume tests, deep network tests, comparison/forensic functions, Monte Carlo determinism, Ollama compatibility/failure handling, cloud-AI routing contracts, repository isolation, AI context integration, GitHub Pages import/dependency checks, security contracts, MSPDI golden parsing, earlier release regressions, and v1.5 request-specific Gantt/profile/CSV/builder/calendar tests.
-
-See `V2_0_0_VALIDATION_REPORT.md` and `CHANGELOG_V2_0_0.md` for the current release detail.
-
-## v1.5.3 Drawing Measurement layout
-
-The Drawing Measurement page now starts with two repository-backed selectors:
-
-- **Drawings to be measured** mirrors the Project Repository folder/file hierarchy and allows multiple files to be selected.
-- **BOQ** mirrors the same hierarchy but allows only one target. `NEW BOQ Document` is always available at the top. Existing targets are limited to CSV/XLS/XLSX files; other repository files are shown disabled for context.
-
-A single **Generate** control sits under these selectors. The previous Measurement chat/conversation panel has been removed. Measurement/allocation settings and the editable quantity register are directly below the source selection workflow.
-
-Measurement source/target selections and configuration are stored in the current browser profile. Removing a repository file automatically prunes stale Measurement selections the next time the page renders.
-
-
-## v1.5.4 — Measurement schedule alignment
-
-Drawing Measurement now includes an optional **Align to schedule** control. When enabled, a PDF, XML or XER schedule must be selected before Generate is allowed. XML and XER files use the parsed activity register directly. PDF schedules are text-extracted in the browser and converted into an activity ID / description index.
-
-The alignment adds **Recommended Activity ID(s)** to the Measurement register and to the BOQ output without replacing the manually assigned **Activity ID** field. Existing CSV / XLS / XLSX BOQs receive the new column and an aligned copy is downloaded; the toolkit repository copy is also updated. NEW BOQ Document uses the same column in its generated CSV.
-
-For browser-only deployment, PDF alignment loads Mozilla PDF.js 6.3.289 on demand and XLS/XLSX rewriting loads SheetJS Community Edition 0.20.3 on demand. CSV and XER/XML alignment do not require those libraries.
-
-
-## v1.5.5 — Hierarchical WBS and automated delay-event identification
-
-The WBS/Gantt and Critical Path views now reconstruct the full WBS hierarchy from the imported schedule WBS table. Parent WBS bands are shown even where activities sit several levels below them. Double-click any WBS band to collapse or expand its complete descendant branch; activity rows, descendant WBS rows and their Gantt bars collapse together. WBS/Gantt and Critical Path keep independent collapse states in the local browser.
-
-Risk Analysis and Claims & Forensics no longer contain separate chat panels. Claims & Forensics includes an **Identify Delay Events** workflow where the user explicitly selects an earlier/reference schedule and a later/comparison schedule. The toolkit creates editable candidate delay/change events from later starts/finishes, duration increases, calendar changes, resource/loading changes, constraints, logic changes and added/removed activities. Selected candidates can then be added directly to the Delay / Change Event Register. These candidates are schedule-analysis evidence only and do not determine contractual entitlement.
-
-The Settings screen also uses a packed responsive card layout to eliminate the large vertical gaps that occurred when cards of different heights shared fixed CSS grid rows.
-
-
-## v1.5.6 — Primavera WBS completeness and native sort order
-
-The WBS/Gantt renderer now shows the complete imported WBS dictionary, including project/root, parent, intermediate and empty WBS nodes even when no activity is assigned directly to those nodes. The Critical Path view continues to show only WBS branches relevant to critical/zero-float activities, but it preserves every required ancestor above those activities.
-
-Primavera XER `PROJWBS.seq_num` is now imported and retained as the authoritative WBS sort order. Sibling WBS bands are therefore rendered in the same sequence as P6 instead of being alphabetically re-sorted by WBS code/name. Microsoft Project XML summary-task WBS nodes retain their outline/source order as the equivalent fallback. Existing stored XER schedules can recover `seq_num` from their retained raw WBS records when re-hydrated.
-
-Double-click collapse/expand continues to work on every WBS band, including newly visible parent and empty WBS nodes.
-
-## v2.0.0 — Expanded Forensic Review
-
-Forensic Review now retains the existing 2–10 explicitly selected revision workflow and adds five collapsible evidence panels below the summary analysis:
-
-- **Activities** — additions/removals with Activity ID, description, WBS and status.
-- **Progress** — percent-complete changes plus Actual Start / Actual Finish additions, removals and changes.
-- **Resourcing** — total Budget/Target, Actual, Remaining and At Completion unit charts, resource-master changes, assignment additions/removals, and detailed Actual/At Completion deltas.
-- **Calendars** — calendar additions/removals/definition changes and activity calendar-assignment changes.
-- **Relationships** — additions, removals and true modifications to relationship type/lag for the same predecessor/successor pair.
-
-Each panel is collapsed by default so the Forensic Review remains manageable on long revision series. Expand a panel to inspect its charts and detailed evidence tables. Removed items use deletion emphasis for easier review.
-
-The dedicated forensic evidence engine lives in `src/analysis/forensics.js`. See `V2_0_0_VALIDATION_REPORT.md` and `CHANGELOG_V2_0_0.md` for release detail.
+Public-holiday profiles and automatically identified forensic/delay observations are planning aids. Project calendars, shutdowns, contractual entitlement, causation and responsibility must still be verified against the governing project documents.
