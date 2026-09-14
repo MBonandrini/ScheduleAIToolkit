@@ -1,4 +1,4 @@
-# Project Controls AI Suite / Schedule AI Toolkit v1.5.1
+# Project Controls AI Suite / Schedule AI Toolkit v1.5.2
 
 A static GitHub Pages-compatible project-controls workbench for Primavera P6 XER, Microsoft Project XML and Microsoft Project MPP-derived schedule analysis.
 
@@ -19,7 +19,7 @@ This site remains a static GitHub Pages application. No API key is embedded in t
 3. Use your existing GitHub Pages deployment configuration.
 4. Keep the included `.nojekyll` file in the repository root.
 
-Asset URLs are cache-bumped to `v=1.5.1` so browsers request the revised JavaScript/CSS after deployment.
+Asset URLs are cache-bumped to `v=1.5.2` so browsers request the revised JavaScript/CSS after deployment.
 
 ## AI options
 
@@ -30,17 +30,21 @@ Available categories include:
 - browser CPU/WASM;
 - browser WebGPU/WebLLM where supported;
 - Google Gemini using the user's own API key;
-- xAI Grok using the user's own API key.
+- xAI Grok using the user's own API key;
+- OpenAI GPT models using the user's own OpenAI API key;
+- Anthropic Claude using the user's own Anthropic API key.
 
-### Gemini / Grok locally stored keys
+### Gemini / Grok / OpenAI / Claude locally stored keys
 
-Settings now contains password boxes for Gemini and Grok API keys plus editable model names. The user can **Save locally**, **Test**, or **Clear** each key. Keys are stored in that browser profile's `localStorage`; they are not committed to Git and are not inserted into source files.
+Settings now contains password boxes for Gemini, Grok, OpenAI and Anthropic Claude API keys plus editable model names. The user can **Save locally**, **Test**, or **Clear** each key. Keys are stored in that browser profile's `localStorage`; they are not committed to Git and are not inserted into source files.
 
-Default cloud model names in v1.5.1:
+Default cloud model names in v1.5.2:
 - Gemini: `gemini-3.8-flash`
 - Grok: `grok-4.6`
+- OpenAI: `gpt-5.6`
+- Anthropic Claude: `claude-sonnet-5`
 
-**Security note:** browser-local storage is persistent and convenient, but a long-lived API key in a browser is not a server-side secret. For a production/shared deployment, a backend/Worker proxy with server-side secret storage is safer. The direct local-key option is retained because this build is designed to let an individual user bring their own key on their own computer.
+**Security note:** browser-local storage is persistent and convenient, but a long-lived API key in a browser is not a server-side secret. OpenAI explicitly recommends keeping API keys out of client-side application code; Anthropic direct-browser access is therefore enabled only because this toolkit is intentionally a bring-your-own-key local-browser workflow. For a production/shared deployment, a backend/Worker proxy with server-side secret storage is safer. The direct local-key option is retained because this build is designed to let an individual user bring their own key on their own computer.
 
 ## Local Ollama (optional)
 
@@ -153,4 +157,24 @@ npm run test:exhaustive
 
 The full suite covers parser fuzzing, large XER volume tests, deep network tests, comparison/forensic functions, Monte Carlo determinism, Ollama compatibility/failure handling, cloud-AI routing contracts, repository isolation, AI context integration, GitHub Pages import/dependency checks, security contracts, MSPDI golden parsing, earlier release regressions, and v1.5 request-specific Gantt/profile/CSV/builder/calendar tests.
 
-See `V1_5_VALIDATION_REPORT.md` and `CHANGELOG_V1_5.md` for the current release detail.
+See `V1_5_3_VALIDATION_REPORT.md` and `CHANGELOG_V1_5_3.md` for the current release detail.
+
+## v1.5.3 Drawing Measurement layout
+
+The Drawing Measurement page now starts with two repository-backed selectors:
+
+- **Drawings to be measured** mirrors the Project Repository folder/file hierarchy and allows multiple files to be selected.
+- **BOQ** mirrors the same hierarchy but allows only one target. `NEW BOQ Document` is always available at the top. Existing targets are limited to CSV/XLS/XLSX files; other repository files are shown disabled for context.
+
+A single **Generate** control sits under these selectors. The previous Measurement chat/conversation panel has been removed. Measurement/allocation settings and the editable quantity register are directly below the source selection workflow.
+
+Measurement source/target selections and configuration are stored in the current browser profile. Removing a repository file automatically prunes stale Measurement selections the next time the page renders.
+
+
+## v1.5.4 — Measurement schedule alignment
+
+Drawing Measurement now includes an optional **Align to schedule** control. When enabled, a PDF, XML or XER schedule must be selected before Generate is allowed. XML and XER files use the parsed activity register directly. PDF schedules are text-extracted in the browser and converted into an activity ID / description index.
+
+The alignment adds **Recommended Activity ID(s)** to the Measurement register and to the BOQ output without replacing the manually assigned **Activity ID** field. Existing CSV / XLS / XLSX BOQs receive the new column and an aligned copy is downloaded; the toolkit repository copy is also updated. NEW BOQ Document uses the same column in its generated CSV.
+
+For browser-only deployment, PDF alignment loads Mozilla PDF.js 6.3.289 on demand and XLS/XLSX rewriting loads SheetJS Community Edition 0.20.3 on demand. CSV and XER/XML alignment do not require those libraries.

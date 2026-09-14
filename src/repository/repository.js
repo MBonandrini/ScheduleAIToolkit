@@ -35,6 +35,16 @@ export async function addFiles(files,{category="Other",checked=true,source="uplo
   return out;
 }
 export async function listFiles(){const p=await ensureProject();return (await db.all("files")).filter(x=>x.projectId===p.id)}
+export async function getFileBlob(id){
+  const f=await db.get("files",id);if(!f)return null;if(f.blob)return f.blob;
+  if(f.folderKey){const handle=folderHandles.get(f.folderKey);if(handle)return await resolveHandleFile(handle,f.relativePath)}
+  return null;
+}
+export async function updateFileBlob(id,blob,{name,type}={}){
+  const f=await db.get("files",id);if(!f)throw new Error("Repository file not found.");
+  f.blob=blob;f.size=blob?.size||0;f.type=type||blob?.type||f.type||"";if(name)f.name=name;f.lastModified=Date.now();f.updatedAt=new Date().toISOString();
+  await db.put("files",f);return f;
+}
 export async function listSchedules(){const p=await ensureProject();return (await db.all("schedules")).filter(x=>x.projectId===p.id)}
 export async function setFileChecked(id,checked){const f=await db.get("files",id);if(!f)return;f.checked=!!checked;await db.put("files",f)}
 export async function removeFile(id){

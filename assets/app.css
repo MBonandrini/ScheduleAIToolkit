@@ -306,3 +306,26 @@ html.resizing-column,html.resizing-column *{cursor:col-resize!important;user-sel
 /* ========================================================================== 
    v1.5.0 professional Gantt layouts, profile controls and schedule wizard
    ========================================================================== */
+
+/* v1.5.3 Measurement workspace */
+.measurement-source-panel{display:grid;gap:14px}
+.measurement-source-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:stretch}
+.measurement-source-box{display:grid;grid-template-rows:auto auto minmax(300px,1fr);min-width:0;border:1px solid var(--border);border-radius:10px;background:var(--panel2);overflow:hidden}
+.measurement-source-box:first-child{grid-template-rows:auto minmax(340px,1fr)}
+.measurement-box-head{display:flex;justify-content:space-between;gap:12px;align-items:start;padding:14px 15px 11px;border-bottom:1px solid var(--border);background:var(--panel)}
+.measurement-box-head h2,.measurement-section-head h2{margin:0 0 4px}.measurement-box-head p,.measurement-section-head p{margin:0;color:var(--muted);font-size:10px;line-height:1.45}
+.measurement-count{flex:0 0 auto;padding:4px 7px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:9px;font-weight:750;background:var(--panel2)}
+.measurement-tree{min-height:0;max-height:420px;overflow:auto;padding:8px 7px 10px;background:var(--panel2)}
+.measurement-tree-folder{margin:1px 0}.measurement-tree-folder>summary{padding:6px 8px 6px calc(8px + var(--tree-depth,0) * 16px);cursor:pointer;color:var(--muted);font-size:10px;font-weight:750;list-style:none;border-radius:6px}.measurement-tree-folder>summary:hover{background:var(--panel);color:var(--text)}
+.measurement-tree-file{display:grid;grid-template-columns:18px 18px minmax(0,1fr);gap:4px;align-items:center;padding:6px 8px 6px calc(8px + var(--tree-depth,0) * 16px);border-radius:6px;cursor:pointer;font-size:10px}.measurement-tree-file:hover{background:var(--panel)}.measurement-tree-file input{margin:0;accent-color:var(--accent)}.measurement-tree-file .file-icon{color:var(--muted);font-size:13px}.measurement-tree-file span:last-child{display:grid;min-width:0}.measurement-tree-file strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}.measurement-tree-file small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:8px;margin-top:1px}.measurement-tree-file.disabled{opacity:.38;cursor:not-allowed}.measurement-tree-file.disabled:hover{background:transparent}.measurement-tree-empty{padding:18px;color:var(--muted);text-align:center}
+.measurement-new-boq{display:grid;grid-template-columns:18px 20px 1fr;gap:7px;align-items:center;margin:10px 10px 0;padding:10px 11px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--border));border-radius:8px;background:color-mix(in srgb,var(--accent) 7%,var(--panel));cursor:pointer}.measurement-new-boq input{accent-color:var(--accent)}.measurement-new-boq span{font-size:16px;color:var(--accent)}.measurement-new-boq strong{font-size:10px}
+.measurement-generate-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-top:2px}.measurement-generate{min-width:150px;height:40px;font-weight:800}.measurement-generate:disabled{opacity:.45;cursor:not-allowed}
+.measurement-settings,.measurement-register{margin-top:12px}.measurement-section-head{display:flex;justify-content:space-between;gap:12px;align-items:start;margin-bottom:12px}.measurement-config-grid{grid-template-columns:repeat(3,minmax(180px,1fr))}.measurement-toggle{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;min-height:34px;padding-top:19px}.measurement-toggle input{width:15px;height:15px;min-height:0!important;accent-color:var(--accent)}
+@media(max-width:1100px){.measurement-source-grid{grid-template-columns:1fr}.measurement-config-grid{grid-template-columns:repeat(2,minmax(180px,1fr))}}
+@media(max-width:700px){.measurement-config-grid{grid-template-columns:1fr}.measurement-generate-row{align-items:stretch;flex-direction:column}.measurement-generate{width:100%}}
+
+/* v1.5.4 measurement schedule alignment */
+.measurement-alignment{margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--panel) 94%,var(--accent) 6%);display:grid;grid-template-columns:minmax(260px,1fr) minmax(280px,1fr);gap:12px;align-items:end}
+.measurement-alignment.enabled{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.measurement-align-toggle{align-items:flex-start!important}.measurement-align-toggle span{display:grid;gap:3px}.measurement-align-toggle small,.measurement-align-select small{display:block;color:var(--muted);font-size:11px;line-height:1.35}.measurement-align-select{display:grid;gap:5px;font-size:12px;font-weight:700}.measurement-align-select select{width:100%}.measurement-alignment-result{grid-column:1/-1;padding-top:8px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+@media(max-width:900px){.measurement-alignment{grid-template-columns:1fr}}

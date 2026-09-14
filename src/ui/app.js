@@ -1,5 +1,5 @@
 
-import {currentProject,projects,newProject,switchProject,restoreFolderHandles,renameProject,addFiles,listFiles,listSchedules,setFileChecked,removeFile,linkFolder,importFolderFallback,selectedContext,saveRisk,listRisks,saveClaim,listClaims} from "../repository/repository.js";
+import {currentProject,projects,newProject,switchProject,restoreFolderHandles,renameProject,addFiles,listFiles,listSchedules,setFileChecked,removeFile,linkFolder,importFolderFallback,selectedContext,saveRisk,listRisks,saveClaim,listClaims,getFileBlob,updateFileBlob} from "../repository/repository.js";
 import {preferredAI,setPreferredAI,askAI,aiLabel,AI_CATALOG,aiEntry,aiCompatibility,catalogueGroups,testSelectedAI} from "../ai/runtime.js";
 import {ollamaConfig,saveOllamaConfig,inspectModels,testOllama,probeOllama} from "../ai/ollama.js";
 import {cloudConfig,saveCloudConfig,clearCloudKey,testCloudAI} from "../ai/cloud.js";
@@ -16,8 +16,11 @@ import {runMonteCarlo,mapRiskToSchedule} from "../analysis/risk.js";
 import {buildDelayEventFile} from "../analysis/claims.js";
 import {dataCentreReadiness,readinessGates} from "../analysis/datacentre.js";
 import {scheduleNarrative} from "../analysis/narrative.js";
-import {mppBridgeUrl,setMppBridgeUrl,probeMppBridge} from "../parsers/index.js";
+import {mppBridgeUrl,setMppBridgeUrl,probeMppBridge,parseScheduleFile} from "../parsers/index.js";
 import {HOLIDAY_COUNTRIES,publicHolidays,calendarHolidaySet,addWorkingDays} from "../analysis/holidays.js";
+import {activityAlignmentIndex,pdfScheduleCandidates,alignMeasurementRows} from "../analysis/measurement-alignment.js";
+import {extractPdfScheduleText} from "../parsers/pdf-schedule.js";
+import {alignBoqFile,RECOMMENDED_HEADER} from "../measurement/boq-alignment.js";
 
 const $=id=>document.getElementById(id);
 const DEFAULT_GANTT_BAR_SETTINGS={showBaseline:true,showActual:true,showProgress:true,showDataDate:true,groupWbs:true,labelMode:"none",normalColor:"#2b78a8",criticalColor:"#c63535",baselineColor:"#7f8f99",progressColor:"#5aa874",barHeight:12};
@@ -38,7 +41,7 @@ const state={
   dashboardLineageIds:["","","","",""],comparisonAId:"",comparisonBId:"",weekAId:"",weekBId:"",
   delayAId:"",delayBId:"",forensicScheduleIds:Array(10).fill(""),baselineCurrentId:"",baselineCompareId:"",
   timeMachineScheduleIds:Array(8).fill(""),scurveBasis:"activities",scurveResourceId:"",scurveResourceIds:[],scurveStartDate:"",scurveFinishDate:"",scurveSeries:{planned:true,actual:true,forecast:true},notebookOutputs:{},
-  ganttLayouts:{critical:null,wbs:null},monte:null,chats:{},quantityRows:[],builderRows:[],builderWizard:null,builderStep:0,builderGeneration:null,riskEdit:null,profile:"Data Centre"
+  ganttLayouts:{critical:null,wbs:null},monte:null,chats:{},quantityRows:[],measurement:null,builderRows:[],builderWizard:null,builderStep:0,builderGeneration:null,riskEdit:null,profile:"Data Centre"
 };
 const roles=["Planner","Forensic Planner","Risk Analyst","Commercial Manager","Contract Analyst","Project Controls Manager","Executive Reviewer"];
 const noRepoViews=new Set(["notebook","builder","settings"]);
@@ -55,6 +58,8 @@ async function init(){
   state.project=await currentProject();
   await restoreFolderHandles();
   state.quantityRows=JSON.parse(localStorage.getItem("pcai.quantities")||"[]");
+  try{state.measurement=JSON.parse(localStorage.getItem("pcai.measurement")||"null")}catch(_){state.measurement=null}
+  state.measurement=normaliseMeasurementState(state.measurement);
   state.builderRows=JSON.parse(localStorage.getItem("pcai.builder")||"[]");
   state.profile=localStorage.getItem("pcai.profile")||"Data Centre";
   state.ganttLeftWidth=Number(localStorage.getItem("pcai.ganttLeftWidth")||410);state.criticalLeftWidth=Number(localStorage.getItem("pcai.criticalLeftWidth")||410);state.ganttLayouts.wbs=loadGanttLayout("wbs");state.ganttLayouts.critical=loadGanttLayout("critical");
@@ -285,18 +290,123 @@ function renderNotebook(){
 }
 
 
+const BOQ_EXT=/\.(csv|xls|xlsx)$/i;
+const ALIGN_SCHEDULE_EXT=/\.(pdf|xml|xer)$/i;
+const MEASUREMENT_DEFAULTS={drawingIds:[],boqMode:"new",boqFileId:"",alignToSchedule:false,alignmentScheduleFileId:"",lastAlignment:null,lastGenerated:null,config:{measurementMode:"Quantity take-off & allocation",discipline:"All disciplines",defaultUnit:"Auto-detect",precision:2,allocationMode:"BOQ item first",groupBy:"BOQ / category",rounding:"None",sourceTrace:true,includeUnallocated:true}};
+function normaliseMeasurementState(value){
+  const v=value&&typeof value==="object"?value:{};
+  return {drawingIds:Array.isArray(v.drawingIds)?v.drawingIds.map(String):[],boqMode:v.boqMode==="existing"?"existing":"new",boqFileId:String(v.boqFileId||""),alignToSchedule:!!v.alignToSchedule,alignmentScheduleFileId:String(v.alignmentScheduleFileId||""),lastAlignment:v.lastAlignment||null,lastGenerated:v.lastGenerated||null,config:{...MEASUREMENT_DEFAULTS.config,...(v.config||{})}};
+}
+function saveMeasurementState(){localStorage.setItem("pcai.measurement",JSON.stringify(state.measurement))}
+function fileTreeData(files){
+  const root={name:"",folders:new Map(),files:[]};
+  for(const f of files||[]){
+    const raw=String(f.relativePath||f.name||"").replace(/\\/g,"/"),parts=raw.split("/").filter(Boolean),fileName=parts.pop()||f.name||"Unnamed file";let node=root;
+    for(const part of parts){if(!node.folders.has(part))node.folders.set(part,{name:part,folders:new Map(),files:[]});node=node.folders.get(part)}
+    node.files.push({...f,_treeName:fileName});
+  }
+  return root;
+}
+function measurementFileTree(files,{mode="drawings"}={}){
+  const tree=fileTreeData(files),selected=new Set(state.measurement.drawingIds.map(String));
+  const renderNode=(node,depth=0)=>{
+    const folders=[...node.folders.values()].sort((a,b)=>a.name.localeCompare(b.name));
+    const fileRows=node.files.slice().sort((a,b)=>String(a._treeName).localeCompare(String(b._treeName))).map(f=>{
+      const isBoq=BOQ_EXT.test(f.name||"");
+      if(mode==="boq")return `<label class="measurement-tree-file ${isBoq?"":"disabled"}" style="--tree-depth:${depth}"><input type="radio" name="measurementBoq" data-boq-file="${esc(f.id)}" ${state.measurement.boqMode==="existing"&&state.measurement.boqFileId===String(f.id)?"checked":""} ${isBoq?"":"disabled"}><span class="file-icon">${isBoq?"▤":"·"}</span><span><strong>${esc(f._treeName)}</strong><small>${esc(f.relativePath||f.name)}${isBoq?"":" · not a CSV/Excel BOQ"}</small></span></label>`;
+      return `<label class="measurement-tree-file" style="--tree-depth:${depth}"><input type="checkbox" data-drawing-file="${esc(f.id)}" ${selected.has(String(f.id))?"checked":""}><span class="file-icon">▧</span><span><strong>${esc(f._treeName)}</strong><small>${esc(f.relativePath||f.name)}</small></span></label>`;
+    }).join("");
+    return folders.map(folder=>`<details class="measurement-tree-folder" open><summary style="--tree-depth:${depth}">▾ ${esc(folder.name)}</summary>${renderNode(folder,depth+1)}</details>`).join("")+fileRows;
+  };
+  return renderNode(tree,0)||`<div class="measurement-tree-empty">No project files are available.</div>`;
+}
+function measurementScheduleOptions(){
+  const files=state.files.filter(f=>ALIGN_SCHEDULE_EXT.test(f.name||""));
+  return `<option value="">Select schedule…</option>${files.map(f=>`<option value="${esc(f.id)}" ${String(f.id)===String(state.measurement.alignmentScheduleFileId)?"selected":""}>${esc(f.relativePath||f.name)}</option>`).join("")}`;
+}
+function asNamedFile(blob,rec){return blob instanceof File?blob:new File([blob],rec.name,{type:rec.type||blob?.type||"application/octet-stream",lastModified:rec.lastModified||Date.now()})}
+async function measurementAlignmentIndex(fileId){
+  const rec=state.files.find(f=>String(f.id)===String(fileId));if(!rec)throw new Error("Select a schedule file for alignment.");
+  const ext=(rec.name.split(".").pop()||"").toLowerCase();
+  if(ext==="pdf"){
+    const blob=await getFileBlob(rec.id);if(!blob)throw new Error("The selected PDF is unavailable. Re-authorise the linked folder or re-import the file.");
+    const text=await extractPdfScheduleText(asNamedFile(blob,rec)),index=pdfScheduleCandidates(text);if(!index.length)throw new Error("No activity ID / description pairs could be identified in the selected PDF schedule.");return index;
+  }
+  let schedules=state.schedules.filter(x=>String(x.sourceFileId)===String(rec.id));
+  if(!schedules.length){const blob=await getFileBlob(rec.id);if(!blob)throw new Error("The selected schedule file is unavailable.");const parsed=await parseScheduleFile(asNamedFile(blob,rec));schedules=parsed.schedules||[]}
+  const index=activityAlignmentIndex(schedules.flatMap(x=>x.activities||[]));if(!index.length)throw new Error("The selected schedule contains no activities to align against.");return index;
+}
+function alignedNewBoqCsv(){
+  const headers=["Discipline","Category","Item","Unit","Quantity","BOQ Item",RECOMMENDED_HEADER,"Activity ID","Norm h/unit","Calculated hours"];
+  const rows=state.quantityRows.map(r=>[r.discipline,r.category,r.item,r.unit,r.quantity,r.boq,r.recommendedActivityIds||"",r.activityId,r.norm,(r.quantity||0)*(r.norm||0)]);
+  return toCSV(headers,rows);
+}
+async function applyMeasurementAlignment(index){
+  state.quantityRows=alignMeasurementRows(state.quantityRows,index);localStorage.setItem("pcai.quantities",JSON.stringify(state.quantityRows));
+  let result={matched:state.quantityRows.filter(r=>r.recommendedActivityIds).length,total:state.quantityRows.length,name:"NEW BOQ Document"};
+  if(state.measurement.boqMode==="existing"){
+    const rec=state.files.find(f=>String(f.id)===String(state.measurement.boqFileId));if(!rec)throw new Error("Selected BOQ file is unavailable.");
+    const blob=await getFileBlob(rec.id);if(!blob)throw new Error("Selected BOQ cannot be read. Re-authorise its linked folder or re-import it.");
+    result=await alignBoqFile(asNamedFile(blob,rec),index);await updateFileBlob(rec.id,result.blob,{name:rec.name,type:result.blob.type});downloadBlob(result.blob,result.name);
+  }else{
+    const blob=new Blob([alignedNewBoqCsv()],{type:"text/csv"});downloadBlob(blob,"NEW-BOQ-aligned.csv");
+  }
+  return result;
+}
 function renderDrawing(){
-  $("workspace").innerHTML=`${viewHead("Drawing Measurement","Quantity register, BOQ/schedule allocation and AI-assisted classification",`<button class="btn" id="addQty">Add row</button><button class="btn" id="exportQty">Export CSV</button>`)}
-  <section class="panel">${table(["Discipline","Category","Item","Unit","Quantity","BOQ Item","Activity ID","Norm h/unit","Calculated hours",""],state.quantityRows.map((r,i)=>[
+  state.measurement=normaliseMeasurementState(state.measurement);
+  const fileIds=new Set(state.files.map(f=>String(f.id))),validBoqIds=new Set(state.files.filter(f=>BOQ_EXT.test(f.name||"")).map(f=>String(f.id))),validScheduleIds=new Set(state.files.filter(f=>ALIGN_SCHEDULE_EXT.test(f.name||"")).map(f=>String(f.id)));
+  state.measurement.drawingIds=state.measurement.drawingIds.filter(id=>fileIds.has(String(id)));
+  if(state.measurement.boqMode==="existing"&&!validBoqIds.has(String(state.measurement.boqFileId))){state.measurement.boqMode="new";state.measurement.boqFileId=""}
+  if(state.measurement.alignmentScheduleFileId&&!validScheduleIds.has(String(state.measurement.alignmentScheduleFileId)))state.measurement.alignmentScheduleFileId="";
+  saveMeasurementState();
+  const c=state.measurement.config,target=state.measurement.boqMode==="existing"?state.files.find(f=>String(f.id)===String(state.measurement.boqFileId))?.name||"Existing BOQ":"NEW BOQ Document";
+  $("workspace").innerHTML=`${viewHead("Drawing Measurement","Choose drawing sources and one BOQ destination, then configure measurement and allocation.",`<button class="btn" id="addQty">Add row</button><button class="btn" id="exportQty">Export CSV</button>`)}
+  <section class="panel measurement-source-panel">
+    <div class="measurement-source-grid">
+      <div class="measurement-source-box"><div class="measurement-box-head"><div><h2>Drawings to be measured</h2><p>Select one or more files from the Project Repository.</p></div><div class="measurement-count" id="drawingSelectionCount">${state.measurement.drawingIds.length} selected</div></div><div class="measurement-tree">${measurementFileTree(state.files,{mode:"drawings"})}</div></div>
+      <div class="measurement-source-box"><div class="measurement-box-head"><div><h2>BOQ</h2><p>Select the single BOQ that receives the allocation, or create a new one.</p></div><div class="measurement-count">1 target</div></div><label class="measurement-new-boq"><input type="radio" name="measurementBoq" id="newBoqTarget" ${state.measurement.boqMode!=="existing"?"checked":""}><span>＋</span><strong>NEW BOQ Document</strong></label><div class="measurement-tree boq-tree">${measurementFileTree(state.files,{mode:"boq"})}</div></div>
+    </div>
+    <div class="measurement-alignment ${state.measurement.alignToSchedule?"enabled":""}">
+      <label class="measurement-toggle measurement-align-toggle"><input type="checkbox" id="alignToSchedule" ${state.measurement.alignToSchedule?"checked":""}><span><strong>Align to schedule</strong><small>Add recommended P6 activity ID(s) to the BOQ without replacing manually assigned Activity IDs.</small></span></label>
+      <label class="measurement-align-select" ${state.measurement.alignToSchedule?"":"hidden"}>Schedule to align against<select id="alignmentScheduleFile" ${state.measurement.alignToSchedule?"required":"disabled"}>${measurementScheduleOptions()}</select><small>PDF, XML or XER schedules only. A selection is required when alignment is enabled.</small></label>
+      ${state.measurement.lastAlignment?`<div class="measurement-alignment-result">Last alignment: <strong>${esc(state.measurement.lastAlignment.scheduleName||"Schedule")}</strong> · ${Number(state.measurement.lastAlignment.matched||0)}/${Number(state.measurement.lastAlignment.total||0)} BOQ/register rows matched.</div>`:""}
+    </div>
+    <div class="measurement-generate-row"><div><strong>Target:</strong> ${esc(target)}<span class="muted"> · ${state.measurement.drawingIds.length} drawing file${state.measurement.drawingIds.length===1?"":"s"} selected${state.measurement.alignToSchedule?" · schedule alignment enabled":""}</span></div><button class="btn primary measurement-generate" id="measurementGenerate" ${state.measurement.drawingIds.length&&(!state.measurement.alignToSchedule||state.measurement.alignmentScheduleFileId)?"":"disabled"}>Generate</button></div>
+  </section>
+  <section class="panel measurement-settings"><div class="measurement-section-head"><div><h2>Measurement & allocation settings</h2><p>Configure how quantities are measured, grouped and allocated before generation.</p></div></div><div class="form measurement-config-grid">
+    <label>Measurement mode<select data-measure-config="measurementMode">${["Quantity take-off & allocation","Quantity take-off only","BOQ allocation only","Verification / remeasurement"].map(x=>`<option ${c.measurementMode===x?"selected":""}>${x}</option>`).join("")}</select></label>
+    <label>Discipline<select data-measure-config="discipline">${["All disciplines","Electrical","Mechanical","CSA / Civil","Instrumentation & Controls","Process","Architectural"].map(x=>`<option ${c.discipline===x?"selected":""}>${x}</option>`).join("")}</select></label>
+    <label>Default unit<select data-measure-config="defaultUnit">${["Auto-detect","m","m²","m³","nr","kg","t","lot"].map(x=>`<option ${c.defaultUnit===x?"selected":""}>${x}</option>`).join("")}</select></label>
+    <label>Decimal precision<select data-measure-config="precision">${[0,1,2,3,4].map(x=>`<option value="${x}" ${Number(c.precision)===x?"selected":""}>${x}</option>`).join("")}</select></label>
+    <label>Allocation method<select data-measure-config="allocationMode">${["BOQ item first","Drawing category first","Activity / WBS first","Manual review first"].map(x=>`<option ${c.allocationMode===x?"selected":""}>${x}</option>`).join("")}</select></label>
+    <label>Group generated rows by<select data-measure-config="groupBy">${["BOQ / category","Drawing","Discipline","WBS / activity","Unit"].map(x=>`<option ${c.groupBy===x?"selected":""}>${x}</option>`).join("")}</select></label>
+    <label>Rounding<select data-measure-config="rounding">${["None","Nearest whole unit","Nearest 0.5","Nearest 0.1"].map(x=>`<option ${c.rounding===x?"selected":""}>${x}</option>`).join("")}</select></label>
+    <label class="measurement-toggle"><input type="checkbox" data-measure-config="sourceTrace" ${c.sourceTrace?"checked":""}><span>Retain drawing/file source against each measured item</span></label>
+    <label class="measurement-toggle"><input type="checkbox" data-measure-config="includeUnallocated" ${c.includeUnallocated?"checked":""}><span>Keep unallocated measurements for review</span></label>
+  </div></section>
+  <section class="panel measurement-register"><div class="measurement-section-head"><div><h2>Measurement & allocation register</h2><p>Generated quantities and manual adjustments are maintained here.</p></div><div class="muted">${state.quantityRows.length} row${state.quantityRows.length===1?"":"s"}</div></div>${table(["Discipline","Category","Item","Unit","Quantity","BOQ Item",...(state.measurement.alignToSchedule?["Recommended Activity ID(s)"]:[]),"Activity ID","Norm h/unit","Calculated hours",""],state.quantityRows.map((r,i)=>[
     `<input data-q="${i}:discipline" value="${esc(r.discipline||"")}">`,`<input data-q="${i}:category" value="${esc(r.category||"")}">`,`<input data-q="${i}:item" value="${esc(r.item||"")}">`,`<input data-q="${i}:unit" value="${esc(r.unit||"")}">`,
-    `<input type="number" data-q="${i}:quantity" value="${r.quantity||0}">`,`<input data-q="${i}:boq" value="${esc(r.boq||"")}">`,`<input data-q="${i}:activityId" value="${esc(r.activityId||"")}">`,`<input type="number" data-q="${i}:norm" value="${r.norm||0}">`,((r.quantity||0)*(r.norm||0)).toFixed(2),`<button data-delq="${i}">×</button>`
-  ]))}</section>
-  <div style="margin-top:12px">${chatMarkup("drawing","AI Measurement Assistant","Use AI to classify documented quantities, map them to BOQ/schedule activities and identify evidence gaps.","Commercial Manager")}</div>`;
+    `<input type="number" data-q="${i}:quantity" value="${r.quantity||0}">`,`<input data-q="${i}:boq" value="${esc(r.boq||"")}">`,...(state.measurement.alignToSchedule?[`<input value="${esc(r.recommendedActivityIds||"")}" readonly title="Recommended from selected schedule">`]:[]),`<input data-q="${i}:activityId" value="${esc(r.activityId||"")}">`,`<input type="number" data-q="${i}:norm" value="${r.norm||0}">`,((r.quantity||0)*(r.norm||0)).toFixed(2),`<button data-delq="${i}">×</button>`
+  ]))}</section>`;
+  document.querySelectorAll("[data-drawing-file]").forEach(x=>x.onchange=()=>{const id=String(x.dataset.drawingFile),set=new Set(state.measurement.drawingIds.map(String));x.checked?set.add(id):set.delete(id);state.measurement.drawingIds=[...set];saveMeasurementState();renderDrawing()});
+  $("newBoqTarget").onchange=()=>{if($("newBoqTarget").checked){state.measurement.boqMode="new";state.measurement.boqFileId="";saveMeasurementState();renderDrawing()}};
+  document.querySelectorAll("[data-boq-file]").forEach(x=>x.onchange=()=>{if(!x.checked)return;state.measurement.boqMode="existing";state.measurement.boqFileId=String(x.dataset.boqFile);saveMeasurementState();renderDrawing()});
+  $("alignToSchedule").onchange=()=>{state.measurement.alignToSchedule=$("alignToSchedule").checked;if(!state.measurement.alignToSchedule)state.measurement.alignmentScheduleFileId="";saveMeasurementState();renderDrawing()};
+  $("alignmentScheduleFile")?.addEventListener("change",e=>{state.measurement.alignmentScheduleFileId=String(e.target.value||"");saveMeasurementState();renderDrawing()});
+  document.querySelectorAll("[data-measure-config]").forEach(x=>x.onchange=()=>{const key=x.dataset.measureConfig;state.measurement.config[key]=x.type==="checkbox"?x.checked:x.type==="number"?Number(x.value):key==="precision"?Number(x.value):x.value;saveMeasurementState()});
+  $("measurementGenerate").onclick=async()=>{
+    if(!state.measurement.drawingIds.length)return alert("Select at least one drawing/reference file to measure.");if(state.measurement.boqMode==="existing"&&!state.measurement.boqFileId)return alert("Select a BOQ file or choose NEW BOQ Document.");
+    if(state.measurement.alignToSchedule&&!state.measurement.alignmentScheduleFileId)return alert("Align to schedule is enabled. Select a PDF, XML or XER schedule before generating.");
+    try{await withProgress(state.measurement.alignToSchedule?"Generating and aligning measurement":"Generating measurement",async()=>{
+      let alignment=null;if(state.measurement.alignToSchedule){const rec=state.files.find(f=>String(f.id)===String(state.measurement.alignmentScheduleFileId)),index=await measurementAlignmentIndex(state.measurement.alignmentScheduleFileId);alignment=await applyMeasurementAlignment(index);state.measurement.lastAlignment={at:new Date().toISOString(),scheduleFileId:state.measurement.alignmentScheduleFileId,scheduleName:rec?.name||"Schedule",matched:alignment.matched,total:alignment.total};await refreshData()}
+      state.measurement.lastGenerated={at:new Date().toISOString(),drawingIds:[...state.measurement.drawingIds],boqMode:state.measurement.boqMode,boqFileId:state.measurement.boqFileId,alignToSchedule:state.measurement.alignToSchedule,alignmentScheduleFileId:state.measurement.alignmentScheduleFileId,config:{...state.measurement.config}};saveMeasurementState();
+    });toast(state.measurement.alignToSchedule?`Measurement ready · ${state.measurement.lastAlignment?.matched||0} BOQ rows aligned`:"Measurement setup ready");renderDrawing()}catch(error){alert(`Measurement generation failed: ${error.message||error}`)}
+  };
   document.querySelectorAll("[data-q]").forEach(x=>x.onchange=()=>{const [i,k]=x.dataset.q.split(":");state.quantityRows[Number(i)][k]=x.type==="number"?Number(x.value):x.value;localStorage.setItem("pcai.quantities",JSON.stringify(state.quantityRows));renderDrawing()});
   document.querySelectorAll("[data-delq]").forEach(x=>x.onclick=()=>{state.quantityRows.splice(Number(x.dataset.delq),1);localStorage.setItem("pcai.quantities",JSON.stringify(state.quantityRows));renderDrawing()});
-  $("addQty").onclick=()=>{state.quantityRows.push({id:uid("qty"),discipline:"Electrical",category:"",item:"",unit:"m",quantity:0,boq:"",activityId:"",norm:0});localStorage.setItem("pcai.quantities",JSON.stringify(state.quantityRows));renderDrawing()};
-  $("exportQty").onclick=()=>downloadBlob(new Blob([toCSV(["Discipline","Category","Item","Unit","Quantity","BOQ","Activity ID","Norm","Hours"],state.quantityRows.map(r=>[r.discipline,r.category,r.item,r.unit,r.quantity,r.boq,r.activityId,r.norm,(r.quantity||0)*(r.norm||0)]))],{type:"text/csv"}),"drawing-measurements.csv");
-  bindChat("drawing","Commercial Manager");
+  $("addQty").onclick=()=>{state.quantityRows.push({id:uid("qty"),discipline:"Electrical",category:"",item:"",unit:"m",quantity:0,boq:"",recommendedActivityIds:"",activityId:"",norm:0});localStorage.setItem("pcai.quantities",JSON.stringify(state.quantityRows));renderDrawing()};
+  $("exportQty").onclick=()=>downloadBlob(new Blob([toCSV(["Discipline","Category","Item","Unit","Quantity","BOQ",RECOMMENDED_HEADER,"Activity ID","Norm","Hours"],state.quantityRows.map(r=>[r.discipline,r.category,r.item,r.unit,r.quantity,r.boq,r.recommendedActivityIds||"",r.activityId,r.norm,(r.quantity||0)*(r.norm||0)]))],{type:"text/csv"}),"drawing-measurements.csv");
 }
 
 function assessmentNav(){
@@ -720,7 +830,7 @@ function renderBuilder(){const w=builderWizard(),step=Math.max(0,Math.min(BUILDE
 }
 
 function renderSettings(){
-  const c=ollamaConfig(),selectedValue=preferredAI(),gemini=cloudConfig("gemini"),grok=cloudConfig("grok");
+  const c=ollamaConfig(),selectedValue=preferredAI(),gemini=cloudConfig("gemini"),grok=cloudConfig("grok"),openai=cloudConfig("openai"),anthropic=cloudConfig("anthropic");
   $("workspace").innerHTML=`${viewHead("Settings","AI model selection, project-controls profile and local Ollama setup")}
   <div class="grid grid2 settings-grid">
     <section class="panel"><h2>Global AI Model</h2>
@@ -729,8 +839,8 @@ function renderSettings(){
       <div id="selectedAiCard" class="ai-config-card" style="margin-top:10px"></div>
       <div id="browserAiDiag" class="muted" style="margin-top:8px">Browser models download only after selection and first test/use.</div>
     </section>
-    <section class="panel cloud-ai-panel"><h2>Gemini & Grok API keys</h2>
-      <p class="muted">Keys are saved only in this browser's local storage on this computer; they are never written into the GitHub repository. Because this is a static GitHub Pages site, browser-stored API keys are convenient but are not equivalent to server-side secrets.</p>
+    <section class="panel cloud-ai-panel"><h2>Cloud AI API keys — Gemini, Grok, OpenAI & Claude</h2>
+      <p class="muted">Gemini & Grok API keys remain supported, with OpenAI and Claude added. Keys are saved only in this browser's local storage on this computer; they are never written into the GitHub repository. Because this is a static GitHub Pages site, browser-stored API keys are convenient but are not equivalent to server-side secrets.</p>
       <div class="cloud-provider">
         <div class="cloud-provider-head"><strong>Google Gemini</strong><span>Direct browser API</span></div>
         <div class="form"><label>Gemini API key<input id="geminiApiKey" type="password" autocomplete="off" placeholder="Paste Gemini API key" value="${esc(gemini.apiKey)}"></label><label>Gemini model<input id="geminiModel" value="${esc(gemini.model)}" placeholder="gemini-3.8-flash"></label><div class="actions"><button class="btn primary" id="saveGemini">Save locally</button><button class="btn" id="testGemini">Test Gemini</button><button class="btn" id="clearGemini">Clear key</button></div><div id="geminiDiag" class="muted">${gemini.apiKey?"API key is stored locally in this browser.":"No Gemini API key stored."}</div></div>
@@ -738,6 +848,14 @@ function renderSettings(){
       <div class="cloud-provider">
         <div class="cloud-provider-head"><strong>xAI Grok</strong><span>Direct browser API</span></div>
         <div class="form"><label>Grok / xAI API key<input id="grokApiKey" type="password" autocomplete="off" placeholder="Paste xAI API key" value="${esc(grok.apiKey)}"></label><label>Grok model<input id="grokModel" value="${esc(grok.model)}" placeholder="grok-4.6"></label><div class="actions"><button class="btn primary" id="saveGrok">Save locally</button><button class="btn" id="testGrok">Test Grok</button><button class="btn" id="clearGrok">Clear key</button></div><div id="grokDiag" class="muted">${grok.apiKey?"API key is stored locally in this browser.":"No Grok API key stored."}</div></div>
+      </div>
+      <div class="cloud-provider">
+        <div class="cloud-provider-head"><strong>OpenAI</strong><span>Responses API</span></div>
+        <div class="form"><label>OpenAI API key<input id="openaiApiKey" type="password" autocomplete="off" placeholder="Paste OpenAI API key" value="${esc(openai.apiKey)}"></label><label>OpenAI model<input id="openaiModel" value="${esc(openai.model)}" placeholder="gpt-5.6"></label><div class="actions"><button class="btn primary" id="saveOpenai">Save locally</button><button class="btn" id="testOpenai">Test OpenAI</button><button class="btn" id="clearOpenai">Clear key</button></div><div id="openaiDiag" class="muted">${openai.apiKey?"API key is stored locally in this browser.":"No OpenAI API key stored."}</div></div>
+      </div>
+      <div class="cloud-provider">
+        <div class="cloud-provider-head"><strong>Anthropic Claude</strong><span>Messages API</span></div>
+        <div class="form"><label>Claude / Anthropic API key<input id="anthropicApiKey" type="password" autocomplete="off" placeholder="Paste Anthropic API key" value="${esc(anthropic.apiKey)}"></label><label>Claude model<input id="anthropicModel" value="${esc(anthropic.model)}" placeholder="claude-sonnet-5"></label><div class="actions"><button class="btn primary" id="saveAnthropic">Save locally</button><button class="btn" id="testAnthropic">Test Claude</button><button class="btn" id="clearAnthropic">Clear key</button></div><div id="anthropicDiag" class="muted">${anthropic.apiKey?"API key is stored locally in this browser.":"No Claude API key stored."}</div></div>
       </div>
       <p class="muted cloud-key-warning">For a public/production deployment, a small backend or Worker that keeps long-lived keys off the page is safer. This local-storage option is provided because you specifically want the key to remain available on the user's own machine.</p>
     </section>
@@ -748,7 +866,7 @@ function renderSettings(){
   </div>`;
   const refreshSelectedCard=()=>{
     const selected=selectedAIInfo();
-    $("selectedAiCard").innerHTML=`<div class="ai-config-title">${esc(aiLabel())}</div><div class="ai-config-meta"><span>${esc(selected.engine==="none"?"Disabled":selected.engine==="ollama"?"Ollama":selected.engine==="gemini"?"Google Gemini API":selected.engine==="grok"?"xAI Grok API":selected.engine==="cpu"?"CPU / WASM":selected.engine==="gpu-transformers"?"WebGPU / Transformers.js":"WebGPU / WebLLM")}</span><span>${esc(selected.memory||"")}</span></div><div class="${selected.compatible?"ai-ok":"ai-warning"}">${selected.engine==="none"?"No AI calls will be made.":selected.compatible?"Compatible with this browser.":esc(selected.compatibilityMessage)}</div>`;
+    $("selectedAiCard").innerHTML=`<div class="ai-config-title">${esc(aiLabel())}</div><div class="ai-config-meta"><span>${esc(selected.engine==="none"?"Disabled":selected.engine==="ollama"?"Ollama":selected.engine==="gemini"?"Google Gemini API":selected.engine==="grok"?"xAI Grok API":selected.engine==="openai"?"OpenAI Responses API":selected.engine==="anthropic"?"Anthropic Claude API":selected.engine==="cpu"?"CPU / WASM":selected.engine==="gpu-transformers"?"WebGPU / Transformers.js":"WebGPU / WebLLM")}</span><span>${esc(selected.memory||"")}</span></div><div class="${selected.compatible?"ai-ok":"ai-warning"}">${selected.engine==="none"?"No AI calls will be made.":selected.compatible?"Compatible with this browser.":esc(selected.compatibilityMessage)}</div>`;
     $("testSelectedAI").disabled=selected.engine==="none"||selected.engine==="ollama"||!selected.compatible;
   };
   refreshSelectedCard();
@@ -759,12 +877,12 @@ function renderSettings(){
   $("testSelectedAI").onclick=async()=>{const d=$("browserAiDiag");d.textContent=`Testing ${aiLabel()}…`;const result=await testSelectedAI();d.textContent=result.ok?`✓ ${result.message}`:`✕ ${result.message}`};
   $("applyProfile").onclick=()=>{state.profile=$("profile").value;localStorage.setItem("pcai.profile",state.profile);$("profileDiag").textContent=`Applied: ${state.profile}`;toast(`Profile applied: ${state.profile}`)};
   const bindCloudProvider=(provider)=>{
-    const cap=provider[0].toUpperCase()+provider.slice(1),keyEl=$(provider+"ApiKey"),modelEl=$(provider+"Model"),diag=$(provider+"Diag");
-    $("save"+cap).onclick=()=>{const cfg=saveCloudConfig(provider,{apiKey:keyEl.value,model:modelEl.value});diag.textContent=`✓ ${cap} settings saved locally · ${cfg.model}`;renderAIModelDisplay();refreshSelectedCard();toast(`${cap} API settings saved locally`)};
-    $("clear"+cap).onclick=()=>{clearCloudKey(provider);keyEl.value="";diag.textContent=`${cap} API key cleared from this browser.`;renderAIModelDisplay();refreshSelectedCard()};
-    $("test"+cap).onclick=async()=>{saveCloudConfig(provider,{apiKey:keyEl.value,model:modelEl.value});diag.textContent=`Testing ${cap}…`;const r=await testCloudAI(provider);diag.textContent=r.ok?`✓ ${r.message}`:`✕ ${r.message}`};
+    const cap=provider[0].toUpperCase()+provider.slice(1),display={gemini:"Gemini",grok:"Grok",openai:"OpenAI",anthropic:"Claude"}[provider]||cap,keyEl=$(provider+"ApiKey"),modelEl=$(provider+"Model"),diag=$(provider+"Diag");
+    $("save"+cap).onclick=()=>{const cfg=saveCloudConfig(provider,{apiKey:keyEl.value,model:modelEl.value});diag.textContent=`✓ ${display} settings saved locally · ${cfg.model}`;renderAIModelDisplay();refreshSelectedCard();toast(`${display} API settings saved locally`)};
+    $("clear"+cap).onclick=()=>{clearCloudKey(provider);keyEl.value="";diag.textContent=`${display} API key cleared from this browser.`;renderAIModelDisplay();refreshSelectedCard()};
+    $("test"+cap).onclick=async()=>{saveCloudConfig(provider,{apiKey:keyEl.value,model:modelEl.value});diag.textContent=`Testing ${display}…`;const r=await testCloudAI(provider);diag.textContent=r.ok?`✓ ${r.message}`:`✕ ${r.message}`};
   };
-  bindCloudProvider("gemini");bindCloudProvider("grok");
+  bindCloudProvider("gemini");bindCloudProvider("grok");bindCloudProvider("openai");bindCloudProvider("anthropic");
 
   const showOllamaHelp=(resultOrError)=>{
     const box=$("ollamaHelp"),diag=$("ollamaDiag");

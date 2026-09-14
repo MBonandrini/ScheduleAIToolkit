@@ -1,7 +1,9 @@
 const PREFIX="pcai.cloud.";
 const DEFAULTS={
   gemini:{model:"gemini-3.8-flash",label:"Gemini"},
-  grok:{model:"grok-4.6",label:"Grok"}
+  grok:{model:"grok-4.6",label:"Grok"},
+  openai:{model:"gpt-5.6",label:"OpenAI"},
+  anthropic:{model:"claude-sonnet-5",label:"Claude"}
 };
 function storage(){return typeof localStorage!=="undefined"?localStorage:null}
 function key(provider,field){return `${PREFIX}${provider}.${field}`}
@@ -45,6 +47,18 @@ export async function cloudChat(provider,messages,{model=null,onProgress=null}={
     const data=await request("https://api.x.ai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${cfg.apiKey}`},body:JSON.stringify({model:selected,messages:messages.map(m=>({role:m.role,content:String(m.content||"")}))})},provider);
     const text=String(data.choices?.[0]?.message?.content||"").trim();if(!text)throw new Error("Grok returned no text response.");
     onProgress?.({title:"Grok complete",detail:selected,pct:100});return {text,model:selected,provider};
+  }
+  if(provider==="openai"){
+    const {system,chat}=splitMessages(messages),body={model:selected,max_output_tokens:16000,input:chat.map(m=>({role:m.role==="assistant"?"assistant":"user",content:String(m.content||"")}))};if(system)body.instructions=system;
+    const data=await request("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${cfg.apiKey}`},body:JSON.stringify(body)},provider);
+    const text=String(data.output_text||"").trim()||(data.output||[]).flatMap(x=>x.content||[]).map(x=>x.text||x.output_text||"").join("").trim();if(!text)throw new Error("OpenAI returned no text response.");
+    onProgress?.({title:"OpenAI complete",detail:selected,pct:100});return {text,model:selected,provider};
+  }
+  if(provider==="anthropic"){
+    const {system,chat}=splitMessages(messages),body={model:selected,max_tokens:16000,messages:chat.map(m=>({role:m.role==="assistant"?"assistant":"user",content:String(m.content||"")}))};if(system)body.system=system;
+    const data=await request("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":cfg.apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify(body)},provider);
+    const text=(data.content||[]).filter(x=>x.type==="text").map(x=>x.text||"").join("").trim();if(!text)throw new Error("Claude returned no text response.");
+    onProgress?.({title:"Claude complete",detail:selected,pct:100});return {text,model:selected,provider};
   }
   throw new Error(`Unsupported cloud AI provider: ${provider}`);
 }

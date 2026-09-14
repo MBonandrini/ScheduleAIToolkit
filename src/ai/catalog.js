@@ -4,6 +4,8 @@ export const AI_CATALOG = [
   {value:"ollama:auto",engine:"ollama",model:null,label:"Ollama — selected local model",group:"Ollama",memory:"Model dependent",contextChars:60000},
   {value:"gemini:default",engine:"gemini",model:"gemini-3.8-flash",label:"Gemini — API key",group:"Cloud API · bring your own key",memory:"Cloud",contextChars:90000},
   {value:"grok:default",engine:"grok",model:"grok-4.6",label:"Grok — xAI API key",group:"Cloud API · bring your own key",memory:"Cloud",contextChars:90000},
+  {value:"openai:default",engine:"openai",model:"gpt-5.6",label:"OpenAI — API key",group:"Cloud API · bring your own key",memory:"Cloud",contextChars:90000},
+  {value:"anthropic:default",engine:"anthropic",model:"claude-sonnet-5",label:"Claude — Anthropic API key",group:"Cloud API · bring your own key",memory:"Cloud",contextChars:90000},
   {value:"cpu:qwen2.5-0.5b",engine:"cpu",model:"onnx-community/Qwen2.5-0.5B-Instruct",label:"Browser CPU/WASM — Qwen2.5 0.5B",group:"Browser CPU / WASM",memory:"~0.8–1.5 GB",contextChars:12000,dtype:"q4"},
   {value:"cpu:llama3.2-1b",engine:"cpu",model:"onnx-community/Llama-3.2-1B-Instruct-ONNX",label:"Browser CPU/WASM — Llama 3.2 1B",group:"Browser CPU / WASM",memory:"~1.2–2.5 GB",contextChars:14000,dtype:"q4"},
   {value:"gpu:qwen2.5-0.5b",engine:"gpu-transformers",model:"onnx-community/Qwen2.5-0.5B-Instruct",label:"Browser WebGPU — Qwen2.5 0.5B",group:"Browser WebGPU",memory:"~0.8–1.5 GB VRAM",contextChars:12000,dtype:"q4"},

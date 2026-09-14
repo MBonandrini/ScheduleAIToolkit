@@ -11,6 +11,7 @@ export async function run(){
   const builderBlock=app.slice(builderStart,builderEnd>builderStart?builderEnd:app.length);
   assert.ok(!builderBlock.includes('chatMarkup("builder"'),"Schedule Builder should not render a chat panel");
   assert.ok(!builderBlock.includes("bindChat('builder'"),"Schedule Builder should not bind chat handlers");
-  assert.ok(index.includes("v=1.5.1"),"GitHub Pages assets should be cache-bumped to v1.5.1");
+  const versions=[...index.matchAll(/v=(\d+)\.(\d+)\.(\d+)/g)].map(m=>m.slice(1).map(Number));
+  assert.ok(versions.length&&versions.every(v=>v[0]>1||v[1]>5||(v[1]===5&&v[2]>=1)),"GitHub Pages assets should remain cache-bumped to v1.5.1 or newer");
   return "v1.5.1 builder cleanup";
 }
