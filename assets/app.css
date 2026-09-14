@@ -361,3 +361,16 @@ html.resizing-column,html.resizing-column *{cursor:col-resize!important;user-sel
 .settings-grid{display:block!important;columns:440px 2;column-gap:12px;align-items:initial!important}
 .settings-grid>.panel{display:inline-block;width:100%;box-sizing:border-box;break-inside:avoid;margin:0 0 12px;vertical-align:top}
 @media(max-width:980px){.settings-grid{columns:1!important}}
+
+/* v2.0.0 forensic evidence drill-down */
+.forensic-evidence-stack{display:grid;gap:10px;margin-top:12px;min-width:0}
+.forensic-evidence-title{display:flex;justify-content:space-between;gap:10px;align-items:end}
+.forensic-evidence-title h2{margin:0 0 3px}.forensic-evidence-title p{margin:0}
+.forensic-evidence-box{border:1px solid var(--border);border-radius:10px;background:var(--panel);box-shadow:var(--shadow);overflow:hidden;min-width:0}
+.forensic-evidence-box>summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--panel2);border-bottom:1px solid transparent}
+.forensic-evidence-box>summary::-webkit-details-marker{display:none}
+.forensic-evidence-box>summary>span:first-child{display:grid;gap:3px;min-width:0}.forensic-evidence-box>summary strong{font-size:12px}.forensic-evidence-box>summary small{color:var(--muted);font-size:9px;white-space:normal}
+.forensic-expand-hint{color:var(--muted);font-size:9px;font-weight:750;white-space:nowrap}.forensic-expand-hint:before{content:"▸ ";font-size:11px}.forensic-evidence-box[open] .forensic-expand-hint:before{content:"▾ "}.forensic-evidence-box[open]>summary{border-bottom-color:var(--border)}
+.forensic-evidence-body{padding:12px 14px;display:grid;gap:10px;min-width:0}.forensic-evidence-body h3{margin:5px 0 0;font-size:11px}.forensic-evidence-body>.table-wrap,.forensic-evidence-body>.chart-shell{max-width:100%}
+.deleted-text{color:var(--danger)!important;font-weight:800}
+@media(max-width:760px){.forensic-evidence-box>summary{align-items:flex-start;flex-direction:column}.forensic-expand-hint{align-self:flex-end}}

@@ -157,7 +157,7 @@ npm run test:exhaustive
 
 The full suite covers parser fuzzing, large XER volume tests, deep network tests, comparison/forensic functions, Monte Carlo determinism, Ollama compatibility/failure handling, cloud-AI routing contracts, repository isolation, AI context integration, GitHub Pages import/dependency checks, security contracts, MSPDI golden parsing, earlier release regressions, and v1.5 request-specific Gantt/profile/CSV/builder/calendar tests.
 
-See `V1_5_3_VALIDATION_REPORT.md` and `CHANGELOG_V1_5_3.md` for the current release detail.
+See `V2_0_0_VALIDATION_REPORT.md` and `CHANGELOG_V2_0_0.md` for the current release detail.
 
 ## v1.5.3 Drawing Measurement layout
 
@@ -187,3 +187,26 @@ The WBS/Gantt and Critical Path views now reconstruct the full WBS hierarchy fro
 Risk Analysis and Claims & Forensics no longer contain separate chat panels. Claims & Forensics includes an **Identify Delay Events** workflow where the user explicitly selects an earlier/reference schedule and a later/comparison schedule. The toolkit creates editable candidate delay/change events from later starts/finishes, duration increases, calendar changes, resource/loading changes, constraints, logic changes and added/removed activities. Selected candidates can then be added directly to the Delay / Change Event Register. These candidates are schedule-analysis evidence only and do not determine contractual entitlement.
 
 The Settings screen also uses a packed responsive card layout to eliminate the large vertical gaps that occurred when cards of different heights shared fixed CSS grid rows.
+
+
+## v1.5.6 — Primavera WBS completeness and native sort order
+
+The WBS/Gantt renderer now shows the complete imported WBS dictionary, including project/root, parent, intermediate and empty WBS nodes even when no activity is assigned directly to those nodes. The Critical Path view continues to show only WBS branches relevant to critical/zero-float activities, but it preserves every required ancestor above those activities.
+
+Primavera XER `PROJWBS.seq_num` is now imported and retained as the authoritative WBS sort order. Sibling WBS bands are therefore rendered in the same sequence as P6 instead of being alphabetically re-sorted by WBS code/name. Microsoft Project XML summary-task WBS nodes retain their outline/source order as the equivalent fallback. Existing stored XER schedules can recover `seq_num` from their retained raw WBS records when re-hydrated.
+
+Double-click collapse/expand continues to work on every WBS band, including newly visible parent and empty WBS nodes.
+
+## v2.0.0 — Expanded Forensic Review
+
+Forensic Review now retains the existing 2–10 explicitly selected revision workflow and adds five collapsible evidence panels below the summary analysis:
+
+- **Activities** — additions/removals with Activity ID, description, WBS and status.
+- **Progress** — percent-complete changes plus Actual Start / Actual Finish additions, removals and changes.
+- **Resourcing** — total Budget/Target, Actual, Remaining and At Completion unit charts, resource-master changes, assignment additions/removals, and detailed Actual/At Completion deltas.
+- **Calendars** — calendar additions/removals/definition changes and activity calendar-assignment changes.
+- **Relationships** — additions, removals and true modifications to relationship type/lag for the same predecessor/successor pair.
+
+Each panel is collapsed by default so the Forensic Review remains manageable on long revision series. Expand a panel to inspect its charts and detailed evidence tables. Removed items use deletion emphasis for easier review.
+
+The dedicated forensic evidence engine lives in `src/analysis/forensics.js`. See `V2_0_0_VALIDATION_REPORT.md` and `CHANGELOG_V2_0_0.md` for release detail.

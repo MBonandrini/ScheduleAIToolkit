@@ -31,7 +31,9 @@ const suites=[
   ["v1.5.2 OpenAI + Claude providers",()=>import("./v1.5.2-cloud-ai-providers.test.js")],
   ["v1.5.3 measurement workflow",()=>import("./v1.5.3-measurement-layout.test.js")],
   ["v1.5.4 measurement schedule alignment",()=>import("./v1.5.4-measurement-schedule-alignment.test.js")],
-  ["v1.5.5 WBS hierarchy + delay events + layout cleanup",()=>import("./v1.5.5-requested-changes.test.js")]
+  ["v1.5.5 WBS hierarchy + delay events + layout cleanup",()=>import("./v1.5.5-requested-changes.test.js")],
+  ["v1.5.6 P6 WBS completeness + sort order",()=>import("./v1.5.6-wbs-order.test.js")],
+  ["v2.0.0 forensic evidence drill-down",()=>import("./v2.0.0-forensics-detail.test.js")]
 ];
 let failed=0,results=[];const totalStart=performance.now();
 for(const [name,loader] of suites){

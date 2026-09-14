@@ -104,6 +104,9 @@ export function normalizeWBS(w){
     parentId:String(w.parentId||w.parent_wbs_id||""),
     code:String(w.code||w.wbs_short_name||""),
     name:String(w.name||w.wbs_name||w.code||""),
+    seqNum:String(w.seqNum??w.seq_num??w.raw?.seq_num??"").trim()!==""&&Number.isFinite(Number(w.seqNum??w.seq_num??w.raw?.seq_num))?Number(w.seqNum??w.seq_num??w.raw?.seq_num):null,
+    projectNode:Boolean(w.projectNode)||String(w.proj_node_flag||w.raw?.proj_node_flag||"").toUpperCase()==="Y",
+    sourceOrder:Number.isFinite(Number(w.sourceOrder))?Number(w.sourceOrder):null,
     path:String(w.path||""),
     raw:w.raw||w
   };

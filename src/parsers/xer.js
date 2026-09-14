@@ -32,7 +32,10 @@ function statusName(v){
 export function parseXER(text,sourceName="schedule.xer"){
   const {tables,diagnostics}=parseXERTables(text);
   const project=(tables.PROJECT||[])[0]||{};
-  const wbs=(tables.PROJWBS||[]).map(x=>({id:x.wbs_id,parentId:x.parent_wbs_id,code:x.wbs_short_name,name:x.wbs_name,raw:x}));
+  const wbs=(tables.PROJWBS||[]).map((x,index)=>({
+    id:x.wbs_id,parentId:x.parent_wbs_id,code:x.wbs_short_name,name:x.wbs_name,
+    seqNum:String(x.seq_num??"").trim()!==""?parseNum(x.seq_num):null,projectNode:String(x.proj_node_flag||"").toUpperCase()==="Y",sourceOrder:index,raw:x
+  }));
   const calendars=(tables.CALENDAR||[]).map(x=>({
     id:x.clndr_id,name:x.clndr_name,type:x.clndr_type,
     hoursPerDay:parseNum(x.day_hr_cnt)||8,hoursPerWeek:parseNum(x.week_hr_cnt)||40,raw:x
