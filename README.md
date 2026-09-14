@@ -178,3 +178,12 @@ Drawing Measurement now includes an optional **Align to schedule** control. When
 The alignment adds **Recommended Activity ID(s)** to the Measurement register and to the BOQ output without replacing the manually assigned **Activity ID** field. Existing CSV / XLS / XLSX BOQs receive the new column and an aligned copy is downloaded; the toolkit repository copy is also updated. NEW BOQ Document uses the same column in its generated CSV.
 
 For browser-only deployment, PDF alignment loads Mozilla PDF.js 6.3.289 on demand and XLS/XLSX rewriting loads SheetJS Community Edition 0.20.3 on demand. CSV and XER/XML alignment do not require those libraries.
+
+
+## v1.5.5 — Hierarchical WBS and automated delay-event identification
+
+The WBS/Gantt and Critical Path views now reconstruct the full WBS hierarchy from the imported schedule WBS table. Parent WBS bands are shown even where activities sit several levels below them. Double-click any WBS band to collapse or expand its complete descendant branch; activity rows, descendant WBS rows and their Gantt bars collapse together. WBS/Gantt and Critical Path keep independent collapse states in the local browser.
+
+Risk Analysis and Claims & Forensics no longer contain separate chat panels. Claims & Forensics includes an **Identify Delay Events** workflow where the user explicitly selects an earlier/reference schedule and a later/comparison schedule. The toolkit creates editable candidate delay/change events from later starts/finishes, duration increases, calendar changes, resource/loading changes, constraints, logic changes and added/removed activities. Selected candidates can then be added directly to the Delay / Change Event Register. These candidates are schedule-analysis evidence only and do not determine contractual entitlement.
+
+The Settings screen also uses a packed responsive card layout to eliminate the large vertical gaps that occurred when cards of different heights shared fixed CSS grid rows.
