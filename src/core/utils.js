@@ -49,3 +49,10 @@ export function csvEscape(v){
 export function toCSV(headers,rows){
   return [headers.map(csvEscape).join(","),...rows.map(r=>r.map(csvEscape).join(","))].join("\n");
 }
+
+export function parseCSV(text){
+  const rows=[];let row=[],field="",quoted=false;const src=String(text??"").replace(/^\uFEFF/,"");
+  for(let i=0;i<src.length;i++){const ch=src[i];if(quoted){if(ch==='"'){if(src[i+1]==='"'){field+='"';i++}else quoted=false}else field+=ch;continue}if(ch==='"'){quoted=true;continue}if(ch===','){row.push(field);field="";continue}if(ch==='\n'){row.push(field);rows.push(row);row=[];field="";continue}if(ch==='\r')continue;field+=ch}
+  if(field.length||row.length){row.push(field);rows.push(row)}return rows;
+}
+export function csvObjects(text){const rows=parseCSV(text);if(!rows.length)return [];const headers=rows.shift().map(x=>String(x||"").trim());return rows.filter(r=>r.some(x=>String(x||"").trim()!=="")).map(r=>Object.fromEntries(headers.map((h,i)=>[h,String(r[i]??"").trim()])))}

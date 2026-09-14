@@ -36,32 +36,35 @@ export function fourWeekLookahead(schedule){
   return rows;
 }
 
-function assignmentValueMap(schedule,resourceId,field){
-  const out=new Map();
+function assignmentValueMap(schedule,resourceIds,field){
+  const out=new Map(),wanted=new Set((Array.isArray(resourceIds)?resourceIds:[resourceIds]).filter(Boolean).map(String));
   for(const x of schedule.assignments||[]){
-    if(resourceId&&String(x.resourceId)!==String(resourceId))continue;
+    if(wanted.size&&!wanted.has(String(x.resourceId)))continue;
     const id=String(x.activityId||""),v=Number(x[field]??0)||0;out.set(id,(out.get(id)||0)+v);
   }
   return out;
 }
-export function curveSeries(schedule,{basis="activities",resourceId=""}={}){
-  const acts=schedule.activities||[];
+function activityResourceSet(schedule,resourceIds){
+  const wanted=new Set((resourceIds||[]).filter(Boolean).map(String)),out=new Set();if(!wanted.size)return out;
+  for(const x of schedule.assignments||[])if(wanted.has(String(x.resourceId)))out.add(String(x.activityId||""));return out;
+}
+export function curveSeries(schedule,{basis="activities",resourceId="",resourceIds=[],startDate="",endDate=""}={}){
+  const requested=basis==="resource"?[resourceId]:resourceIds,assigned=activityResourceSet(schedule,requested);
+  let acts=schedule.activities||[];if(requested.filter(Boolean).length&&basis==="activities")acts=acts.filter(a=>assigned.has(String(a.uid||""))||assigned.has(String(a.id||"")));
   if(!acts.length)return [];
-  const targetMap=basis==="resource"?assignmentValueMap(schedule,resourceId,"target_qty"):null;
-  const actualMap=basis==="resource"?assignmentValueMap(schedule,resourceId,"act_reg_qty"):null;
-  const remainMap=basis==="resource"?assignmentValueMap(schedule,resourceId,"remain_qty"):null;
+  const useAssignments=basis==="resource"||((basis==="units"||basis==="cost")&&requested.filter(Boolean).length);
+  const fields=basis==="cost"?{planned:"target_cost",actual:"act_reg_cost",remaining:"remain_cost"}:{planned:"target_qty",actual:"act_reg_qty",remaining:"remain_qty"};
+  const targetMap=useAssignments?assignmentValueMap(schedule,requested,fields.planned):null;
+  const actualMap=useAssignments?assignmentValueMap(schedule,requested,fields.actual):null;
+  const remainMap=useAssignments?assignmentValueMap(schedule,requested,fields.remaining):null;
+  const fromMaps=(a,kind)=>{const keys=[String(a.uid||""),String(a.id||"")];if(kind==="forecast")return keys.reduce((n,k)=>Math.max(n,(actualMap?.get(k)||0)+(remainMap?.get(k)||0),targetMap?.get(k)||0),0);const map=kind==="planned"?targetMap:actualMap;return keys.reduce((n,k)=>Math.max(n,map?.get(k)||0),0)};
   const valueFor=(a,kind)=>{
     if(basis==="activities")return 1;
+    if(useAssignments)return fromMaps(a,kind);
     if(basis==="cost")return Number(kind==="planned"?a.budgetCost:kind==="actual"?a.actualCost:(Number(a.actualCost||0)+Number(a.remainingCost||0)))||0;
-    if(basis==="resource"){
-      const keys=[String(a.uid||""),String(a.id||"")],map=kind==="planned"?targetMap:kind==="actual"?actualMap:null;
-      if(kind==="forecast")return keys.reduce((n,k)=>Math.max(n,(actualMap?.get(k)||0)+(remainMap?.get(k)||0),targetMap?.get(k)||0),0);
-      return keys.reduce((n,k)=>Math.max(n,map?.get(k)||0),0);
-    }
     return Number(kind==="planned"?a.budgetUnits:kind==="actual"?a.actualUnits:(Number(a.actualUnits||0)+Number(a.remainingUnits||0)))||0;
   };
-  const dates=acts.flatMap(a=>[a.baselineFinish,a.actualFinish,a.currentFinish||a.finish]).map(parseDate).filter(Boolean);
-  if(!dates.length)return [];
+  const dates=acts.flatMap(a=>[a.baselineFinish,a.actualFinish,a.currentFinish||a.finish]).map(parseDate).filter(Boolean);if(!dates.length)return [];
   let cursor=startOfWeek(new Date(Math.min(...dates.map(d=>d.getTime())))),end=new Date(Math.max(...dates.map(d=>d.getTime()))),rows=[],guard=0,plannedCum=0,actualCum=0,forecastCum=0;
   while(cursor<=end&&guard++<520){
     const next=addDays(cursor,7),inWeek=v=>{const d=parseDate(v);return d&&d>=cursor&&d<next};
@@ -71,5 +74,5 @@ export function curveSeries(schedule,{basis="activities",resourceId=""}={}){
     plannedCum+=plannedWeekly;actualCum+=actualWeekly;forecastCum+=forecastWeekly;
     rows.push({week:`W${isoWeek(cursor)} ${cursor.getFullYear()}`,start:new Date(cursor),friday:addDays(cursor,4),end:addDays(next,-1),plannedWeekly,actualWeekly,forecastWeekly,plannedCum,actualCum,forecastCum});cursor=next;
   }
-  return rows;
+  const lo=parseDate(startDate),hi=parseDate(endDate);if(lo)rows=rows.filter(r=>r.end>=lo);if(hi)rows=rows.filter(r=>r.start<=hi);return rows;
 }

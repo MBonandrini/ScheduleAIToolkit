@@ -1,12 +1,12 @@
 {
-  "release": "1.4.0",
-  "generatedAt": "2026-09-11T12:50:00+01:00",
-  "fileCount": 78,
+  "release": "1.5.0",
+  "generatedAt": "2026-09-14T09:39:00+01:00",
+  "fileCount": 82,
   "files": [
     {
       "path": ".final-test-results.json",
-      "bytes": 1134,
-      "sha256": "ad1386750022ad88a46ce83a2d25d0f958f32e6016fe88ba8618a0ec4d78ba62"
+      "bytes": 1254,
+      "sha256": "df6ea7af7180ed4c7f4d21122d6a55640a6ec425ffdd2b2d41576a0c46a70dc7"
     },
     {
       "path": ".github/workflows/pages.yml",
@@ -54,14 +54,19 @@
       "sha256": "791b5a3f0adf6611420ccd88bfb6b7f7dd952cf55664515463bf1080435ce865"
     },
     {
+      "path": "CHANGELOG_V1_5.md",
+      "bytes": 5241,
+      "sha256": "8e5c4d642009d331da6426ab01ed5817fd82a4d7f998d150758f8b2441ba3896"
+    },
+    {
       "path": "COMPREHENSIVE_TEST_REPORT.md",
       "bytes": 6988,
       "sha256": "9b9d9b8d907b99599ccd545a373314d6412e240ea0c9d75dec01e5273907a245"
     },
     {
       "path": "README.md",
-      "bytes": 6598,
-      "sha256": "07312da268df05b11cdf122daa97c52efd56077bbe9865edab05b000b42520aa"
+      "bytes": 8876,
+      "sha256": "48badba50afd55d5b7287b72b364ecfc4ada150c4c7b8fe3f0c242d3575e28f7"
     },
     {
       "path": "V1_2_1_VALIDATION_REPORT.md",
@@ -79,19 +84,24 @@
       "sha256": "f0552dbe23b40ef81947f68e626ac262c8bf1c4f4d6bf26979eaf282f58e67d4"
     },
     {
+      "path": "V1_5_VALIDATION_REPORT.md",
+      "bytes": 3734,
+      "sha256": "5d5f1dfde619dcf890a32ca167330fcbc60842d3b19704fe3575c85d886395f8"
+    },
+    {
       "path": "assets/app.css",
-      "bytes": 37810,
-      "sha256": "0adcd6c4e4afd4453234bccde02607626ea8d044a14d6726cc98f7a6bf003d58"
+      "bytes": 48795,
+      "sha256": "1a9bdf853d2cba8620d61bbcc94436ffa1ff3293897331d45afa1ba212ba8f4c"
     },
     {
       "path": "index.html",
       "bytes": 3250,
-      "sha256": "5da21f3e5fb7deeb423e659e4184950da97609f607612c474e94411ee0ce2c1a"
+      "sha256": "d3928b4bae16bd94698ae8be933867dec8088178537fab32bbe26d0306671615"
     },
     {
       "path": "package.json",
       "bytes": 284,
-      "sha256": "35744c04580834862d8aa12a09ce8e6ebbc582318ece655bd14f5227aa79c4d0"
+      "sha256": "32e1317683ded43b9cdc9e4513ad2cfad3ec398c195ca2ca764670e6d22e2f8d"
     },
     {
       "path": "setup-mpp-bridge.bat",
@@ -125,8 +135,8 @@
     },
     {
       "path": "src/ai/runtime.js",
-      "bytes": 6345,
-      "sha256": "c44f9cb08c557e5dfb1372294754a1192fb0e53de6c56cabe84188422f8b27e8"
+      "bytes": 6388,
+      "sha256": "48f617eb3cf64d1bfa6ca634946e0a70a1a109519397ee2bb369a0465e052661"
     },
     {
       "path": "src/ai/tools.js",
@@ -159,6 +169,11 @@
       "sha256": "61508c48f3b9cde3232986b8427cf5b7c12c238e38005ac1b725263177656124"
     },
     {
+      "path": "src/analysis/holidays.js",
+      "bytes": 7598,
+      "sha256": "2f16f13ea7dd0f580088a12f351cc70a657d4e463799923bf34a1cd42c760c97"
+    },
+    {
       "path": "src/analysis/narrative.js",
       "bytes": 7597,
       "sha256": "b8e4d390918aabbf5dcb0e4e323f2b441f08f4a48db5d1b59c472d816c9f5ee5"
@@ -180,8 +195,8 @@
     },
     {
       "path": "src/analysis/timeseries.js",
-      "bytes": 5018,
-      "sha256": "b9beaa21465e9677b1a39caf4cb699f219e31b7c07e94694f12a5da365710a5a"
+      "bytes": 6098,
+      "sha256": "29ddb695fe19af287a812521a95d017141d281d87d834d89e79612210b5f56d1"
     },
     {
       "path": "src/core/model.js",
@@ -190,8 +205,8 @@
     },
     {
       "path": "src/core/utils.js",
-      "bytes": 2559,
-      "sha256": "a92e2238396802bff95d845f716b7dd8ad2d65bf42a43ece29bbd548489c591f"
+      "bytes": 3378,
+      "sha256": "5270ea927341086994c170e79965e5f91d624fa8b801f7075ea09145a78b5b1a"
     },
     {
       "path": "src/parsers/index.js",
@@ -215,18 +230,18 @@
     },
     {
       "path": "src/repository/repository.js",
-      "bytes": 8079,
-      "sha256": "1ad7d01773b762340094422a8293cf807f4626cb47826d80f7f01a6398590293"
+      "bytes": 8211,
+      "sha256": "e87b75a968230aee9c958ee43232ceaa9efb4c20a4927e28c9af73355695a080"
     },
     {
       "path": "src/ui/app.js",
-      "bytes": 120169,
-      "sha256": "865b9581ed062e3c5cf0d6a853f5f50dc2e2064f6f8c4df1459b28b8651add1d"
+      "bytes": 160964,
+      "sha256": "b7d5dd01779ccd6272009b07a9f3b0b45c732538e7db3a08b323bcc61fca3c57"
     },
     {
       "path": "src/ui/render.js",
-      "bytes": 18647,
-      "sha256": "a317a24f4b325c527fd0f9804c3341da0069336fc630f226d941c053cccdbb94"
+      "bytes": 26417,
+      "sha256": "a273e1096facedd7a9499ad696f4a304d78097756d00eb33e1e06982091d330f"
     },
     {
       "path": "src/workers/client.js",
@@ -350,8 +365,8 @@
     },
     {
       "path": "tests/run-all.js",
-      "bytes": 2530,
-      "sha256": "4b4198407c420afe6d71251b2c1ec943850571a78b85b68f8b92455244b3fc99"
+      "bytes": 2607,
+      "sha256": "548a194797db9c7b44372126325f48cb37f0fd0c626f8df25b84359c7ab87943"
     },
     {
       "path": "tests/run-exhaustive.js",
@@ -382,6 +397,11 @@
       "path": "tests/v1.4-requested-changes.test.js",
       "bytes": 5958,
       "sha256": "3515aa48731dbedf6fe456b5c7e94e696ea1bc361bf8856ffa9bb15ae004355b"
+    },
+    {
+      "path": "tests/v1.5-requested-changes.test.js",
+      "bytes": 5899,
+      "sha256": "2d28879e7afc7df2e545e1ec35b43a796cb4dd15dbccc4b11543e876dca8c232"
     },
     {
       "path": "tools/mpp-bridge.mjs",

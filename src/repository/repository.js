@@ -77,8 +77,8 @@ function relevantExcerpt(text,question,maxChars){
   }
   return out.slice(0,maxChars);
 }
-export async function selectedContext({maxFileChars=12000,maxTotalChars=36000,question="",skipScheduleText=true}={}){
-  const files=await checkedFiles(),blocks=[];let total=0;
+export async function selectedContext({maxFileChars=12000,maxTotalChars=36000,question="",skipScheduleText=true,fileIds=null}={}){
+  const requested=new Set((fileIds||[]).map(String)),files=requested.size?(await listFiles()).filter(f=>requested.has(String(f.id))):await checkedFiles(),blocks=[];let total=0;
   for(const f of files){
     if(total>=maxTotalChars)break;
     const ext=(f.name.split(".").pop()||"").toLowerCase(),isSchedule=ext==="xer"||ext==="xml"||ext==="mpp";

@@ -25,7 +25,8 @@ const suites=[
   ["Security",()=>import("./security.test.js")],
   ["v1.2 requested changes",()=>import("./v1.2-requested-changes.test.js")],
   ["v1.3 requested changes",()=>import("./v1.3-requested-changes.test.js")],
-  ["v1.4 requested changes",()=>import("./v1.4-requested-changes.test.js")]
+  ["v1.4 requested changes",()=>import("./v1.4-requested-changes.test.js")],
+  ["v1.5 requested changes",()=>import("./v1.5-requested-changes.test.js")]
 ];
 let failed=0,results=[];const totalStart=performance.now();
 for(const [name,loader] of suites){

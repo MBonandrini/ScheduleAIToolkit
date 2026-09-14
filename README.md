@@ -1,4 +1,4 @@
-# Project Controls AI Suite / Schedule AI Toolkit v1.4.0
+# Project Controls AI Suite / Schedule AI Toolkit v1.5.0
 
 A static GitHub Pages-compatible project-controls workbench for Primavera P6 XER, Microsoft Project XML and Microsoft Project MPP-derived schedule analysis.
 
@@ -19,7 +19,7 @@ This site remains a static GitHub Pages application. No API key is embedded in t
 3. Use your existing GitHub Pages deployment configuration.
 4. Keep the included `.nojekyll` file in the repository root.
 
-Asset URLs are cache-bumped to `v=1.4.0` so browsers request the revised JavaScript/CSS after deployment.
+Asset URLs are cache-bumped to `v=1.5.0` so browsers request the revised JavaScript/CSS after deployment.
 
 ## AI options
 
@@ -36,7 +36,7 @@ Available categories include:
 
 Settings now contains password boxes for Gemini and Grok API keys plus editable model names. The user can **Save locally**, **Test**, or **Clear** each key. Keys are stored in that browser profile's `localStorage`; they are not committed to Git and are not inserted into source files.
 
-Default cloud model names in v1.4.0:
+Default cloud model names in v1.5.0:
 - Gemini: `gemini-3.8-flash`
 - Grok: `grok-4.6`
 
@@ -67,6 +67,31 @@ A browser-hosted GitHub Pages site cannot reliably decode Microsoft Project's pr
 6. Use **Schedule Assessment → Activity Register → Edit this schedule in Schedule Builder** to copy the parsed schedule into the editable builder.
 
 The converted model includes WBS/summary hierarchy, activities, milestones, dates/durations, constraints, calendars, predecessor links, resources, assignments, work/units and cost fields where present in the source MSPDI data.
+
+## v1.5 Professional Gantt / profile / builder additions
+
+### Critical Path and WBS/Gantt
+Both Gantt views now use a reusable P6-style layout system. Open **Columns / Field Chooser** to add, remove or reorder activity fields. Each displayed column can be resized by dragging its header divider, and Critical Path / WBS layouts are stored independently in browser local storage.
+
+The Gantt display panel also controls baseline bars, actual markers, progress fill, data-date line, WBS grouping, bar labels, bar height and normal/critical/baseline/progress colours. Existing Weeks / Months / Quarters / Years, timescale start/finish and P6-style orthogonal relationship-line controls remain.
+
+### S-Curve / Histogram
+Profiles can now be filtered by:
+- basis: activities, loaded units/man-hours, cost, or a single resource;
+- multiple selected resources;
+- From / To dates;
+- Expand 4 weeks / Contract 4 weeks / Full range;
+- Planned / Actual / Forecast series independently.
+
+### Risk and Claims CSV
+Risk Analysis and Claims & Forensics each provide CSV Import and Export. CSV handling supports quoted fields/embedded commas. Import/export works without an active schedule; schedule-specific simulations/evidence packs still require a selected schedule.
+
+### Schedule Builder wizard
+The Schedule Builder is now a 12-step guided workflow covering schedule type, Level 3/4/5 detail, specifications, disciplines, phases, responsibility matrix, milestones, similar schedules, reference documents, reference drawings/models, calendars/public holidays, and final Review & Generate.
+
+Calendar setup supports 5-day, 6-day, 7-day and custom working weeks, hours per day, multiple calendars, applicability, country/national-holiday profiles and custom non-working dates. The default is **No national profile** until the user deliberately selects a country. Built-in holiday profiles are planning aids and must be checked against contractual/project-specific calendars.
+
+Only explicitly selected specifications/documents/drawings are passed into the AI context. Final generation is disabled until a compatible AI engine is applied in Settings, then a progress bar/log shows generation and normalisation into the editable schedule table.
 
 ## v1.4 Schedule Assessment highlights
 
@@ -126,6 +151,6 @@ Full release suite:
 npm run test:exhaustive
 ```
 
-The full suite covers parser fuzzing, large XER volume tests, deep network tests, comparison/forensic functions, Monte Carlo determinism, Ollama compatibility/failure handling, cloud-AI routing contracts, repository isolation, AI context integration, GitHub Pages import/dependency checks, security contracts, MSPDI golden parsing, v1.2/v1.3 regressions and v1.4 request-specific tests.
+The full suite covers parser fuzzing, large XER volume tests, deep network tests, comparison/forensic functions, Monte Carlo determinism, Ollama compatibility/failure handling, cloud-AI routing contracts, repository isolation, AI context integration, GitHub Pages import/dependency checks, security contracts, MSPDI golden parsing, earlier release regressions, and v1.5 request-specific Gantt/profile/CSV/builder/calendar tests.
 
-See `V1_4_VALIDATION_REPORT.md` and `CHANGELOG_V1_4.md` for release detail.
+See `V1_5_VALIDATION_REPORT.md` and `CHANGELOG_V1_5.md` for the current release detail.

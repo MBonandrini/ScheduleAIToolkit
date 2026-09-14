@@ -39,12 +39,12 @@ function budgetFor(entry){
   const chars=Math.max(4000,Number(entry.contextChars)||10000);
   return {repoTotal:Math.round(chars*.58),repoFile:Math.min(9000,Math.round(chars*.35)),structured:Math.round(chars*.30),portfolio:Math.round(chars*.20),historyMessages:entry.engine==="ollama"?10:4};
 }
-export async function askAI({question,role="Project Controls Manager",current=null,previous=null,revisions=[],history=[]}){
+export async function askAI({question,role="Project Controls Manager",current=null,previous=null,revisions=[],history=[],contextFileIds=null}){
   if(!question?.trim())throw new Error("Question required");
   const entry=aiEntry(preferredAI()),compat=aiCompatibility(entry.value);if(entry.engine==="none")throw new Error("AI is disabled. Select a model on the Settings page to enable chat.");if(!compat.ok)throw new Error(compat.reason);
   const budget=budgetFor(entry),reg=current?toolRegistry({current,previous,revisions}):{},call=current?inferTool(question,current):null;
   let structured=null;if(call&&reg[call.name]){try{structured=reg[call.name](call.args)}catch(e){structured={error:e.message}}}
-  const repo=await selectedContext({question,maxFileChars:budget.repoFile,maxTotalChars:budget.repoTotal,skipScheduleText:true});
+  const repo=await selectedContext({question,maxFileChars:budget.repoFile,maxTotalChars:budget.repoTotal,skipScheduleText:true,fileIds:contextFileIds});
   const system=`You are the ${role} inside Schedule AI Toolkit, a professional project-controls workbench.
 Use project evidence carefully. Never invent Primavera fields, contract clauses, dates or quantities.
 When structured schedule evidence is supplied, prefer it over guesses.
