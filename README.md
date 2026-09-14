@@ -1,4 +1,4 @@
-# Project Controls AI Suite / Schedule AI Toolkit v1.5.0
+# Project Controls AI Suite / Schedule AI Toolkit v1.5.1
 
 A static GitHub Pages-compatible project-controls workbench for Primavera P6 XER, Microsoft Project XML and Microsoft Project MPP-derived schedule analysis.
 
@@ -19,7 +19,7 @@ This site remains a static GitHub Pages application. No API key is embedded in t
 3. Use your existing GitHub Pages deployment configuration.
 4. Keep the included `.nojekyll` file in the repository root.
 
-Asset URLs are cache-bumped to `v=1.5.0` so browsers request the revised JavaScript/CSS after deployment.
+Asset URLs are cache-bumped to `v=1.5.1` so browsers request the revised JavaScript/CSS after deployment.
 
 ## AI options
 
@@ -36,7 +36,7 @@ Available categories include:
 
 Settings now contains password boxes for Gemini and Grok API keys plus editable model names. The user can **Save locally**, **Test**, or **Clear** each key. Keys are stored in that browser profile's `localStorage`; they are not committed to Git and are not inserted into source files.
 
-Default cloud model names in v1.5.0:
+Default cloud model names in v1.5.1:
 - Gemini: `gemini-3.8-flash`
 - Grok: `grok-4.6`
 
@@ -87,7 +87,7 @@ Profiles can now be filtered by:
 Risk Analysis and Claims & Forensics each provide CSV Import and Export. CSV handling supports quoted fields/embedded commas. Import/export works without an active schedule; schedule-specific simulations/evidence packs still require a selected schedule.
 
 ### Schedule Builder wizard
-The Schedule Builder is now a 12-step guided workflow covering schedule type, Level 3/4/5 detail, specifications, disciplines, phases, responsibility matrix, milestones, similar schedules, reference documents, reference drawings/models, calendars/public holidays, and final Review & Generate.
+The Schedule Builder is now a 12-step guided workflow covering schedule type, Level 3/4/5 detail, specifications, disciplines, phases, responsibility matrix, milestones, similar schedules, reference documents, reference drawings/models, calendars/public holidays, and final Review & Generate. The generated/editable activity table includes individual row deletion plus a **Remove all** action with confirmation. The separate chat panel beneath Schedule Builder has been removed so the builder is focused on the wizard and activity editor.
 
 Calendar setup supports 5-day, 6-day, 7-day and custom working weeks, hours per day, multiple calendars, applicability, country/national-holiday profiles and custom non-working dates. The default is **No national profile** until the user deliberately selects a country. Built-in holiday profiles are planning aids and must be checked against contractual/project-specific calendars.
 
