@@ -356,7 +356,10 @@ export function gantt(schedule, {
   stepDays = timescale==="annual"? 365: timescale==="quarterly"? 91: timescale==="monthly"? 30: 7,
   gridPct = Math.max(.35, stepDays / totalDays * 100),
   timelineMin = compression==="compact"? 760: timescale==="weekly"? 1400: 1100,
-  rowClass = compression==="compact"? " compact": "";
+  rowClass = compression==="compact"? " compact": "",
+  // One authoritative activity-row height keeps the left table text and the
+  // right-side Gantt geometry on the exact same vertical centreline.
+  rowHeight = compression==="compact"? 22: 30;
   const widths = visibleFields.map(k => Math.max(60, Number(fieldWidths?.[k]) || GANTT_FIELDS[k].width)),
   leftTotal = Math.max(220, widths.reduce((n, x) => n + x, 0)),
   fieldTemplate = widths.map(x => `${Math.round(x)}px`).join(" ");
@@ -483,7 +486,7 @@ export function gantt(schedule, {
   shownCount = inRange.length,
   autoStart = isoDate(new Date(autoMin)),
   autoFinish = isoDate(new Date(autoMax));
-  const rootStyle = `--gantt-left:${leftTotal}px;--gantt-bar:${esc(b.normalColor)};--gantt-critical:${esc(b.criticalColor)};--gantt-baseline:${esc(b.baselineColor)};--gantt-progress:${esc(b.progressColor)};--gantt-bar-height:${Number(b.barHeight || 12)}px;min-width:${timelineMin + leftTotal}px`;
+  const rootStyle = `--gantt-left:${leftTotal}px;--gantt-row-height:${rowHeight}px;--gantt-bar:${esc(b.normalColor)};--gantt-critical:${esc(b.criticalColor)};--gantt-baseline:${esc(b.baselineColor)};--gantt-progress:${esc(b.progressColor)};--gantt-bar-height:${Number(b.barHeight || 12)}px;min-width:${timelineMin + leftTotal}px`;
   return`<div class="panel gantt-panel professional-gantt" data-gantt-panel data-resize-key="${esc(resizeKey)}" data-layout-key="${esc(layoutKey)}"><div class="gantt-title-row"><div><h2>${title}</h2><div class="muted">${shownCount} visible activities · ${isoDate(new Date(min))} to ${isoDate(new Date(max))} · ${visibleFields.length} displayed fields</div></div><span class="badge">P6-style layout</span></div>
   <div class="gantt-toolbar"><label>Timescale <select id="ganttTimescale"><option value="weekly" ${timescale==="weekly"? "selected": ""}>Weeks</option><option value="monthly" ${timescale==="monthly"? "selected": ""}>Months</option><option value="quarterly" ${timescale==="quarterly"? "selected": ""}>Quarters</option><option value="annual" ${timescale==="annual"? "selected": ""}>Years</option></select></label><label>Timescale start <input id="ganttStartDate" type="date" value="${esc(startDate || autoStart)}"></label><label>Timescale finish <input id="ganttFinishDate" type="date" value="${esc(endDate || autoFinish)}"></label><button class="btn gantt-reset-range" id="ganttResetRange" type="button">Full range</button><label>Row density <select id="ganttCompression"><option value="compact" ${compression==="compact"? "selected": ""}>Compact</option><option value="standard" ${compression==="standard"? "selected": ""}>Standard</option></select></label><label><input type="checkbox" id="ganttRelationships" ${showRelationships? "checked": ""}> Relationship lines</label></div>
   <div class="gantt-config-grid">${ganttFieldChooser(visibleFields)}${ganttBarChooser(b)}</div>

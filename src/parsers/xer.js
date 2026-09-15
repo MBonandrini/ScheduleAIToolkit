@@ -97,7 +97,7 @@ export function parseXER(text, sourceName = "schedule.xer") {
     id: x.task_pred_id, predId: taskByUid.get(String(x.pred_task_id))?.id || x.pred_task_id, succId: taskByUid.get(String(x.task_id))?.id || x.task_id, type: String(x.pred_type || "FS").replace("PR_", ""), lag: parseNum(x.lag_hr_cnt) / 24, raw: x
   })).filter(r => r.predId && r.succId);
   const resources = (tables.RSRC || []).map(x => ( {
-    id: x.rsrc_id, name: x.rsrc_name, type: x.rsrc_type, raw: x
+    id: x.rsrc_id, name: x.rsrc_name || x.rsrc_short_name || x.rsrc_id, code: x.rsrc_short_name || "", type: x.rsrc_type, raw: x
   }));
   const assignments = (tables.TASKRSRC || []).map(x => ( {
     ...x, activityId: taskByUid.get(String(x.task_id))?.id || x.task_id, resourceId: x.rsrc_id

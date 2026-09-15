@@ -10,8 +10,29 @@ import {
 } from "../core/utils.js";
 const n = v => Number(v || 0);
 const s = v => String(v ?? "");
-const activityMap = schedule => new Map((schedule?.activities || []).map(a => [String(a.id), a]));
-const resourceMap = schedule => new Map((schedule?.resources || []).map(r => [String(r.id), r]));
+function activityMap(schedule) {
+  const out = new Map();
+  for (const a of schedule?.activities || []) {
+    // Old repository records can still carry TASKRSRC.task_id (P6 internal UID)
+    // while current records carry task_code. Index both identities so forensic
+    // tables can always resolve the human-readable activity name.
+    for (const key of [a.id, a.uid, a.raw?.task_id, a.raw?.task_code]) {
+      const k = String(key ?? "").trim();
+      if (k) out.set(k, a);
+    }
+  }
+  return out;
+}
+function resourceMap(schedule) {
+  const out = new Map();
+  for (const r of schedule?.resources || []) {
+    for (const key of [r.id, r.uid, r.code, r.raw?.rsrc_id, r.raw?.rsrc_short_name]) {
+      const k = String(key ?? "").trim();
+      if (k) out.set(k, r);
+    }
+  }
+  return out;
+}
 const calendarMap = schedule => new Map((schedule?.calendars || []).map(c => [String(c.id), c]));
 const scheduleLabel = (schedule, index = 0) => isoDate(schedule?.dataDate) || schedule?.name || schedule?.sourceName || `Revision ${index + 1}`;
 const transitionLabel = (a, b, idx) => `${scheduleLabel(a, idx)} → ${scheduleLabel(b, idx + 1)}`;
@@ -115,12 +136,20 @@ function relationshipDelta(previous, current) {
   };
 }
 function activityLabel(map, id) {
-  const a = map.get(String(id));
-  return a? `${a.id} · ${a.name}`: String(id || "")
+  const key = String(id ?? "");
+  const a = map.get(key);
+  if (!a) return key;
+  const code = String(a.id || key);
+  const name = String(a.name || a.raw?.task_name || "").trim();
+  return name ? `${code} · ${name}` : code;
 }
 function resourceLabel(map, id) {
-  const r = map.get(String(id));
-  return r? `${r.id} · ${r.name}`: String(id || "")
+  const key = String(id ?? "");
+  const r = map.get(key);
+  if (!r) return key;
+  const code = String(r.id || key);
+  const name = String(r.name || r.raw?.rsrc_name || r.code || r.raw?.rsrc_short_name || "").trim();
+  return name && name !== code ? `${code} · ${name}` : code;
 }
 function calendarLabel(map, id, fallback = "") {
   const c = map.get(String(id));
@@ -274,7 +303,7 @@ export function buildForensicEvidence(schedules = []) {
       if (!old) {
         assignmentAdded++;
         evidence.resourcing.rows.push( {
-          transition: label, type: "Assignment added", activity: activityLabel(cActs, activityId), resource: resourceLabel(cRes, resourceId), actualBefore: 0, actualAfter: now.actual, actualDelta: now.actual, atCompletionBefore: 0, atCompletionAfter: now.atCompletion, atCompletionDelta: now.atCompletion, budgetBefore: 0, budgetAfter: now.budget
+          transition: label, type: "Assignment added", activity: activityLabel(cActs, activityId), resource: resourceLabel(cRes, resourceId), actualBefore: 0, actualAfter: now.actual, actualDelta: now.actual, remainingBefore: 0, remainingAfter: now.remaining, remainingDelta: now.remaining, atCompletionBefore: 0, atCompletionAfter: now.atCompletion, atCompletionDelta: now.atCompletion, budgetBefore: 0, budgetAfter: now.budget, budgetDelta: now.budget
         })
       } else {
         const actualDelta = now.actual - old.actual,
@@ -284,7 +313,7 @@ export function buildForensicEvidence(schedules = []) {
         if ([actualDelta, atCompletionDelta, budgetDelta, remainingDelta].some(v => Math.abs(v)>1e-9)) {
           loadingChanged++;
           evidence.resourcing.rows.push( {
-            transition: label, type: "Loading / actuals changed", activity: activityLabel(cActs, activityId), resource: resourceLabel(cRes, resourceId), actualBefore: old.actual, actualAfter: now.actual, actualDelta, atCompletionBefore: old.atCompletion, atCompletionAfter: now.atCompletion, atCompletionDelta, budgetBefore: old.budget, budgetAfter: now.budget
+            transition: label, type: "Loading / actuals changed", activity: activityLabel(cActs, activityId), resource: resourceLabel(cRes, resourceId), actualBefore: old.actual, actualAfter: now.actual, actualDelta, remainingBefore: old.remaining, remainingAfter: now.remaining, remainingDelta, atCompletionBefore: old.atCompletion, atCompletionAfter: now.atCompletion, atCompletionDelta, budgetBefore: old.budget, budgetAfter: now.budget, budgetDelta
           })
         }
       }
@@ -293,7 +322,7 @@ export function buildForensicEvidence(schedules = []) {
       const[activityId, resourceId] = key.split("|");
       assignmentRemoved++;
       evidence.resourcing.rows.push( {
-        transition: label, type: "Assignment removed", activity: activityLabel(pActs, activityId), resource: resourceLabel(pRes, resourceId), actualBefore: old.actual, actualAfter: 0, actualDelta: -old.actual, atCompletionBefore: old.atCompletion, atCompletionAfter: 0, atCompletionDelta: -old.atCompletion, budgetBefore: old.budget, budgetAfter: 0
+        transition: label, type: "Assignment removed", activity: activityLabel(pActs, activityId), resource: resourceLabel(pRes, resourceId), actualBefore: old.actual, actualAfter: 0, actualDelta: -old.actual, remainingBefore: old.remaining, remainingAfter: 0, remainingDelta: -old.remaining, atCompletionBefore: old.atCompletion, atCompletionAfter: 0, atCompletionDelta: -old.atCompletion, budgetBefore: old.budget, budgetAfter: 0, budgetDelta: -old.budget
       })
     }
     evidence.resourcing.chartRows.push( {

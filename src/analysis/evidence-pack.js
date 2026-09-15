@@ -36,7 +36,7 @@ export async function buildEvidencePack({ schedules = [], activeSchedule = null,
   });
   const manifest = {
     generatedAt: new Date().toISOString(),
-    application: "Project Controls AI Suite v3.0.0",
+    application: "Project Controls AI Suite v3.0.1",
     activeSchedule: active.sourceName || active.name || active.id,
     dataDate: isoDate(active.dataDate) || "",
     sources,

@@ -1,4 +1,4 @@
-# Project Controls AI Suite v3.0.0
+# Project Controls AI Suite v3.0.1
 
 A static, browser-based project-controls, schedule-analysis and forensic-planning workbench designed for GitHub Pages. Project files and parsed schedule data are kept in the browser project repository unless the user explicitly calls a configured cloud AI provider.
 
@@ -9,7 +9,13 @@ A static, browser-based project-controls, schedule-analysis and forensic-plannin
 3. Enable GitHub Pages, or use the included Pages workflow.
 4. Open the deployed HTTPS URL rather than `file://` so browser storage, modules and local-network permissions behave normally.
 
-The application header is marked **v3.0.0** and static assets use the `v=3.0.0` cache key.
+The application header is marked **v3.0.1** and static assets use the `v=3.0.1` cache key.
+
+### v3.0.1 alignment patch
+
+- Gantt activity rows now use one shared row-height value on both the table and timeline, with table text and milestones vertically centred on the same row centreline as activity bars.
+- Resource/forensic assignment tables resolve P6 activity internal IDs back to visible Activity ID + Activity Name and display Resource ID + Resource Name where the source schedule contains the name.
+- Resource delta evidence now retains budget, actual, remaining and at-completion deltas consistently.
 
 ## Schedule analysis and controls
 

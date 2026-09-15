@@ -1,5 +1,5 @@
 /*
- * Project Controls AI Suite v3.0.0
+ * Project Controls AI Suite v3.0.1
  *
  * The stylesheet is organised from shared tokens/chrome to feature-specific
  * components and responsive overrides. Keeping the selectors readable is
@@ -4365,3 +4365,50 @@ html.resizing-column,html.resizing-column * {
 .deleted-change,.adverse-change{color:var(--danger,#c33);font-weight:700}
 @media(max-width:760px){.qa-threshold-grid{grid-template-columns:1fr}.chart-toolbar input[type="search"],.chart-toolbar input[type="date"],.chart-toolbar input[type="number"]{max-width:none}}
 .chart-average-line{stroke:var(--muted);stroke-width:1.4;stroke-dasharray:2 4;opacity:.9}.chart-average-label{fill:var(--muted);font-size:9px;font-weight:700}
+
+
+/* v3.0.1 — lock Gantt table text and timeline bars to one row centreline. */
+.professional-gantt .gantt-row:not(.gantt-scale-row) {
+  height:var(--gantt-row-height,30px);
+  min-height:var(--gantt-row-height,30px);
+  align-items:stretch;
+}
+
+.professional-gantt .gantt-fields-row {
+  height:100%;
+  align-items:stretch;
+}
+
+.professional-gantt .gantt-field-cell {
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  height:100%;
+  padding:0 6px;
+  line-height:1.15;
+}
+
+.professional-gantt .compact .gantt-field-cell {
+  padding-top:0;
+  padding-bottom:0;
+}
+
+.professional-gantt .gantt-time {
+  box-sizing:border-box;
+  height:100%;
+  min-height:0;
+}
+
+.professional-gantt .milestone {
+  top:50%;
+  transform:translateY(-50%) rotate(45deg);
+}
+
+.gantt-wbs-summary .summary-time i {
+  top:50%;
+  transform:translateY(-50%);
+}
+
+.gantt-wbs-node.collapsed>.gantt-wbs-summary .summary-time i {
+  top:50%;
+}
