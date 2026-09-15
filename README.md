@@ -1,70 +1,74 @@
-# Project Controls AI Suite v2.1.1
+# Project Controls AI Suite v3.0.0
 
-A static, browser-based project-controls toolkit designed for GitHub Pages. The application works primarily in-browser and stores project/repository data in the browser's IndexedDB/local storage.
+A static, browser-based project-controls, schedule-analysis and forensic-planning workbench designed for GitHub Pages. Project files and parsed schedule data are kept in the browser project repository unless the user explicitly calls a configured cloud AI provider.
 
 ## Deploy to GitHub Pages
 
-1. Copy the contents of this package to the root of your GitHub repository.
-2. Keep the supplied folder structure (`assets/`, `src/`, `tools/`).
-3. Enable GitHub Pages for the repository, or use the included Pages workflow if your repository deploys through GitHub Actions.
-4. Open `index.html` through the GitHub Pages URL. Do not open it directly from the local filesystem for normal use because browser security rules differ for `file://` pages.
+1. Copy the contents of this package to the root of the GitHub repository.
+2. Keep the supplied `assets/`, `src/` and `tools/` folders in place.
+3. Enable GitHub Pages, or use the included Pages workflow.
+4. Open the deployed HTTPS URL rather than `file://` so browser storage, modules and local-network permissions behave normally.
 
-The application is marked **v2.1.1** in the header. Static assets use the `v=2.1.1` cache key.
+The application header is marked **v3.0.0** and static assets use the `v=3.0.0` cache key.
 
-## Supported schedule/file workflows
+## Schedule analysis and controls
 
-- Primavera P6 XER: parsed in-browser.
-- Microsoft Project XML/MSPDI: parsed in-browser.
-- Microsoft Project MPP: use the local MPP bridge (`setup-mpp-bridge.bat`). The bridge converts MPP to MSPDI XML locally; the browser then uses the standard XML parser.
-- PDF schedule alignment: requires a readable PDF text layer.
-- BOQ alignment: CSV is native; XLS/XLSX uses the browser spreadsheet helper when needed.
+- Primavera P6 XER and Microsoft Project XML/MSPDI parsing in-browser.
+- Local MPP bridge for `.mpp` conversion to MSPDI XML.
+- Full WBS/Gantt hierarchy with P6 WBS ordering, collapsible WBS bands, configurable fields/bars and locally saved named layouts.
+- Activity Register, Activity Inspector, Schedule Issue Register and cross-report activity links.
+- Complete DCMA/NASA-style 14-point schedule assessment with PASS/FAIL/N/A, drill-down and configurable QA profiles.
+- Progress-integrity checks for status, actual dates, data date, expected finish, remaining duration and suspend/resume contradictions.
+- Week-on-Week change register covering progress, forecast dates, actual dates, additions/deletions and adverse highlighting.
+- Schedule Comparison, Why Date Moved, Delay Analysis, Critical Path, Float/Longest-Path Explorer and network analysis.
+- Multi-revision Forensic Review with collapsible Activities, Progress, Resourcing, Calendars and Relationships evidence plus an Activity Revision Matrix.
+- Contemporaneous Windows Analysis, Logic Change Explorer, Calendar Difference Viewer and Resource Forensics.
+- Multi-baseline manager for BL1/BL2/BL3 against a selected current/status schedule.
+- Forensic Evidence Pack ZIP export with CSV evidence and SHA-256 source hashes when the source blobs are available.
+- S-curves, histograms, resource/cost analysis, EVM, forecast confidence, narratives, milestone control and data-centre readiness.
 
-## Optional AI providers
+## Interactive analytical charts
 
-No AI is selected by default. Configure a provider from **Settings** before using AI-assisted features.
+Charts support grouped, stacked, 100% stacked, horizontal, line and area views; series show/hide; search; sort; Top-N; date filters; day/week/month/quarter/year aggregation on dated data; thresholds; average lines; zoom; value labels; full-screen; drag-to-focus for dated charts; and CSV/SVG/PNG export.
 
-Supported routes include:
+## Measurement and BOQ alignment
 
-- Local Ollama (`setup-ollama.bat`)
-- Browser-local models where supported by the browser/device
+The Drawing Measurement page has separate repository trees for drawings and the BOQ target. CSV/XLS/XLSX BOQs can be updated, or a new BOQ can be created. Optional **Align to schedule** uses a selected XER/XML/PDF schedule to add `Recommended Activity ID(s)` without overwriting manually assigned Activity IDs.
+
+## AI providers
+
+**No AI is selected by default.** Settings supports local/browser models and bring-your-own-key cloud providers:
+
+- Ollama (local)
+- Browser CPU/WASM and WebGPU models where supported
 - Gemini
 - xAI / Grok
 - OpenAI
 - Anthropic Claude
+- DeepSeek
+- NVIDIA NIM
+- Custom OpenAI-compatible endpoint
 
-Cloud API keys entered in Settings are stored in that browser profile's local storage and are not included in this source package. For a multi-user production deployment, route cloud calls through a server-side proxy rather than exposing long-lived keys in client-side storage.
+OpenAI-compatible providers can optionally refresh model identifiers from a `/models` endpoint; manual model entry always remains available. API keys are stored only in that browser profile and are never included in this package. For a public multi-user deployment, use a backend/Worker proxy rather than exposing long-lived provider keys in browser storage.
 
+## Local helpers
 
-## Schedule Builder generation pipeline
-
-The final Schedule Builder generation now runs a visible nine-stage sequence after the AI draft: WBS build, calendar build, structured activity naming/smart IDs, calendar assignment, duration assignment, logic assignment, milestone-fit checking, logic testing, and final detailed checks/repairs. Structured activity names use the pattern `Area - Elevation - Discipline - Service - Step`, while generated IDs include responsibility and discipline codes.
-
-## Monte Carlo options
-
-Risk Analysis supports configurable iterations, random seed, uncertainty range, Triangular/Beta-PERT/Normal/Uniform duration distributions, target activity/milestone, target completion date, custom percentile, histogram resolution, mapped Risk Register impacts, and remaining-work-only simulation. Results include a completion-outcome histogram with P50/P80/planned markers plus the probability of meeting the selected target date.
-
-## Local Ollama
-
-Run `setup-ollama.bat` on Windows, then use **Settings → Ollama** to check connectivity and select a local model. GitHub Pages-to-loopback access depends on browser local-network permissions and the configured `OLLAMA_ORIGINS` value.
-
-## Local MPP bridge
-
-Run `setup-mpp-bridge.bat`. The helper under `tools/` requires Node.js 20+ and the dependency declared in `tools/package.json`.
+- `setup-ollama.bat` configures the optional local Ollama workflow on Windows.
+- `setup-mpp-bridge.bat` starts the local `.mpp` parser bridge. The helper under `tools/` requires Node.js 20+.
 
 ## Source layout
 
-- `src/core/` — canonical schedule model and shared utilities
-- `src/parsers/` — XER, MSPDI/XML and PDF schedule parsing
-- `src/repository/` — IndexedDB project/file/schedule persistence
-- `src/analysis/` — health, comparison, forensic, risk, network, time-series and calendar logic
-- `src/builder/` — deterministic Schedule Builder generation/validation pipeline
-- `src/measurement/` — BOQ update/alignment logic
-- `src/ai/` — model catalogue and provider/runtime adapters
-- `src/ui/` — application controller, UI state and renderers
-- `src/workers/` — large-calculation Web Workers
-- `assets/` — application stylesheet
-- `tools/` — optional local MPP helper
+- `src/core/` — canonical schedule model, utilities and ZIP writer.
+- `src/parsers/` — XER, MSPDI/XML and PDF schedule parsing.
+- `src/repository/` — IndexedDB project/file/schedule persistence.
+- `src/analysis/` — health, DCMA, QA profiles, comparison, forensic, progress, risk, network, time-series, resource and calendar logic.
+- `src/measurement/` — BOQ update/alignment logic.
+- `src/ai/` — model catalogue and provider/runtime adapters.
+- `src/ui/` — application controller, state, renderers and chart workbench.
+- `src/workers/` — large-calculation Web Workers.
+- `assets/` — application stylesheet.
+- `tools/` — optional local MPP helper.
 
-## Notes
+## Important interpretation notes
 
-Public-holiday profiles and automatically identified forensic/delay observations are planning aids. Project calendars, shutdowns, contractual entitlement, causation and responsibility must still be verified against the governing project documents.
+DCMA-style results are internal analytical screening, not official certification. The Critical Path Test is a deterministic network-recalculation proxy and does not reproduce every native P6 calendar/constraint calculation. Analytical float paths are derived from the normalized logic network unless native float-path data is explicitly present. Automatically identified delay/forensic observations are schedule evidence, not automatic conclusions on contractual entitlement, causation or responsibility. Calendar/public-holiday profiles and all contractual conclusions must be verified against the governing project documents.

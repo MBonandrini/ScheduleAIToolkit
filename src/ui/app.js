@@ -46,9 +46,12 @@ import {
 } from "../ai/ollama.js";
 import {
   cloudConfig,
+  cloudProviderMeta,
+  cloudProviderIds,
   saveCloudConfig,
   clearCloudKey,
-  testCloudAI
+  testCloudAI,
+  listCloudModels
 } from "../ai/cloud.js";
 import {
   scheduleSummary,
@@ -70,7 +73,6 @@ import {
   metric,
   table,
   lineChart,
-  barChart,
   networkGraph,
   gantt,
   calendarMonth,
@@ -83,7 +85,9 @@ import {
   noRepoViews,
   freshGanttLayout,
   loadGanttLayout,
-  saveGanttLayout
+  saveGanttLayout,
+  loadNamedGanttLayouts,
+  saveNamedGanttLayouts
 } from "./app-state.js";
 import {
   scheduleHealth,
@@ -131,6 +135,45 @@ import {
   buildForensicEvidence
 } from "../analysis/forensics.js";
 import {
+  dcma14
+} from "../analysis/dcma.js";
+import {
+  QA_PROFILES,
+  DEFAULT_QA_PROFILE_ID,
+  qaProfile
+} from "../analysis/qa-profiles.js";
+import {
+  progressIntegrity
+} from "../analysis/progress-integrity.js";
+import {
+  logicChanges,
+  calendarDifferences,
+  resourceForensics,
+  windowsAnalysis,
+  analyticalFloatPaths,
+  activityRevisionMatrix
+} from "../analysis/advanced-forensics.js";
+import {
+  buildEvidencePack
+} from "../analysis/evidence-pack.js";
+import {
+  weekOnWeekChanges
+} from "../analysis/week-over-week.js";
+import {
+  fridaySeries,
+  weekEndingFriday,
+  monthsFromFridays,
+  wbsClassificationPrompt,
+  parseClassificationResponse,
+  buildWeeklyBreakout,
+  matchFloorLabel,
+  DISCIPLINES
+} from "../analysis/manpower-breakout.js";
+import {
+  bindInteractiveCharts,
+  interactiveBarChart
+} from "./chart-workbench.js";
+import {
   dataCentreReadiness,
   readinessGates
 } from "../analysis/datacentre.js";
@@ -161,11 +204,8 @@ import {
   alignBoqFile,
   RECOMMENDED_HEADER
 } from "../measurement/boq-alignment.js";
-import {
-  BUILDER_PIPELINE_STEPS,
-  runBuilderPipeline
-} from "../builder/pipeline.js";
 const $ = id => document.getElementById(id);
+const manpowerObjectUrls = new Map();
 // -----------------------------------------------------------------------------
 // Application bootstrap and shared schedule-selection helpers
 // -----------------------------------------------------------------------------
@@ -187,6 +227,11 @@ async function init() {
   await restoreFolderHandles();
   state.quantityRows = JSON.parse(localStorage.getItem("pcai.quantities") || "[]");
   try {
+    state.issueRows = JSON.parse(localStorage.getItem("pcai.issueRows") || "[]");
+  } catch (_) {
+    state.issueRows = [];
+  }
+  try {
     state.measurement = JSON.parse(localStorage.getItem("pcai.measurement") || "null")
   } catch (_) {
     state.measurement = null
@@ -194,10 +239,37 @@ async function init() {
   state.measurement = normaliseMeasurementState(state.measurement);
   state.builderRows = JSON.parse(localStorage.getItem("pcai.builder") || "[]");
   state.profile = localStorage.getItem("pcai.profile") || "Data Centre";
+  try {
+    const savedManpower = JSON.parse(localStorage.getItem("pcai.manpower") || "null");
+    if (savedManpower && typeof savedManpower === "object") {
+      Object.assign(state, {
+        manpowerMode: savedManpower.mode || state.manpowerMode,
+        manpowerScheduleId: savedManpower.scheduleId || "",
+        manpowerPlannedId: savedManpower.plannedId || "",
+        manpowerActualId: savedManpower.actualId || "",
+        manpowerLayouts: Array.isArray(savedManpower.layouts) && savedManpower.layouts.length ? savedManpower.layouts : state.manpowerLayouts,
+        manpowerUseAI: savedManpower.useAI !== false,
+        manpowerHoursPerPerson: Number(savedManpower.hoursPerPerson || 45) || 45,
+        manpowerOverrides: savedManpower.overrides || {},
+        manpowerFriday: savedManpower.friday || "",
+        manpowerMonth: savedManpower.month || "",
+      });
+    }
+  } catch (_) {
+    // Ignore corrupt browser-local presentation preferences.
+  }
   state.ganttLeftWidth = Number(localStorage.getItem("pcai.ganttLeftWidth") || 410);
   state.criticalLeftWidth = Number(localStorage.getItem("pcai.criticalLeftWidth") || 410);
   state.ganttLayouts.wbs = loadGanttLayout("wbs");
   state.ganttLayouts.critical = loadGanttLayout("critical");
+  state.namedGanttLayouts.wbs = loadNamedGanttLayouts("wbs");
+  state.namedGanttLayouts.critical = loadNamedGanttLayouts("critical");
+  state.qaProfileId = localStorage.getItem("pcai.qaProfileId") || DEFAULT_QA_PROFILE_ID;
+  try { state.qaCustomThresholds = JSON.parse(localStorage.getItem("pcai.qaCustomThresholds") || "{}"); } catch { state.qaCustomThresholds = {}; }
+  try {
+    const baselineSlots = JSON.parse(localStorage.getItem("pcai.baselineSlots") || "[]");
+    if (Array.isArray(baselineSlots)) state.baselineSlots = [0,1,2].map(i => baselineSlots[i] || "");
+  } catch (_) {}
   try {
     state.ganttCollapsed.wbs = JSON.parse(localStorage.getItem("pcai.ganttCollapsed.wbs") || "[]");
     state.ganttCollapsed.critical = JSON.parse(localStorage.getItem("pcai.ganttCollapsed.critical") || "[]")
@@ -211,14 +283,6 @@ async function init() {
     state.builderWizard = JSON.parse(localStorage.getItem("pcai.builderWizard") || "null")
   } catch (_) {
     state.builderWizard = null
-  }
-  try {
-    state.monteOptions = {
-      ...state.monteOptions,
-      ...(JSON.parse(localStorage.getItem("pcai.monteOptions") || "null") || {}),
-    };
-  } catch (_) {
-    // Invalid/stale Monte Carlo preferences fall back to the current defaults.
   }
   const savedTheme = localStorage.getItem("pcai.theme") || "navy";
   document.documentElement.dataset.theme = savedTheme;
@@ -253,24 +317,44 @@ function bindShell() {
   };
   $("addFilesBtn").onclick = () => $("fileInput").click();
   $("fileInput").onchange = async e => {
-    await withProgress("Importing files", async() => {
-      await addFiles(e.target.files); await refreshData()
-    });
-    e.target.value = ""
+    const files = e.target.files;
+    updateProgress({ title: "Loading schedules", detail: `Preparing ${files.length} file${files.length===1?"":"s"}`, percent: 1 });
+    try {
+      await addFiles(files, { onProgress: updateProgress });
+      updateProgress({ title: "Loading schedules", detail: "Refreshing repository and schedule index", percent: 97 });
+      await refreshData();
+      updateProgress({ title: "Loading schedules", detail: "Complete", percent: 100, done: true });
+    } catch (error) {
+      updateProgress({ title: "Schedule load failed", detail: error.message || String(error), percent: 100, done: true });
+      alert(`Schedule/file loading failed: ${error.message || error}`);
+    } finally {
+      e.target.value = "";
+    }
   };
   $("folderFallbackBtn").onclick = () => $("folderInput").click();
   $("folderInput").onchange = async e => {
-    await withProgress("Importing folder", async() => {
-      await importFolderFallback(e.target.files); await refreshData()
-    });
-    e.target.value = ""
+    updateProgress({ title: "Loading schedules", detail: `Scanning uploaded folder · ${e.target.files.length} files`, percent: 1 });
+    try {
+      await importFolderFallback(e.target.files, { onProgress: updateProgress });
+      updateProgress({ title: "Loading schedules", detail: "Refreshing repository and schedule index", percent: 97 });
+      await refreshData();
+      updateProgress({ title: "Loading schedules", detail: "Complete", percent: 100, done: true });
+    } catch (error) {
+      updateProgress({ title: "Schedule load failed", detail: error.message || String(error), percent: 100, done: true });
+      alert(`Folder loading failed: ${error.message || error}`);
+    } finally {
+      e.target.value = "";
+    }
   };
   $("linkFolderBtn").onclick = async() => {
     try {
-      await withProgress("Linking project folder", async() => {
-        await linkFolder(); await refreshData()
-      })
+      updateProgress({ title: "Loading schedules", detail: "Opening project folder", percent: 1 });
+      await linkFolder({ onProgress: updateProgress });
+      updateProgress({ title: "Loading schedules", detail: "Refreshing repository and schedule index", percent: 97 });
+      await refreshData();
+      updateProgress({ title: "Loading schedules", detail: "Complete", percent: 100, done: true });
     } catch (e) {
+      updateProgress({ title: "Schedule load failed", detail: e.message || String(e), percent: 100, done: true });
       alert(e.message)
     }
   };
@@ -389,6 +473,7 @@ function render() {
     contracts: renderContracts,
     drawing: renderDrawing,
     assessment: renderAssessment,
+    manpower: renderManpower,
     risk: renderRisk,
     claims: renderClaims,
     notebook: renderNotebook,
@@ -396,6 +481,9 @@ function render() {
     settings: renderSettings
   };
   map[state.view]?.();
+  // Chart controls are bound after each view render. The binder is idempotent,
+  // so re-rendering a report never duplicates event handlers.
+  queueMicrotask(() => bindInteractiveCharts(document));
 }
 function updateProgress(p) {
   const hud = $("progressHud"),
@@ -403,9 +491,10 @@ function updateProgress(p) {
   hud.hidden = false;
   $("progressTitle").textContent = p.title || "Working";
   $("progressDetail").textContent = p.detail || "Processing…";
-  $("progressPct").textContent = p.indeterminate? "Working…": `${Math.round(Number(p.percent) || 0)}%`;
+  const pct = Number(p.percent ?? p.pct ?? 0);
+  $("progressPct").textContent = p.indeterminate? "Working…": `${Math.round(pct || 0)}%`;
   track.classList.toggle("indeterminate", !!p.indeterminate);
-  $("progressBar").style.width = p.indeterminate? "35%": `${Math.max(0, Math.min(100, Number(p.percent) || 0))}%`;
+  $("progressBar").style.width = p.indeterminate? "35%": `${Math.max(0, Math.min(100, pct || 0))}%`;
   if (p.done)setTimeout(() => hud.hidden = true, 1400);
 }
 async function withProgress(title, fn) {
@@ -968,16 +1057,218 @@ function renderDrawing() {
     type: "text/csv"
   }), "drawing-measurements.csv");
 }
+
+// -----------------------------------------------------------------------------
+// Manpower Breakout — forward-look and retrospective presentation dashboard
+// -----------------------------------------------------------------------------
+const MANPOWER_LAYOUT_EXT = /\.(pdf|png|jpe?g|webp|svg)$/i;
+
+function saveManpowerState() {
+  localStorage.setItem("pcai.manpower", JSON.stringify({
+    mode: state.manpowerMode,
+    scheduleId: state.manpowerScheduleId,
+    plannedId: state.manpowerPlannedId,
+    actualId: state.manpowerActualId,
+    layouts: state.manpowerLayouts,
+    useAI: state.manpowerUseAI,
+    hoursPerPerson: state.manpowerHoursPerPerson,
+    overrides: state.manpowerOverrides,
+    friday: state.manpowerFriday,
+    month: state.manpowerMonth
+  }));
+}
+
+function manpowerLayoutCandidates() {
+  return state.files.filter(f => MANPOWER_LAYOUT_EXT.test(f.name || ""));
+}
+
+function manpowerLayoutOptions(value = "") {
+  const files = manpowerLayoutCandidates();
+  return `<option value="">Select layout…</option>${files.map(f => `<option value="${esc(f.id)}" ${String(f.id)===String(value)?"selected":""}>${esc(f.relativePath || f.name)}</option>`).join("")}`;
+}
+
+function formatMonth(ym) {
+  if (!/^\d{4}-\d{2}$/.test(String(ym || ""))) return ym || "";
+  const [y, m] = ym.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
+function manpowerProgrammeSet() {
+  if (state.manpowerMode === "forensic") {
+    return [scheduleById(state.manpowerPlannedId), scheduleById(state.manpowerActualId)].filter(Boolean);
+  }
+  return [scheduleById(state.manpowerScheduleId)].filter(Boolean);
+}
+
+function manpowerFridays(programmes) {
+  const set = new Set(programmes.flatMap(fridaySeries));
+  return [...set].sort();
+}
+
+function disciplineClass(name) {
+  const idx = Math.max(0, DISCIPLINES.indexOf(name));
+  return `discipline-${idx % 10}`;
+}
+
+function manpowerFishbone(fridays, selected, month) {
+  const monthFridays = fridays.filter(x => x.startsWith(month));
+  if (!monthFridays.length) return `<div class="empty-state">No scheduled construction weeks fall inside this month.</div>`;
+  return `<div class="manpower-fishbone" role="group" aria-label="Week ending Friday selector"><div class="fishbone-spine"></div>${monthFridays.map((f, i) => `<button class="fishbone-week ${f===selected?"active":""}" data-manpower-friday="${f}" title="Week ending Friday ${f}"><span class="fishbone-bone bone-top"></span><strong>${esc(f)}</strong><small>Fri</small><span class="fishbone-bone bone-bottom"></span></button>`).join("")}</div>`;
+}
+
+function areaSummary(rows = []) {
+  const map = new Map();
+  for (const r of rows) {
+    if (!map.has(r.area)) map.set(r.area, { area: r.area, hours: 0, people: 0, activities: 0, disciplines: new Set() });
+    const x = map.get(r.area); x.hours += Number(r.hours || 0); x.people += Number(r.people || 0); x.activities++; x.disciplines.add(r.discipline || "General");
+  }
+  return [...map.values()].map(x => ({ ...x, disciplines: [...x.disciplines] })).sort((a, b) => b.hours - a.hours || a.area.localeCompare(b.area));
+}
+
+function manpowerAreaMap(rows = [], title = "Programme area map") {
+  const areas = areaSummary(rows);
+  if (!areas.length) return `<div class="manpower-area-map empty-state">No construction activities are scheduled for this floor in the selected week.</div>`;
+  return `<div class="manpower-area-map"><div class="manpower-area-map-title">${esc(title)}</div><div class="manpower-zone-grid">${areas.map(a => `<div class="manpower-zone" title="${a.activities} activities · ${a.hours.toFixed(1)} h · ${a.people.toFixed(1)} people"><div class="manpower-zone-head"><strong>${esc(a.area)}</strong><span>${a.activities} activities</span></div><div class="discipline-strips">${a.disciplines.map(d => `<span class="discipline-chip ${disciplineClass(d)}">${esc(d)}</span>`).join("")}</div><div class="manpower-zone-metric"><b>${a.hours.toFixed(0)} h</b><span>${a.people.toFixed(1)} people @ ${Number(state.manpowerHoursPerPerson || 45)}h</span></div></div>`).join("")}</div></div>`;
+}
+
+function manpowerActivityTable(rows = []) {
+  if (!rows.length) return `<div class="empty-state">No activities for this floor/week.</div>`;
+  const groups = new Map();
+  for (const r of rows) {
+    const key = r.wbs || "Unassigned";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  return `<div class="manpower-activity-groups">${[...groups.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([wbs, items]) => `<details class="manpower-wbs" open><summary><strong>${esc(wbs)}</strong><span>${items.length} activit${items.length===1?"y":"ies"}</span></summary>${table(["Activity", "Area", "Discipline", "Start", "Finish", "%", "Hours", "People"], items.sort((a,b)=>String(a.start).localeCompare(String(b.start)) || String(a.id).localeCompare(String(b.id))).map(r => [`<span class="activity-link" data-inspect-activity="${esc(r.id)}"><strong>${esc(r.id)}</strong><small>${esc(r.name)}</small></span>`, esc(r.area), `<span class="discipline-chip ${disciplineClass(r.discipline)}">${esc(r.discipline)}</span>`, esc(r.start || "—"), esc(r.finish || "—"), `${Number(r.percent || 0).toFixed(1)}%`, Number(r.hours || 0).toFixed(1), Number(r.people || 0).toFixed(1)]), { resizable: true, resizeKey: `manpower-${wbs}` })}</details>`).join("")}</div>`;
+}
+
+function manpowerCharts(rows = [], suffix = "") {
+  const areas = areaSummary(rows).map(x => ({ label: x.area, hours: x.hours, people: x.people }));
+  if (!areas.length) return "";
+  return `<div class="grid grid2 manpower-small-charts"><section><h3>Hours by area</h3>${interactiveBarChart(areas, { height: 230, series: [{ key: "hours", label: "Hours" }], valueSuffix: " h", defaultMode: "horizontal" })}</section><section><h3>Manpower by area</h3>${interactiveBarChart(areas, { height: 230, series: [{ key: "people", label: `People @ ${Number(state.manpowerHoursPerPerson || 45)}h/week` }], valueSuffix: " people", defaultMode: "horizontal" })}</section></div>`;
+}
+
+function manpowerFloorRows(breakout, layout, layoutCount) {
+  return (breakout?.rows || []).filter(r => matchFloorLabel(r.floor, layout.label, layoutCount));
+}
+
+function manpowerFloorPanel(layout, label, rows, modeLabel) {
+  return `<section class="panel manpower-floor-panel"><div class="panel-head-row"><div><h2>${esc(label)}</h2><p class="muted">${esc(modeLabel)} · Week ending Friday ${esc(state.manpowerFriday || "—")}</p></div><div class="manpower-floor-total"><strong>${rows.reduce((n,r)=>n+Number(r.hours||0),0).toFixed(0)} h</strong><span>${rows.reduce((n,r)=>n+Number(r.people||0),0).toFixed(1)} people</span></div></div><div class="manpower-floor-main"><div class="manpower-layout-column"><div class="manpower-layout-reference" data-manpower-layout="${esc(layout.fileId || "")}"><div class="muted">Loading layout reference…</div></div>${manpowerAreaMap(rows, `${modeLabel} area works`)}</div><aside class="manpower-week-activities"><h3>Scheduled activities</h3>${manpowerActivityTable(rows)}</aside></div>${manpowerCharts(rows, modeLabel)}</section>`;
+}
+
+async function hydrateManpowerLayoutPreviews() {
+  for (const el of document.querySelectorAll("[data-manpower-layout]")) {
+    const id = String(el.dataset.manpowerLayout || "");
+    if (!id) { el.innerHTML = `<div class="empty-state">No layout selected.</div>`; continue; }
+    const file = state.files.find(f => String(f.id) === id);
+    if (!file) { el.innerHTML = `<div class="empty-state">Layout file is no longer available.</div>`; continue; }
+    try {
+      let url = manpowerObjectUrls.get(id);
+      if (!url) {
+        const blob = await getFileBlob(id);
+        if (!blob) throw new Error("File data unavailable");
+        url = URL.createObjectURL(blob); manpowerObjectUrls.set(id, url);
+      }
+      const name = file.name || "layout";
+      if (/\.pdf$/i.test(name)) el.innerHTML = `<object data="${esc(url)}" type="application/pdf"><a href="${esc(url)}" target="_blank" rel="noopener">Open ${esc(name)}</a></object>`;
+      else el.innerHTML = `<img src="${esc(url)}" alt="${esc(name)}" loading="lazy">`;
+    } catch (error) {
+      el.innerHTML = `<div class="empty-state">Could not preview ${esc(file.name)}: ${esc(error.message || error)}</div>`;
+    }
+  }
+}
+
+async function generateManpowerBreakout() {
+  const programmes = manpowerProgrammeSet();
+  if (!programmes.length || (state.manpowerMode === "forensic" && programmes.length < 2)) throw new Error("Select the required programme schedule(s).");
+  if (!state.manpowerLayouts.some(x => x.fileId)) throw new Error("Select at least one project/floor layout file.");
+  updateProgress({ title: "Generating manpower breakout", detail: "Analysing construction WBS, floors and areas", percent: 8 });
+  let overrides = {};
+  const ai = selectedAIInfo();
+  if (state.manpowerUseAI && ai.engine !== "none" && ai.compatible) {
+    updateProgress({ title: "Generating manpower breakout", detail: `AI classification · ${aiLabel()}`, percent: 25 });
+    const merged = { ...programmes[0], activities: programmes.flatMap(x => x.activities || []) };
+    try {
+      const response = await askAI({
+        question: wbsClassificationPrompt(merged),
+        role: "Construction Planning and Manpower Mapping Specialist",
+        current: programmes.at(-1),
+        previous: programmes[0],
+        revisions: programmes,
+        contextFileIds: state.manpowerLayouts.map(x => x.fileId).filter(Boolean)
+      });
+      overrides = parseClassificationResponse(response.text || "");
+    } catch (error) {
+      console.warn("AI manpower classification failed; using deterministic schedule classification", error);
+      toast(`AI classification unavailable · using schedule/WBS rules`);
+    }
+  }
+  updateProgress({ title: "Generating manpower breakout", detail: "Building Friday week sequence and resource profiles", percent: 72 });
+  state.manpowerOverrides = overrides;
+  const fridays = manpowerFridays(programmes);
+  const preferred = weekEndingFriday(programmes.at(-1)?.dataDate || programmes.at(-1)?.activities?.[0]?.currentStart || programmes.at(-1)?.activities?.[0]?.start);
+  if (!state.manpowerFriday || !fridays.includes(state.manpowerFriday)) state.manpowerFriday = fridays.includes(preferred) ? preferred : (fridays[0] || "");
+  state.manpowerMonth = state.manpowerFriday?.slice(0, 7) || monthsFromFridays(fridays)[0] || "";
+  state.manpowerGenerated = true;
+  saveManpowerState();
+  updateProgress({ title: "Generating manpower breakout", detail: "Dashboard ready", percent: 100, done: true });
+}
+
+function bindManpowerControls() {
+  $("manpowerMode")?.addEventListener("change", e => { state.manpowerMode = e.target.value; state.manpowerGenerated = false; saveManpowerState(); renderManpower(); });
+  $("manpowerSchedule")?.addEventListener("change", e => { state.manpowerScheduleId = e.target.value; state.manpowerGenerated = false; saveManpowerState(); });
+  $("manpowerPlanned")?.addEventListener("change", e => { state.manpowerPlannedId = e.target.value; state.manpowerGenerated = false; saveManpowerState(); });
+  $("manpowerActual")?.addEventListener("change", e => { state.manpowerActualId = e.target.value; state.manpowerGenerated = false; saveManpowerState(); });
+  $("manpowerUseAI")?.addEventListener("change", e => { state.manpowerUseAI = e.target.checked; saveManpowerState(); });
+  $("manpowerHours")?.addEventListener("change", e => { state.manpowerHoursPerPerson = Math.max(1, Number(e.target.value || 45)); saveManpowerState(); if (state.manpowerGenerated) renderManpower(); });
+  document.querySelectorAll("[data-manpower-layout-file]").forEach(el => el.addEventListener("change", e => { const row = state.manpowerLayouts.find(x => x.id === e.target.dataset.manpowerLayoutFile); if (row) row.fileId = e.target.value; state.manpowerGenerated = false; saveManpowerState(); }));
+  document.querySelectorAll("[data-manpower-layout-label]").forEach(el => el.addEventListener("change", e => { const row = state.manpowerLayouts.find(x => x.id === e.target.dataset.manpowerLayoutLabel); if (row) row.label = e.target.value || "All / Project"; state.manpowerGenerated = false; saveManpowerState(); }));
+  document.querySelectorAll("[data-manpower-layout-remove]").forEach(el => el.onclick = () => { state.manpowerLayouts = state.manpowerLayouts.filter(x => x.id !== el.dataset.manpowerLayoutRemove); if (!state.manpowerLayouts.length) state.manpowerLayouts.push({ id: uid("layout"), fileId: "", label: "All / Project" }); state.manpowerGenerated = false; saveManpowerState(); renderManpower(); });
+  $("manpowerAddLayout")?.addEventListener("click", () => { state.manpowerLayouts.push({ id: uid("layout"), fileId: "", label: `Floor ${state.manpowerLayouts.length + 1}` }); state.manpowerGenerated = false; saveManpowerState(); renderManpower(); });
+  $("manpowerGenerate")?.addEventListener("click", async () => { try { await generateManpowerBreakout(); renderManpower(); } catch (error) { alert(error.message || error); updateProgress({ title: "Manpower breakout", detail: error.message || String(error), percent: 100, done: true }); } });
+  $("manpowerMonth")?.addEventListener("change", e => { state.manpowerMonth = e.target.value; const programmes = manpowerProgrammeSet(), f = manpowerFridays(programmes).find(x => x.startsWith(state.manpowerMonth)); if (f) state.manpowerFriday = f; saveManpowerState(); renderManpower(); });
+  document.querySelectorAll("[data-manpower-friday]").forEach(el => el.onclick = () => { state.manpowerFriday = el.dataset.manpowerFriday; state.manpowerMonth = state.manpowerFriday.slice(0, 7); saveManpowerState(); renderManpower(); });
+  document.querySelectorAll("[data-inspect-activity]").forEach(el => el.onclick = () => { state.inspectorActivityId = el.dataset.inspectActivity; state.assessmentReport = "inspector"; state.view = "assessment"; render(); });
+}
+
+function renderManpower() {
+  if (!state.manpowerScheduleId) state.manpowerScheduleId = state.activeScheduleId || state.schedules.at(-1)?.id || "";
+  if (!state.manpowerActualId) state.manpowerActualId = state.activeScheduleId || state.schedules.at(-1)?.id || "";
+  if (!state.manpowerPlannedId) state.manpowerPlannedId = state.previousScheduleId || state.schedules.at(-2)?.id || state.schedules.at(-1)?.id || "";
+  const ai = selectedAIInfo(), layoutFiles = manpowerLayoutCandidates();
+  const layouts = state.manpowerLayouts.map((x, i) => `<div class="manpower-layout-row"><label>Floor / layout label<input data-manpower-layout-label="${esc(x.id)}" value="${esc(x.label || `Floor ${i + 1}`)}" placeholder="e.g. Level 01"></label><label>Layout file<select data-manpower-layout-file="${esc(x.id)}">${manpowerLayoutOptions(x.fileId)}</select></label><button class="btn danger compact" data-manpower-layout-remove="${esc(x.id)}" type="button">Remove</button></div>`).join("");
+  const programmes = manpowerProgrammeSet(), fridays = state.manpowerGenerated ? manpowerFridays(programmes) : [], months = monthsFromFridays(fridays);
+  if (state.manpowerGenerated && fridays.length && (!state.manpowerFriday || !fridays.includes(state.manpowerFriday))) state.manpowerFriday = fridays[0];
+  if (state.manpowerGenerated && state.manpowerFriday && !state.manpowerMonth) state.manpowerMonth = state.manpowerFriday.slice(0, 7);
+  let dashboard = "";
+  if (state.manpowerGenerated && programmes.length && state.manpowerFriday) {
+    const hours = Number(state.manpowerHoursPerPerson || 45), layoutCount = state.manpowerLayouts.length;
+    if (state.manpowerMode === "forensic") {
+      const planned = buildWeeklyBreakout(programmes[0], state.manpowerFriday, { actualMode: false, overrides: state.manpowerOverrides, hoursPerPerson: hours });
+      const actual = buildWeeklyBreakout(programmes[1], state.manpowerFriday, { actualMode: true, overrides: state.manpowerOverrides, hoursPerPerson: hours });
+      dashboard = `<section class="panel manpower-week-selector"><div class="panel-head-row"><div><h2>Weekly fishbone</h2><p class="muted">One shared Friday selector controls every floor. Choose a month, then click a Friday.</p></div><label>Month<select id="manpowerMonth">${months.map(m => `<option value="${m}" ${m===state.manpowerMonth?"selected":""}>${esc(formatMonth(m))}</option>`).join("")}</select></label></div>${manpowerFishbone(fridays, state.manpowerFriday, state.manpowerMonth || months[0])}</section>${state.manpowerLayouts.map(layout => { const pRows = manpowerFloorRows(planned, layout, layoutCount), aRows = manpowerFloorRows(actual, layout, layoutCount); return `<section class="manpower-forensic-floor"><div class="manpower-floor-banner"><h2>${esc(layout.label || "Floor")}</h2><span>Planned vs actual · ${esc(state.manpowerFriday)}</span></div><div class="manpower-compare-grid">${manpowerFloorPanel(layout, layout.label || "Floor", pRows, "Planned")}${manpowerFloorPanel(layout, layout.label || "Floor", aRows, "Actual")}</div></section>`; }).join("")}`;
+    } else {
+      const forecast = buildWeeklyBreakout(programmes[0], state.manpowerFriday, { actualMode: false, overrides: state.manpowerOverrides, hoursPerPerson: hours });
+      dashboard = `<section class="panel manpower-week-selector"><div class="panel-head-row"><div><h2>Weekly fishbone</h2><p class="muted">The fishbone is keyed to week-ending Friday. Choose a month, then select the week to present.</p></div><label>Month<select id="manpowerMonth">${months.map(m => `<option value="${m}" ${m===state.manpowerMonth?"selected":""}>${esc(formatMonth(m))}</option>`).join("")}</select></label></div>${manpowerFishbone(fridays, state.manpowerFriday, state.manpowerMonth || months[0])}</section>${state.manpowerLayouts.map(layout => manpowerFloorPanel(layout, layout.label || "Floor", manpowerFloorRows(forecast, layout, layoutCount), "Forward look")).join("")}`;
+    }
+  }
+  $("workspace").innerHTML = `${viewHead("Manpower Breakout", "Forward-looking and retrospective floor/area presentation of construction work and resource demand", `<button class="btn primary" id="manpowerGenerate" type="button">Generate / Refresh</button>`)}
+    <section class="panel manpower-config"><div class="manpower-config-grid"><label>Mode<select id="manpowerMode"><option value="forward" ${state.manpowerMode==="forward"?"selected":""}>Forward Look</option><option value="forensic" ${state.manpowerMode==="forensic"?"selected":""}>Forensic · Planned vs Actual</option></select></label>${state.manpowerMode==="forensic"?`<label>Planned programme${scheduleSelector("manpowerPlanned", state.manpowerPlannedId)}</label><label>Actual / status programme${scheduleSelector("manpowerActual", state.manpowerActualId)}</label>`:`<label>Programme${scheduleSelector("manpowerSchedule", state.manpowerScheduleId)}</label>`}<label>Hours per person / week<input id="manpowerHours" type="number" min="1" step="1" value="${Number(state.manpowerHoursPerPerson || 45)}"></label></div><div class="manpower-ai-row"><label class="measurement-toggle"><input type="checkbox" id="manpowerUseAI" ${state.manpowerUseAI?"checked":""}><span><strong>Use selected AI to refine floor / area / discipline classification</strong><small>${ai.engine==="none"?"No AI is selected; deterministic WBS/activity classification will be used.":`Selected: ${esc(aiLabel())}`}</small></span></label></div><div class="manpower-layout-head"><div><h2>Project / floor layouts</h2><p class="muted">Add one layout per floor where required. Supported presentation references: PDF, PNG, JPG/JPEG, WEBP and SVG.</p></div><button class="btn" id="manpowerAddLayout" type="button">Add floor/layout</button></div>${layoutFiles.length?`<div class="manpower-layout-list">${layouts}</div>`:`<div class="empty-state">No supported layout files are in the Project Repository. Add a PDF or image layout first.</div>`}<p class="muted">Area overlays are schedule-driven schematic groupings. The selected drawing is shown as the visual reference; the toolkit does not pretend inferred zones are survey-accurate geometry.</p></section>${dashboard}`;
+  bindManpowerControls();
+  hydrateManpowerLayoutPreviews();
+  queueMicrotask(() => bindInteractiveCharts(document));
+}
+
 // -----------------------------------------------------------------------------
 // Schedule Assessment reports and P6-style Gantt interactions
 // -----------------------------------------------------------------------------
 function assessmentNav() {
-  const items = [["overview", "Overview"], ["activities", "Activity Register"], ["comparison", "Schedule Comparison"], ["week", "Week-on-Week"], ["critical", "Critical Path"], ["logic", "Logic & Health"], ["dcma", "DCMA-style Check"], ["whymove", "Why Date Moved"], ["delay", "Delay Analysis"], ["forensic", "Forensic Review"], ["calendar", "Calendar Analyser"], ["scurve", "S-Curve & Histogram"], ["forecast", "Forecast Confidence"], ["narrative", "Schedule Narrative"], ["gantt", "WBS / Gantt"], ["network", "Nodes"], ["timemachine", "Time Machine"], ["milestones", "Milestone Control"], ["resources", "Resources & EVM"], ["cost", "Cost Report"], ["baseline", "Baseline & Lookahead"], ["datacentre", "Data-Centre Mode"]];
+  const items = [["overview", "Overview"], ["activities", "Activity Register"], ["inspector", "Activity Inspector"], ["issues", "Issue Register"], ["comparison", "Schedule Comparison"], ["week", "Week-on-Week"], ["progress-integrity", "Progress Integrity"], ["critical", "Critical Path"], ["floatpaths", "Float Paths"], ["logic", "Logic & Health"], ["logicdiff", "Logic Changes"], ["dcma", "DCMA 14-Point"], ["whymove", "Why Date Moved"], ["delay", "Delay Analysis"], ["forensic", "Forensic Review"], ["windows", "Windows Analysis"], ["calendar", "Calendar Analyser"], ["calendardiff", "Calendar Differences"], ["scurve", "S-Curve & Histogram"], ["forecast", "Forecast Confidence"], ["narrative", "Schedule Narrative"], ["gantt", "WBS / Gantt"], ["network", "Nodes"], ["timemachine", "Time Machine"], ["milestones", "Milestone Control"], ["resources", "Resources & EVM"], ["resourceforensics", "Resource Forensics"], ["cost", "Cost Report"], ["baseline", "Baseline Manager"], ["datacentre", "Data-Centre Mode"]];
   return`<div class="report-nav">${items.map(([id, l]) => `<button data-report="${id}" class="${state.assessmentReport===id? "active": ""}">${l}</button>`).join("")}</div>`;
 }
 function renderAssessment() {
   const fs = filteredSchedule(),
-  independent = new Set(["comparison", "week", "delay", "forensic", "baseline", "timemachine"]).has(state.assessmentReport);
+  independent = new Set(["comparison", "week", "delay", "forensic", "windows", "logicdiff", "calendardiff", "resourceforensics", "baseline", "timemachine"]).has(state.assessmentReport);
   const filterMarkup = independent? "": fs? filterBar(): `<div class="filterbar muted">No active schedule is selected. Comparison-oriented reports still work once schedules are selected in their own dropdowns.</div>`;
   $("workspace").innerHTML = `${viewHead("Schedule Assessment", "Primavera P6 / Microsoft Project schedule intelligence, QA, comparison and forensic analysis", `<button class="btn" id="exportReportCsv">Export table CSV</button><button class="btn" id="printReport">Print / PDF</button>`)}${filterMarkup}${assessmentNav()}<div id="reportBody">${assessmentReport(fs)}</div>`;
   if (fs && !independent)bindFilters();
@@ -1004,6 +1295,19 @@ function scheduleSelectionMessage(text = "Select the schedules to analyse. No re
 }
 function deletedText(value) {
   return`<span class="deleted-change">${esc(value)}</span>`
+}
+function activityLink(value, label = null) {
+  const raw = String(value || ""), id = raw.includes(" · ") ? raw.split(" · ")[0] : raw;
+  return `<button class="activity-link" type="button" data-inspect-activity="${esc(id)}">${esc(label || raw)}</button>`;
+}
+function changeValue(value, kind = "") {
+  const cls = kind === "bad" ? "negative-change" : kind === "good" ? "positive-change" : "";
+  return `<span class="${cls}">${esc(value ?? "—")}</span>`;
+}
+function signedNumber(value, suffix = "", adverseWhenPositive = false) {
+  if (value == null || !Number.isFinite(Number(value))) return "—";
+  const n = Number(value), text = `${n > 0 ? "+" : ""}${n}${suffix}`;
+  return changeValue(text, adverseWhenPositive ? (n > 0 ? "bad" : n < 0 ? "good" : "") : (n < 0 ? "bad" : n > 0 ? "good" : ""));
 }
 function calendarLabel(c) {
   return[c?.name || c?.id, c?.hoursPerDay? `${Number(c.hoursPerDay).toFixed(1)}h/day`: "", c?.hoursPerWeek? `${Number(c.hoursPerWeek).toFixed(1)}h/week`: ""].filter(Boolean).join(" · ")
@@ -1091,62 +1395,49 @@ function forensicEvidencePanels(ordered) {
   fmt = v => Number(v || 0).toFixed(1),
   signed = v => `${Number(v || 0)>=0? "+": ""}${Number(v || 0).toFixed(1)}`;
   const box = (title, summary, body, cls = "") => `<details class="forensic-evidence-box ${cls}"><summary><span><strong>${esc(title)}</strong><small>${esc(summary)}</small></span><span class="forensic-expand-hint">Open detail</span></summary><div class="forensic-evidence-body">${body}</div></details>`;
-  const activityBody = `<h3>Revision profile</h3>${barChart(e.activities.chartRows, {
-    labelKey: "label", series: [ {
-      key: "added", label: "Added"
-    }, {
-      key: "removed", label: "Removed"
-    }], xLabels: e.activities.chartRows.map(x => x.label), rotateLabels: true
-  })}<h3>Activity additions / removals</h3>${table(["Transition", "Change", "Activity", "WBS", "Status"], e.activities.rows.map(x => [esc(x.transition), x.type==="Removed"? `<span class="deleted-text">Removed</span>`: badge("Added", "good"), `${esc(x.id)} · ${esc(x.name)}`, esc(x.wbs || "—"), esc(x.status || "—")]))}`;
-  const progressBody = `<h3>Progress and actual-date profile</h3>${barChart(e.progress.chartRows, {
-    labelKey: "label", series: [ {
-      key: "progressChanged", label: "Progress changes"
-    }, {
-      key: "actualAdded", label: "Actual dates added"
-    }, {
-      key: "actualRemoved", label: "Actual dates removed"
-    }], xLabels: e.progress.chartRows.map(x => x.label), rotateLabels: true
-  })}<h3>Progress / actual-date detail</h3>${table(["Transition", "Change", "Activity", "Field", "Previous", "Current", "Δ / action"], e.progress.rows.map(x => [esc(x.transition), x.type.includes("removed")? `<span class="deleted-text">${esc(x.type)}</span>`: esc(x.type), esc(x.activity), esc(x.field), esc(x.before), esc(x.after), esc(x.delta)]))}`;
-  const resourceBody = `<h3>Total resource loading across revisions</h3><p class="muted">At Completion = Actual + Remaining units based on the resource loading available in each imported update.</p>${barChart(e.resourcing.totals, {
-    labelKey: "label", series: [ {
-      key: "budget", label: "Budget / target units"
-    }, {
-      key: "actual", label: "Actual units"
-    }, {
-      key: "remaining", label: "Remaining units"
-    }, {
-      key: "atCompletion", label: "At Completion units"
-    }], xLabels: e.resourcing.totals.map(x => x.label), rotateLabels: true
-  })}<h3>Assignment change profile</h3>${barChart(e.resourcing.chartRows, {
-    labelKey: "label", series: [ {
-      key: "added", label: "Assignments added"
-    }, {
-      key: "removed", label: "Assignments removed"
-    }, {
-      key: "changed", label: "Loading / actual changes"
-    }], xLabels: e.resourcing.chartRows.map(x => x.label), rotateLabels: true
-  })}<h3>Resource master changes</h3>${table(["Transition", "Change", "Resource", "Previous", "Current"], e.resourcing.masterRows.map(x => [esc(x.transition), x.type.includes("removed")? `<span class="deleted-text">${esc(x.type)}</span>`: esc(x.type), esc(x.resource), esc(x.before), esc(x.after)]))}<h3>Resource assignment / loading detail</h3>${table(["Transition", "Change", "Activity", "Resource", "Actual prev", "Actual curr", "Actual Δ", "At Completion prev", "At Completion curr", "At Completion Δ", "Budget prev", "Budget curr"], e.resourcing.rows.map(x => [esc(x.transition), x.type.includes("removed")? `<span class="deleted-text">${esc(x.type)}</span>`: esc(x.type), esc(x.activity), esc(x.resource), fmt(x.actualBefore), fmt(x.actualAfter), signed(x.actualDelta), fmt(x.atCompletionBefore), fmt(x.atCompletionAfter), signed(x.atCompletionDelta), fmt(x.budgetBefore), fmt(x.budgetAfter)]))}`;
-  const calendarBody = `<h3>Calendar change profile</h3>${barChart(e.calendars.chartRows, {
-    labelKey: "label", series: [ {
-      key: "added", label: "Calendars added"
-    }, {
-      key: "removed", label: "Calendars removed"
-    }, {
-      key: "changed", label: "Definitions changed"
-    }, {
-      key: "assignments", label: "Activity assignments changed"
-    }], xLabels: e.calendars.chartRows.map(x => x.label), rotateLabels: true
-  })}<h3>Calendar additions / removals / definition changes</h3>${table(["Transition", "Change", "Calendar", "Previous", "Current"], e.calendars.definitionRows.map(x => [esc(x.transition), x.type.includes("removed")? `<span class="deleted-text">${esc(x.type)}</span>`: esc(x.type), esc(x.calendar), esc(x.before), esc(x.after)]))}<h3>Activity calendar assignments</h3>${table(["Transition", "Activity", "Previous calendar", "Current calendar"], e.calendars.assignmentRows.map(x => [esc(x.transition), esc(x.activity), esc(x.before || "—"), esc(x.after || "—")]))}`;
-  const relationshipBody = `<h3>Relationship change profile</h3>${barChart(e.relationships.chartRows, {
-    labelKey: "label", series: [ {
-      key: "added", label: "Added"
-    }, {
-      key: "removed", label: "Removed"
-    }, {
-      key: "changed", label: "Type / lag changed"
-    }], xLabels: e.relationships.chartRows.map(x => x.label), rotateLabels: true
-  })}<h3>Relationship detail</h3>${table(["Transition", "Change", "Predecessor", "Successor", "Previous relationship", "Current relationship"], e.relationships.rows.map(x => [esc(x.transition), x.type==="Removed"? `<span class="deleted-text">Removed</span>`: x.type==="Added"? badge("Added", "good"): badge("Changed", "warn"), esc(x.predecessor), esc(x.successor), esc(x.before), esc(x.after)]))}`;
-  return`<section class="forensic-evidence-stack"><div class="forensic-evidence-title"><div><h2>Forensic evidence detail</h2><p class="muted">Expand each evidence box to audit the underlying changes across the selected revision sequence.</p></div></div>${box("Activities", `${e.activities.added} added · ${e.activities.removed} removed`, activityBody, "forensic-activities")}${box("Progress", `${e.progress.changed} progress changes · ${e.progress.actualAdded} actual dates added · ${e.progress.actualRemoved} removed`, progressBody, "forensic-progress")}${box("Resourcing", `${e.resourcing.added} resources added · ${e.resourcing.removed} removed · ${e.resourcing.changed} master changes · ${e.resourcing.rows.length} loading records`, resourceBody, "forensic-resourcing")}${box("Calendars", `${e.calendars.added} added · ${e.calendars.removed} removed · ${e.calendars.changed} definition changes · ${e.calendars.assignments} assignment changes`, calendarBody, "forensic-calendars")}${box("Relationships", `${e.relationships.added} added · ${e.relationships.removed} removed · ${e.relationships.changed} changed`, relationshipBody, "forensic-relationships")}</section>`;
+  const subset = (rows, transition) => (rows || []).filter(x => x.transition === transition);
+  const nested = (title, count, body, open = false) => `<details class="forensic-sub-box" ${open ? "open" : ""}><summary><strong>${esc(title)}</strong><span>${count}</span></summary><div class="forensic-sub-body">${body}</div></details>`;
+  const transitionWrap = (transition, summary, body) => `<details class="forensic-transition-box"><summary><span><strong>${esc(transition)}</strong><small>${esc(summary)}</small></span><span>Inspect</span></summary><div class="forensic-transition-body">${body}</div></details>`;
+
+  const activityTransitions = e.transitions.map(t => {
+    const rows = subset(e.activities.rows, t.label), added = rows.filter(x => x.type === "Added"), removed = rows.filter(x => x.type === "Removed");
+    return transitionWrap(t.label, `${added.length} added · ${removed.length} removed`,
+      nested("Activities added", added.length, table(["Activity","WBS","Status"], added.map(x => [`${esc(x.id)} · ${esc(x.name)}`, esc(x.wbs||"—"), esc(x.status||"—")]), {resizable:true,resizeKey:"forensic-act-add"})) +
+      nested("Activities removed", removed.length, table(["Activity","WBS","Status"], removed.map(x => [deletedText(`${x.id} · ${x.name}`), deletedText(x.wbs||"—"), deletedText(x.status||"—")]), {resizable:true,resizeKey:"forensic-act-rem"})));
+  }).join("");
+  const activityBody = `<h3>Revision profile</h3>${interactiveBarChart(e.activities.chartRows, { labelKey:"label", series:[{key:"added",label:"Added"},{key:"removed",label:"Removed"}], xLabels:e.activities.chartRows.map(x=>x.label), rotateLabels:true })}<h3>Revision drill-down</h3>${activityTransitions || `<div class="empty-state">No activity additions/removals.</div>`}`;
+
+  const progressTransitions = e.transitions.map(t => {
+    const rows = subset(e.progress.rows, t.label), progress = rows.filter(x => /Progress/i.test(x.type)), actualAdded = rows.filter(x => x.type === "Actual date added"), actualRemoved = rows.filter(x => x.type === "Actual date removed"), actualChanged = rows.filter(x => x.type === "Actual date changed");
+    const ptable = xs => table(["Activity","Field","Previous","Current","Δ / action"], xs.map(x => [esc(x.activity),esc(x.field),esc(x.before),esc(x.after), x.type.includes("reduced")||x.type.includes("removed") ? changeValue(x.delta,"bad") : esc(x.delta)]), {resizable:true,resizeKey:"forensic-progress"});
+    return transitionWrap(t.label, `${progress.length} progress · ${actualAdded.length} actuals added · ${actualRemoved.length} removed · ${actualChanged.length} changed`,
+      nested("Progress changes", progress.length, ptable(progress)) + nested("Actual dates added", actualAdded.length, ptable(actualAdded)) + nested("Actual dates removed", actualRemoved.length, ptable(actualRemoved)) + nested("Actual dates changed", actualChanged.length, ptable(actualChanged)));
+  }).join("");
+  const progressBody = `<h3>Progress and actual-date profile</h3>${interactiveBarChart(e.progress.chartRows,{labelKey:"label",series:[{key:"progressChanged",label:"Progress changes"},{key:"actualAdded",label:"Actual dates added"},{key:"actualRemoved",label:"Actual dates removed"}],xLabels:e.progress.chartRows.map(x=>x.label),rotateLabels:true})}<h3>Revision drill-down</h3>${progressTransitions || `<div class="empty-state">No progress/actual-date changes.</div>`}`;
+
+  const resourceTransitions = e.transitions.map(t => {
+    const master = subset(e.resourcing.masterRows,t.label), rows = subset(e.resourcing.rows,t.label), added = rows.filter(x=>x.type === "Assignment added"), removed = rows.filter(x=>x.type === "Assignment removed"), changed = rows.filter(x=>x.type.includes("changed"));
+    const rtable = xs => table(["Activity","Resource","Actual prev","Actual curr","Actual Δ","At Completion prev","At Completion curr","At Completion Δ","Budget prev","Budget curr"], xs.map(x => [esc(x.activity),esc(x.resource),fmt(x.actualBefore),fmt(x.actualAfter), Number(x.actualDelta)<0?changeValue(signed(x.actualDelta),"bad"):changeValue(signed(x.actualDelta),"good"),fmt(x.atCompletionBefore),fmt(x.atCompletionAfter),Number(x.atCompletionDelta)<0?changeValue(signed(x.atCompletionDelta),"bad"):signed(x.atCompletionDelta),fmt(x.budgetBefore),fmt(x.budgetAfter)]), {resizable:true,resizeKey:"forensic-resource"});
+    return transitionWrap(t.label, `${master.length} master · ${added.length} assignments added · ${removed.length} removed · ${changed.length} loading changes`,
+      nested("Resource master changes", master.length, table(["Change","Resource","Previous","Current"],master.map(x=>[esc(x.type),esc(x.resource),esc(x.before),esc(x.after)]))) + nested("Assignments added",added.length,rtable(added)) + nested("Assignments removed",removed.length,rtable(removed)) + nested("Actual / At Completion / budget changes",changed.length,rtable(changed)));
+  }).join("");
+  const resourceBody = `<h3>Total resource loading across revisions</h3><p class="muted">At Completion = Actual + Remaining units.</p>${interactiveBarChart(e.resourcing.totals,{labelKey:"label",series:[{key:"budget",label:"Budget / target"},{key:"actual",label:"Actual"},{key:"remaining",label:"Remaining"},{key:"atCompletion",label:"At Completion"}],xLabels:e.resourcing.totals.map(x=>x.label),rotateLabels:true})}<h3>Assignment change profile</h3>${interactiveBarChart(e.resourcing.chartRows,{labelKey:"label",series:[{key:"added",label:"Assignments added"},{key:"removed",label:"Assignments removed"},{key:"changed",label:"Loading / actual changes"}],xLabels:e.resourcing.chartRows.map(x=>x.label),rotateLabels:true})}<h3>Revision drill-down</h3>${resourceTransitions || `<div class="empty-state">No resourcing changes.</div>`}`;
+
+  const calendarTransitions = e.transitions.map(t => {
+    const defs=subset(e.calendars.definitionRows,t.label), assigns=subset(e.calendars.assignmentRows,t.label), added=defs.filter(x=>x.type.includes("added")), removed=defs.filter(x=>x.type.includes("removed")), changed=defs.filter(x=>x.type.includes("changed"));
+    const ctable = xs => table(["Change","Calendar","Previous","Current"],xs.map(x=>[esc(x.type),esc(x.calendar),esc(x.before),esc(x.after)]),{resizable:true,resizeKey:"forensic-calendar"});
+    return transitionWrap(t.label, `${added.length} added · ${removed.length} removed · ${changed.length} definitions · ${assigns.length} assignments`, nested("Calendars added",added.length,ctable(added))+nested("Calendars removed",removed.length,ctable(removed))+nested("Calendar definition changes",changed.length,ctable(changed))+nested("Activity calendar assignments",assigns.length,table(["Activity","Previous calendar","Current calendar"],assigns.map(x=>[esc(x.activity),esc(x.before||"—"),esc(x.after||"—")]),{resizable:true,resizeKey:"forensic-cal-assign"})));
+  }).join("");
+  const calendarBody = `<h3>Calendar change profile</h3>${interactiveBarChart(e.calendars.chartRows,{labelKey:"label",series:[{key:"added",label:"Calendars added"},{key:"removed",label:"Calendars removed"},{key:"changed",label:"Definitions changed"},{key:"assignments",label:"Assignments changed"}],xLabels:e.calendars.chartRows.map(x=>x.label),rotateLabels:true})}<h3>Revision drill-down</h3>${calendarTransitions || `<div class="empty-state">No calendar changes.</div>`}`;
+
+  const relationshipTransitions = e.transitions.map(t => {
+    const rows=subset(e.relationships.rows,t.label), added=rows.filter(x=>x.type==="Added"), removed=rows.filter(x=>x.type==="Removed"), changed=rows.filter(x=>x.type==="Changed");
+    const ltable = xs => table(["Predecessor","Successor","Previous relationship","Current relationship"],xs.map(x=>[esc(x.predecessor),esc(x.successor),esc(x.before),esc(x.after)]),{resizable:true,resizeKey:"forensic-rel"});
+    return transitionWrap(t.label, `${added.length} added · ${removed.length} removed · ${changed.length} changed`, nested("Relationships added",added.length,ltable(added))+nested("Relationships removed",removed.length,ltable(removed))+nested("Type / lag changes",changed.length,ltable(changed)));
+  }).join("");
+  const relationshipBody = `<h3>Relationship change profile</h3>${interactiveBarChart(e.relationships.chartRows,{labelKey:"label",series:[{key:"added",label:"Added"},{key:"removed",label:"Removed"},{key:"changed",label:"Type / lag changed"}],xLabels:e.relationships.chartRows.map(x=>x.label),rotateLabels:true})}<h3>Revision drill-down</h3>${relationshipTransitions || `<div class="empty-state">No relationship changes.</div>`}`;
+
+  return`<section class="forensic-evidence-stack"><div class="forensic-evidence-title"><div><h2>Forensic evidence explorer</h2><p class="muted">Top-level categories are collapsed by default. Expand a category, then expand the required revision transition and evidence type to audit the change record.</p></div></div>${box("Activities",`${e.activities.added} added · ${e.activities.removed} removed`,activityBody,"forensic-activities")}${box("Progress",`${e.progress.changed} progress changes · ${e.progress.actualAdded} actual dates added · ${e.progress.actualRemoved} removed`,progressBody,"forensic-progress")}${box("Resourcing",`${e.resourcing.added} resources added · ${e.resourcing.removed} removed · ${e.resourcing.changed} master changes · ${e.resourcing.rows.length} loading records`,resourceBody,"forensic-resourcing")}${box("Calendars",`${e.calendars.added} added · ${e.calendars.removed} removed · ${e.calendars.changed} definition changes · ${e.calendars.assignments} assignment changes`,calendarBody,"forensic-calendars")}${box("Relationships",`${e.relationships.added} added · ${e.relationships.removed} removed · ${e.relationships.changed} changed`,relationshipBody,"forensic-relationships")}</section>`;
 }
 function dcmaVisualCard(c, index) {
   const isCount = c.name==="Cycles",
@@ -1198,9 +1489,128 @@ function narrativeActivityDetailMarkup(schedule) {
   });
   return`<details class="narrative-activity-detail"><summary>Activity detail · ${acts.length} activities <span class="muted">(critical / zero-float activities are red)</span></summary>${table(["Activity", "WBS", "Status", "Start", "Finish", "OD", "RD", "TF", "Progress", "Budget units", "Remaining units"], rows)}</details>`;
 }
-function assessmentNeedsSchedule() {
-  return !new Set(["comparison", "week", "delay", "forensic", "baseline", "timemachine"]).has(state.assessmentReport)
+function persistIssueRows() {
+  localStorage.setItem("pcai.issueRows", JSON.stringify(state.issueRows || []));
 }
+function addDcmaFailuresToIssues(schedule) {
+  const a = dcma14(schedule, { profile: currentQaProfile() }), created = [];
+  for (const check of a.checks.filter(x => x.status === "FAIL")) {
+    const details = check.details?.length ? check.details : [{ issue: check.criterion || check.name }];
+    for (const d of details.slice(0, 500)) {
+      const activity = d.activity || d.relationship || "";
+      const row = {
+        id: uid("issue"), severity: check.number === 7 || check.number === 12 ? "High" : "Medium",
+        category: `DCMA ${check.number} · ${check.name}`, activity, issue: d.issue || d.type || d.constraint || check.criterion || check.name,
+        owner: "", status: "Open", comment: "", source: schedule.sourceName || schedule.name || "Schedule", createdAt: new Date().toISOString()
+      };
+      state.issueRows.push(row); created.push(row);
+    }
+  }
+  persistIssueRows();
+  return created.length;
+}
+function activityInspectorMarkup(schedule) {
+  const id = state.inspectorActivityId && schedule.activities.some(a => String(a.id) === String(state.inspectorActivityId)) ? state.inspectorActivityId : schedule.activities[0]?.id || "";
+  state.inspectorActivityId = id;
+  const a = schedule.activities.find(x => String(x.id) === String(id));
+  if (!a) return `<div class="empty-state">No activity is available.</div>`;
+  const preds = (schedule.relationships || []).filter(r => String(r.succId) === String(a.id));
+  const succs = (schedule.relationships || []).filter(r => String(r.predId) === String(a.id));
+  const resMap = new Map((schedule.resources || []).map(r => [String(r.id), r]));
+  const assigns = (a.assignments || schedule.assignments?.filter(x => String(x.activityId) === String(a.id) || String(x.activityId) === String(a.uid)) || []);
+  const history = state.schedules.filter(x => x.activities?.some(y => String(y.id) === String(a.id))).sort((x,y)=>(parseDate(x.dataDate)?.getTime()||0)-(parseDate(y.dataDate)?.getTime()||0)).map(x => {
+    const q=x.activities.find(y=>String(y.id)===String(a.id)); return [scheduleLabel(x), isoDate(q.currentStart||q.start)||"—", isoDate(q.currentFinish||q.finish)||"—", `${Number(q.percent||0).toFixed(1)}%`, Number(q.totalFloat||0).toFixed(1), q.calendarName||q.calendarId||"—", q.status||"—"];
+  });
+  const relationRows = [...preds.map(r => ["Predecessor", r.predId, r.type || "FS", `${Number(r.lag || 0).toFixed(1)}d`]), ...succs.map(r => ["Successor", r.succId, r.type || "FS", `${Number(r.lag || 0).toFixed(1)}d`])];
+  const resourceRows = assigns.map(x => { const r=resMap.get(String(x.resourceId)); return [r?.name||x.resourceId||"—", Number(x.target_qty||x.budgetUnits||0).toFixed(1), Number(x.act_reg_qty||x.actualUnits||0).toFixed(1), Number(x.remain_qty||x.remainingUnits||0).toFixed(1), Number(x.target_cost||x.budgetCost||0).toFixed(2)]; });
+  return `<section class="panel"><div class="panel-head-row"><div><h2>Activity Inspector</h2><p class="muted">P6-style drill-down for the selected activity, including revision history.</p></div><label>Activity <select id="inspectorActivity">${schedule.activities.map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(id)?"selected":""}>${esc(x.id)} · ${esc(x.name)}</option>`).join("")}</select></label></div></section>
+  <div class="grid grid2"><section class="panel"><h2>General / Status</h2>${table(["Field","Value"], [["Activity",`${esc(a.id)} · ${esc(a.name)}`],["WBS",esc(fullWbsPath(schedule,a)||"—")],["Status",esc(a.status||"—")],["Type",esc(a.activityType||"—")],["Progress",`${Number(a.percent||0).toFixed(1)}%`],["Critical",a.critical||a.totalFloat<=0?badge("Yes","danger"):"No"],["Calendar",esc(a.calendarName||a.calendarId||"—")],["Constraint",esc(a.constraintType||"—")]])}</section>
+  <section class="panel"><h2>Dates / Float</h2>${table(["Field","Value"], [["Current Start",isoDate(a.currentStart||a.start)||"—"],["Current Finish",isoDate(a.currentFinish||a.finish)||"—"],["Baseline Start",isoDate(a.baselineStart)||"—"],["Baseline Finish",isoDate(a.baselineFinish)||"—"],["Actual Start",isoDate(a.actualStart)||"—"],["Actual Finish",isoDate(a.actualFinish)||"—"],["Original Duration",`${Number(a.originalDuration||0).toFixed(1)}d`],["Remaining Duration",`${Number(a.remainingDuration||0).toFixed(1)}d`],["Total Float",`${Number(a.totalFloat||0).toFixed(1)}d`],["Free Float",`${Number(a.freeFloat||0).toFixed(1)}d`]])}</section></div>
+  <div class="grid grid2"><section class="panel"><h2>Relationships</h2>${table(["Direction","Activity ID","Type","Lag"],relationRows)}</section><section class="panel"><h2>Resources</h2>${table(["Resource","Budget","Actual","Remaining","Budget Cost"],resourceRows)}</section></div>
+  <section class="panel"><h2>Codes / UDF</h2>${table(["Field","Value"], [...Object.entries(a.codes||{}),...Object.entries(a.udf||{})].map(([k,v])=>[esc(k),esc(v)]) )}</section>
+  <section class="panel"><h2>Revision History</h2>${table(["Revision","Start","Finish","Progress","TF","Calendar","Status"],history,{resizable:true,resizeKey:"inspectorHistory"})}</section>`;
+}
+function issueRegisterMarkup() {
+  const filter = state.issueFilter || "all";
+  const rows = (state.issueRows || []).map((r,i)=>({r,i})).filter(({r})=>filter==="all"||String(r.status||"").toLowerCase()===filter);
+  return `<section class="panel"><div class="panel-head-row"><div><h2>Schedule Issue Register</h2><p class="muted">Track QA, DCMA and forensic findings through ownership and disposition.</p></div><div class="actions"><button class="btn" id="issueAdd">Add issue</button><button class="btn" id="issueFromDcma">Add current DCMA failures</button><button class="btn" id="issueExport">Export CSV</button><label>Status <select id="issueFilter"><option value="all" ${filter==="all"?"selected":""}>All</option><option value="open" ${filter==="open"?"selected":""}>Open</option><option value="in progress" ${filter==="in progress"?"selected":""}>In Progress</option><option value="closed" ${filter==="closed"?"selected":""}>Closed</option></select></label></div></div>
+  ${table(["Severity","Category","Activity / Relationship","Issue","Owner","Status","Comment","Source",""], rows.map(({r,i})=>[
+    `<select data-issue="${i}:severity">${["Low","Medium","High","Critical"].map(x=>`<option ${r.severity===x?"selected":""}>${x}</option>`).join("")}</select>`,
+    `<input data-issue="${i}:category" value="${esc(r.category||"")}">`,`<input data-issue="${i}:activity" value="${esc(r.activity||"")}">`,`<input data-issue="${i}:issue" value="${esc(r.issue||"")}">`,`<input data-issue="${i}:owner" value="${esc(r.owner||"")}">`,
+    `<select data-issue="${i}:status">${["Open","In Progress","Closed"].map(x=>`<option ${r.status===x?"selected":""}>${x}</option>`).join("")}</select>`,`<input data-issue="${i}:comment" value="${esc(r.comment||"")}">`,esc(r.source||""),`<button class="btn compact danger" data-del-issue="${i}">Remove</button>`
+  ]),{resizable:true,resizeKey:"issueRegister"})}</section>`;
+}
+function assessmentNeedsSchedule() {
+  return !new Set(["comparison", "week", "delay", "forensic", "windows", "logicdiff", "calendardiff", "resourceforensics", "baseline", "timemachine"]).has(state.assessmentReport)
+}
+
+function currentQaProfile() {
+  return qaProfile(state.qaProfileId || DEFAULT_QA_PROFILE_ID, state.qaCustomThresholds || {});
+}
+function qaProfileControls() {
+  const profile = currentQaProfile();
+  return `<div class="filterbar qa-profile-controls"><label>QA profile <select id="qaProfileSelect">${Object.values(QA_PROFILES).map(p => `<option value="${esc(p.id)}" ${p.id===profile.id?"selected":""}>${esc(p.name)}</option>`).join("")}</select></label><span class="muted">${esc(profile.description)}</span><button class="btn" type="button" id="qaProfileEdit">Edit thresholds</button><button class="btn" type="button" id="qaProfileReset">Reset profile thresholds</button></div>`;
+}
+function namedGanttLayoutToolbar(kind) {
+  const rows = state.namedGanttLayouts[kind] || [], active = state.activeNamedGanttLayout[kind] || "";
+  return `<section class="panel gantt-layout-manager"><div class="panel-head-row"><div><h2>Saved Layouts</h2><p class="muted">Save the current columns, widths and bar settings as a named local layout.</p></div><div class="actions"><select id="namedGanttLayout"><option value="">Current / unsaved</option>${rows.map(x => `<option value="${esc(x.name)}" ${x.name===active?"selected":""}>${esc(x.name)}</option>`).join("")}</select><button class="btn" id="loadNamedGanttLayout" type="button">Load</button><button class="btn primary" id="saveNamedGanttLayout" type="button">Save current</button><button class="btn danger" id="deleteNamedGanttLayout" type="button" ${active?"":"disabled"}>Delete</button></div></div></section>`;
+}
+function progressIntegrityMarkup(schedule) {
+  const result = progressIntegrity(schedule), filter = state.progressIntegrityFilter || "all";
+  let rows = result.rows;
+  if (filter !== "all") rows = rows.filter(r => r.severity.toLowerCase() === filter || r.category.toLowerCase() === filter);
+  const chartRows = Object.entries(result.counts).filter(([k]) => ["Critical","High","Medium","Low"].includes(k)).map(([label,value]) => ({label,value}));
+  return `<div class="metrics">${metric("Integrity", result.summary.pass?"PASS":"FAIL", result.summary.pass?"No deterministic status contradictions":"Review flagged records")}${metric("Critical", result.summary.critical)}${metric("High", result.summary.high)}${metric("Medium", result.summary.medium)}${metric("Total findings", result.summary.total)}</div><section class="panel"><div class="panel-head-row"><div><h2>Progress Integrity</h2><p class="muted">Deterministic checks for actual dates, data-date consistency, percent complete, remaining duration, expected finish and suspend/resume anomalies.</p></div><label>Filter <select id="progressIntegrityFilter">${[["all","All findings"],["critical","Critical"],["high","High"],["medium","Medium"],["progress","Progress"],["completion","Completion"],["actual dates","Actual Dates"],["data date","Data Date"],["forecast","Forecast"]].map(([v,l])=>`<option value="${v}" ${filter===v?"selected":""}>${l}</option>`).join("")}</select></label></div>${chartRows.length?interactiveBarChart(chartRows,{labelKey:"label",series:[{key:"value",label:"Findings"}],title:"Integrity findings by severity",threshold:0}):""}${table(["Severity","Category","Activity","WBS","Issue","Field","Value"], rows.map(r => [r.severity==="Critical"?badge(r.severity,"danger"):r.severity==="High"?badge(r.severity,"warn"):esc(r.severity),esc(r.category),activityLink(r.activityId,r.activity),esc(r.wbs||"—"),esc(r.issue),esc(r.field||"—"),esc(r.value||"—")]),{resizable:true,resizeKey:"progressIntegrity"})}</section>`;
+}
+function windowsAnalysisMarkup() {
+  const selected = state.windowsScheduleIds.map(scheduleById).filter(Boolean);
+  if (selected.length < 2) return `<section class="panel"><h2>Windows Analysis</h2><p class="muted">Select at least two contemporaneous schedule updates in chronological order. Each adjacent pair becomes a forensic analysis window.</p>${scheduleSlots("windowsSlot",state.windowsScheduleIds,8,{label:"Update"})}${scheduleSelectionMessage("Select at least two schedule updates.")}</section>`;
+  const w = windowsAnalysis(selected), chartRows = w.windows.map(x => ({label:x.label,finish:x.finishMovementDays,progress:x.progressPoints,logic:x.logicAdded+x.logicRemoved,resources:x.resourceChanges}));
+  return `<section class="panel"><h2>Contemporaneous Windows Analysis</h2><p class="muted">Each adjacent selected update is treated as one analysis window. This identifies schedule movement and change evidence; it does not assign contractual responsibility automatically.</p>${scheduleSlots("windowsSlot",state.windowsScheduleIds,8,{label:"Update"})}</section><section class="panel"><h2>Window movement</h2>${interactiveBarChart(chartRows,{labelKey:"label",series:[{key:"finish",label:"Finish movement (d)"},{key:"progress",label:"Progress Δ (pts)"},{key:"logic",label:"Logic changes"},{key:"resources",label:"Resource changes"}],rotateLabels:true,title:"Revision-window profile"})}</section>${w.windows.map(x=>`<details class="forensic-transition-box"><summary><span><strong>${esc(x.label)}</strong><small>${x.finishMovementDays>=0?"+":""}${x.finishMovementDays}d finish · ${x.progressPoints>=0?"+":""}${x.progressPoints.toFixed(1)} pts progress · ${x.adverse.length} adverse/activity-change records</small></span><span>Inspect</span></summary><div class="forensic-transition-body"><div class="metrics">${metric("Finish Δ",`${x.finishMovementDays>=0?"+":""}${x.finishMovementDays}d`)}${metric("Activities + / -",`${x.activitiesAdded} / ${x.activitiesRemoved}`)}${metric("Logic + / -",`${x.logicAdded} / ${x.logicRemoved}`)}${metric("Calendar changes",x.calendarChanges)}${metric("Resource changes",x.resourceChanges)}${metric("Critical entered / left",`${x.criticalEntered} / ${x.criticalLeft}`)}</div>${table(["Activity","Start Δ","Finish Δ","Duration Δ","Calendar","Resources","Constraint"],x.adverse.slice(0,1000).map(a=>[activityLink(a.id,`${a.id} · ${a.name}`),signedNumber(a.startDays,"d",true),signedNumber(a.finishDays,"d",true),signedNumber(a.durationDays,"d",true),a.calendarChanged?badge("Changed","warn"):"—",a.resourceChanged?badge("Changed","warn"):"—",a.constraintChanged?badge("Changed","warn"):"—"]),{resizable:true,resizeKey:`window-${x.index}`})}</div></details>`).join("")}`;
+}
+function logicChangesMarkup() {
+  const a=scheduleById(state.logicAId), b=scheduleById(state.logicBId), toolbar=pairToolbar("logicDiff",state.logicAId,state.logicBId,{labelA:"Earlier / reference",labelB:"Later / comparison"});
+  if(!a||!b||a.id===b.id) return `<section class="panel"><h2>Logic Change Explorer</h2><p class="muted">Select two different schedules to audit predecessor/successor additions, removals and type/lag changes.</p>${toolbar}${scheduleSelectionMessage()}</section>`;
+  const d=logicChanges(a,b), rows=[...d.added.map(r=>[badge("Added","good"),activityLink(r.predId),activityLink(r.succId),"—",`${esc(r.type||"FS")} ${Number(r.lag||0)>=0?"+":""}${Number(r.lag||0).toFixed(1)}d`]),...d.removed.map(r=>[badge("Removed","danger"),activityLink(r.predId),activityLink(r.succId),`${esc(r.type||"FS")} ${Number(r.lag||0)>=0?"+":""}${Number(r.lag||0).toFixed(1)}d`,"—"]),...d.changed.map(x=>[badge("Changed","warn"),activityLink(x.after.predId),activityLink(x.after.succId),`${esc(x.before.type||"FS")} ${Number(x.before.lag||0)>=0?"+":""}${Number(x.before.lag||0).toFixed(1)}d`,`${esc(x.after.type||"FS")} ${Number(x.after.lag||0)>=0?"+":""}${Number(x.after.lag||0).toFixed(1)}d`])];
+  const chart=[{label:"Added",value:d.added.length},{label:"Removed",value:d.removed.length},{label:"Changed",value:d.changed.length}];
+  return `<section class="panel"><h2>Logic Change Explorer</h2>${toolbar}</section><div class="metrics">${metric("Added",d.added.length)}${metric("Removed",d.removed.length)}${metric("Type / lag changed",d.changed.length)}</div><section class="panel">${interactiveBarChart(chart,{labelKey:"label",series:[{key:"value",label:"Relationships"}],title:"Logic change profile"})}${table(["Change","Predecessor","Successor","Previous","Current"],rows,{resizable:true,resizeKey:"logicChanges"})}</section>`;
+}
+function calendarDifferencesMarkup() {
+  const a=scheduleById(state.calendarDiffAId), b=scheduleById(state.calendarDiffBId), toolbar=pairToolbar("calendarDiff",state.calendarDiffAId,state.calendarDiffBId,{labelA:"Earlier / reference",labelB:"Later / comparison"});
+  if(!a||!b||a.id===b.id) return `<section class="panel"><h2>Calendar Difference Viewer</h2><p class="muted">Compare calendar definitions and activity-calendar assignments between two schedules.</p>${toolbar}${scheduleSelectionMessage()}</section>`;
+  const d=calendarDifferences(a,b);
+  return `<section class="panel"><h2>Calendar Difference Viewer</h2>${toolbar}</section><div class="grid grid2"><section class="panel"><h2>Calendar definitions</h2>${table(["Change","Calendar","Previous","Current"],[...d.added.map(c=>[badge("Added","good"),esc(c.name||c.id),"—",esc(calendarLabel(c))]),...d.deleted.map(c=>[badge("Removed","danger"),esc(c.name||c.id),esc(calendarLabel(c)),"—"]),...d.changed.map(x=>[badge("Changed","warn"),esc(x.after.name||x.after.id),esc(calendarLabel(x.before)),esc(calendarLabel(x.after))])],{resizable:true,resizeKey:"calendarDefinitions"})}</section><section class="panel"><h2>Activity assignments</h2>${table(["Activity","WBS","Previous calendar","Current calendar"],d.assignments.map(x=>[activityLink(x.activityId,x.activity),esc(x.wbs||"—"),esc(x.before||"—"),esc(x.after||"—")]),{resizable:true,resizeKey:"calendarAssignments"})}</section></div>`;
+}
+function resourceForensicsMarkup() {
+  const a=scheduleById(state.resourceForensicAId), b=scheduleById(state.resourceForensicBId), toolbar=pairToolbar("resourceForensic",state.resourceForensicAId,state.resourceForensicBId,{labelA:"Earlier / reference",labelB:"Later / comparison"});
+  if(!a||!b||a.id===b.id) return `<section class="panel"><h2>Resource Forensics</h2><p class="muted">Select two schedules to compare resource masters and activity-resource loading.</p>${toolbar}${scheduleSelectionMessage()}</section>`;
+  const r=resourceForensics(a,b), totals=r.totals;
+  return `<section class="panel"><h2>Resource Forensics</h2>${toolbar}</section><div class="metrics">${metric("Resources added",r.summary.resourcesAdded)}${metric("Resources removed",r.summary.resourcesRemoved)}${metric("Resource master changes",r.summary.resourcesChanged)}${metric("Assignment/loading records",r.summary.assignmentsChanged)}</div><section class="panel"><h2>Total resource profile</h2>${interactiveBarChart(totals,{labelKey:"label",series:[{key:"budget",label:"Budget / target"},{key:"actual",label:"Actual"},{key:"remaining",label:"Remaining"},{key:"atCompletion",label:"At Completion"}],rotateLabels:true,title:"Loading by revision"})}</section><section class="panel"><h2>Resource master changes</h2>${table(["Transition","Change","Resource","Previous","Current"],r.masterRows.map(x=>[esc(x.transition),x.type.includes("removed")?badge(x.type,"danger"):x.type.includes("added")?badge(x.type,"good"):badge(x.type,"warn"),esc(x.resource),esc(x.before),esc(x.after)]),{resizable:true,resizeKey:"resourceMasterForensics"})}</section><section class="panel"><h2>Activity-resource loading changes</h2>${table(["Activity","Resource","Actual prev","Actual curr","Actual Δ","At Completion prev","At Completion curr","At Completion Δ","Budget prev","Budget curr"],r.assignmentRows.map(x=>[activityLink(String(x.activity).split(" · ")[0],x.activity),esc(x.resource),Number(x.actualBefore).toFixed(1),Number(x.actualAfter).toFixed(1),signedNumber(x.actualDelta,"",false),Number(x.atCompletionBefore).toFixed(1),Number(x.atCompletionAfter).toFixed(1),signedNumber(x.atCompletionDelta,"",true),Number(x.budgetBefore).toFixed(1),Number(x.budgetAfter).toFixed(1)]),{resizable:true,resizeKey:"resourceLoadingForensics"})}</section>`;
+}
+function floatPathsMarkup(schedule) {
+  const r=analyticalFloatPaths(schedule,Number(state.floatPathCount||5));
+  const pathBlocks=r.paths.map(p=>`<details class="forensic-transition-box" ${p.rank===1?"open":""}><summary><span><strong>${esc(p.name)}</strong><small>${p.path.length} activities · ${p.duration.toFixed(1)}d analytical length · target ${esc(p.target?.id||"")}</small></span><span>Inspect</span></summary><div class="forensic-transition-body">${table(["Seq","Activity","WBS","Start","Finish","TF","Duration"],p.path.map((a,i)=>[i+1,activityLink(a.id,`${a.id} · ${a.name}`),esc(fullWbsPath(schedule,a)||"—"),isoDate(a.currentStart||a.start),isoDate(a.currentFinish||a.finish),Number(a.totalFloat||0).toFixed(1),Number(a.remainingDuration||a.originalDuration||0).toFixed(1)]),{resizable:true,resizeKey:`floatPath-${p.rank}`})}</div></details>`).join("");
+  return `<section class="panel"><div class="panel-head-row"><div><h2>Float Path / Longest Path Explorer</h2><p class="muted">Analytical paths are derived from the normalized network. They are not claimed to be P6 native Float Path 1/2/3 unless the source explicitly provides that data.</p></div><label>Paths <select id="floatPathCount">${[3,5,10].map(n=>`<option value="${n}" ${Number(state.floatPathCount)===n?"selected":""}>${n}</option>`).join("")}</select></label></div></section><div class="metrics">${metric("Project finish",r.projectFinish?`${r.projectFinish.id} · ${r.projectFinish.name}`:"—")}${metric("Driving chain",r.driving.length)}${metric("Near-critical ≤10d",r.nearCritical.length)}${metric("Analytical paths",r.paths.length)}</div>${pathBlocks}<section class="panel"><h2>Near-critical activity register</h2>${table(["Activity","WBS","Finish","TF"],r.nearCritical.slice(0,1000).map(a=>[activityLink(a.id,`${a.id} · ${a.name}`),esc(fullWbsPath(schedule,a)||"—"),isoDate(a.currentFinish||a.finish),Number(a.totalFloat||0).toFixed(1)]),{resizable:true,resizeKey:"nearCritical"})}</section>`;
+}
+function baselineManagerMarkup() {
+  const current=scheduleById(state.baselineCurrentId);
+  const slots=state.baselineSlots || ["","",""];
+  const controls=`<div class="filterbar"><label>Current / status ${scheduleSelector("baselineCurrent",state.baselineCurrentId,{blank:"Select current schedule…"})}</label>${slots.map((v,i)=>`<label>${esc(state.baselineSlotNames[i]||`BL${i+1}`)} ${scheduleSelector(`baselineSlot${i}`,v,{blank:`Select BL${i+1}…`})}</label>`).join("")}</div>`;
+  if(!current) return `<section class="panel"><h2>Baseline Manager</h2><p class="muted">Assign up to three imported schedules as BL1/BL2/BL3, then compare them against the selected current/status schedule.</p>${controls}${scheduleSelectionMessage("Select the current/status schedule.")}</section>`;
+  const blocks=slots.map((id,i)=>{const base=scheduleById(id);if(!base||base.id===current.id)return"";const c=compareSchedules(base,current),changes=c.changed.filter(x=>x.finishDays!==0).sort((a,b)=>Math.abs(b.finishDays)-Math.abs(a.finishDays));return `<details class="forensic-transition-box" ${i===0?"open":""}><summary><span><strong>${esc(state.baselineSlotNames[i]||`BL${i+1}`)} · ${esc(base.sourceName||base.name||base.id)}</strong><small>${c.summary.forecastFinishDays>=0?"+":""}${c.summary.forecastFinishDays}d project finish · ${changes.length} activity finish variances</small></span><span>Inspect</span></summary><div class="forensic-transition-body">${table(["Activity","Baseline finish","Current finish","Variance"],changes.slice(0,1000).map(x=>{const pa=base.activities.find(a=>a.id===x.id),ca=current.activities.find(a=>a.id===x.id);return[activityLink(x.id,`${x.id} · ${x.name}`),isoDate(pa?.currentFinish||pa?.finish),isoDate(ca?.currentFinish||ca?.finish),signedNumber(x.finishDays,"d",true)]}),{resizable:true,resizeKey:`baseline-${i}`})}</div></details>`}).join("");
+  return `<section class="panel"><h2>Baseline Manager</h2><p class="muted">BL1/BL2/BL3 are explicit imported schedules. If no imported baseline is selected, embedded baseline dates remain available in the Gantt/Activity Inspector.</p>${controls}</section>${blocks||`<div class="empty-state">Select one or more baseline schedules.</div>`}<section class="panel"><h2>Next four weeks · detailed by WBS</h2>${lookaheadDetailMarkup(current)}</section>`;
+}
+function forensicRevisionMatrixMarkup(ordered) {
+  if(ordered.length<2)return"";
+  const search=String(state.forensicMatrixSearch||"").trim().toLowerCase();
+  let matrix=activityRevisionMatrix(ordered);
+  if(search)matrix=matrix.filter(x=>x.id.toLowerCase().includes(search)||x.revisions.some(r=>String(r.name||"").toLowerCase().includes(search)));
+  matrix=matrix.slice(0,500);
+  const headers=["Activity",...ordered.map(s=>isoDate(s.dataDate)||s.name||s.sourceName||"Revision")];
+  const rows=matrix.map(x=>[activityLink(x.id,x.id),...x.revisions.map(r=>r.exists?`<div class="matrix-cell"><strong>${esc(r.name||"")}</strong><small>${esc(r.status||"")} · ${Number(r.percent||0).toFixed(1)}%</small><small>${esc(r.start||"—")} → ${esc(r.finish||"—")}</small><small>TF ${Number(r.totalFloat||0).toFixed(1)}d · ${esc(r.calendar||"—")}</small></div>`:`<span class="deleted-change">Not present</span>`)]);
+  return `<section class="panel"><div class="panel-head-row"><div><h2>Activity Revision Matrix</h2><p class="muted">Follow activity dates, progress, float, calendar and status horizontally through the selected revisions.</p></div><label>Find activity <input id="forensicMatrixSearch" value="${esc(state.forensicMatrixSearch||"")}" placeholder="ID or name"></label></div>${table(headers,rows,{resizable:true,resizeKey:"forensicMatrix"})}${matrix.length>=500?`<p class="muted">First 500 matching activities shown. Use the search box to narrow the matrix.</p>`:""}</section>`;
+}
+
 /**
  * Render the currently selected Schedule Assessment report. Pairwise/multi-
  * revision reports resolve their own schedule selections and therefore do not
@@ -1211,6 +1621,8 @@ function assessmentReport(s) {
   const h = s? scheduleHealth(s): null;
   switch (state.assessmentReport) {
     case "activities": return`<section class="panel"><h2>Virtualised activity register</h2><p class="muted">Drag the vertical dividers in the column headings to resize each column. Widths are remembered on this browser. Imported XER/XML/MPP data can be copied into the editable Schedule Builder.</p><div class="actions" style="margin-bottom:9px"><button class="btn" id="copyToBuilder">Edit this schedule in Schedule Builder</button></div><div id="virtualActivities" style="height:600px;overflow:auto;position:relative"></div></section>`;
+    case "inspector": return activityInspectorMarkup(s);
+    case "issues": return issueRegisterMarkup();
     case "comparison": {
       const a = scheduleById(state.comparisonAId),
       b = scheduleById(state.comparisonBId),
@@ -1245,122 +1657,111 @@ function assessmentReport(s) {
       });
       if (!a || !b)return`<section class="panel"><h2>Week-on-Week</h2><p class="muted">Select the two status files you intend to compare. Nothing is inferred from upload order.</p>${toolbar}${scheduleSelectionMessage()}</section>`;
       if (a.id===b.id)return`<section class="panel"><h2>Week-on-Week</h2>${toolbar}<div class="empty-state">Choose two different schedules.</div></section>`;
-      const comp = compareSchedules(a, b),
-      pmap = new Map(a.activities.map(x => [x.id, x])),
-      starts = [],
-      finishes = [],
-      progressed = [],
-      slipped = [];
-      for (const x of b.activities) {
-        const p = pmap.get(x.id);
-        if (!p)continue;
-        if (!p.actualStart && x.actualStart)starts.push(x);
-        if (Number(p.percent)<100 && Number(x.percent)>=100)finishes.push(x);
-        if (Number(x.percent)>Number(p.percent))progressed.push( {
-          a: x, delta: Number(x.percent) - Number(p.percent)
-        });
-        const mv = daysBetween(p.currentFinish || p.finish, x.currentFinish || x.finish);
-        if (mv>0)slipped.push( {
-          a: x, delta: mv
-        })
-      }
-      slipped.sort((x, y) => y.delta - x.delta);
-      progressed.sort((x, y) => y.delta - x.delta);
-      return`<section class="panel"><h2>Week-on-Week</h2>${toolbar}</section><div class="metrics">${metric("New actual starts", starts.length)}${metric("New completions", finishes.length)}${metric("Activities progressed", progressed.length)}${metric("Activities slipped", slipped.length)}${metric("Progress Δ", `${comp.summary.progressPoints>=0? "+": ""}${comp.summary.progressPoints.toFixed(1)} pts`)}${metric("Forecast Δ", `${comp.summary.forecastFinishDays>=0? "+": ""}${comp.summary.forecastFinishDays}d`)}</div><div class="grid grid2"><section class="panel"><h2>Top progress movement</h2>${table(["Activity", "Progress Δ", "Current %"], progressed.slice(0, 150).map(x => [`${esc(x.a.id)} · ${esc(x.a.name)}`, `+${x.delta.toFixed(1)} pts`, `${x.a.percent.toFixed(1)}%`]))}</section><section class="panel"><h2>Top forecast slippage</h2>${table(["Activity", "Finish movement", "Current finish"], slipped.slice(0, 150).map(x => [`${esc(x.a.id)} · ${esc(x.a.name)}`, `+${x.delta}d`, isoDate(x.a.currentFinish || x.a.finish)]))}</section></div>`;
+      const comp = compareSchedules(a, b), wow = weekOnWeekChanges(a, b), f = state.weekChangeFilter || "all", wbsFilter = String(state.weekWbsFilter || "").trim().toLowerCase();
+      let rows = wow.rows.filter(r => !wbsFilter || String(r.wbs || "").toLowerCase().includes(wbsFilter));
+      if (f === "progress") rows = rows.filter(r => Number(r.progressDelta || 0) !== 0);
+      if (f === "dates") rows = rows.filter(r => Number(r.startDelta || 0) !== 0 || Number(r.finishDelta || 0) !== 0);
+      if (f === "actuals") rows = rows.filter(r => r.actualStart?.type !== "—" || r.actualFinish?.type !== "—");
+      if (f === "adverse") rows = rows.filter(r => r.adverse);
+      if (f === "added") rows = rows.filter(r => r.type === "Added");
+      if (f === "deleted") rows = rows.filter(r => r.type === "Deleted");
+      const changeRows = rows.slice(0, 5000).map(r => {
+        const progKind = Number(r.progressDelta) < 0 ? "bad" : Number(r.progressDelta) > 0 ? "good" : "";
+        const actualCell = x => x?.type === "Removed" ? changeValue(`${x.type}: ${x.before}`, "bad") : x?.type === "Added" ? changeValue(`${x.type}: ${x.after}`, "good") : x?.type === "Changed" ? `${esc(x.before)} → ${esc(x.after)}` : "—";
+        return [
+          r.type === "Deleted" ? deletedText(r.type) : r.type === "Added" ? badge("Added", "good") : esc(r.type),
+          activityLink(r.id, `${r.id} · ${r.name}`), esc(r.wbs || "—"), esc(r.status || "—"),
+          r.previousPercent == null ? "—" : `${Number(r.previousPercent).toFixed(1)}%`,
+          r.currentPercent == null ? "—" : `${Number(r.currentPercent).toFixed(1)}%`,
+          r.progressDelta == null ? "—" : changeValue(`${Number(r.progressDelta) >= 0 ? "+" : ""}${Number(r.progressDelta).toFixed(1)} pts`, progKind),
+          esc(r.previousStart || "—"), esc(r.currentStart || "—"), signedNumber(r.startDelta, "d", true),
+          esc(r.previousFinish || "—"), esc(r.currentFinish || "—"), signedNumber(r.finishDelta, "d", true),
+          actualCell(r.actualStart), actualCell(r.actualFinish)
+        ];
+      });
+      const chartRows = [
+        { label: "Progress +", value: wow.summary.progressed }, { label: "Progress -", value: wow.summary.progressReduced },
+        { label: "Start slips", value: wow.summary.slippedStart }, { label: "Finish slips", value: wow.summary.slippedFinish },
+        { label: "Actual starts +", value: wow.summary.actualStartsAdded }, { label: "Actual finishes +", value: wow.summary.actualFinishesAdded },
+        { label: "Activities +", value: wow.summary.added }, { label: "Activities -", value: wow.summary.deleted }
+      ];
+      return`<section class="panel"><h2>Week-on-Week</h2>${toolbar}<p class="muted">Complete status-change register. Red highlights indicate regressions, deleted actuals, or later forecast dates.</p></section>
+      <div class="metrics">${metric("New actual starts", wow.summary.actualStartsAdded)}${metric("New actual finishes", wow.summary.actualFinishesAdded)}${metric("Activities progressed", wow.summary.progressed)}${metric("Progress reduced", wow.summary.progressReduced)}${metric("Finish slips", wow.summary.slippedFinish)}${metric("Adverse changes", wow.summary.adverse)}${metric("Progress Δ", `${comp.summary.progressPoints>=0? "+": ""}${comp.summary.progressPoints.toFixed(1)} pts`)}${metric("Forecast Δ", `${comp.summary.forecastFinishDays>=0? "+": ""}${comp.summary.forecastFinishDays}d`)}</div>
+      <section class="panel"><h2>Status movement profile</h2>${interactiveBarChart(chartRows, { labelKey: "label", series: [{ key: "value", label: "Activities" }], xLabels: chartRows.map(x => x.label), rotateLabels: true })}</section>
+      <section class="panel"><div class="panel-head-row"><div><h2>Week-on-Week Activity Change Register</h2><p class="muted">Showing ${rows.length} changed activities. Use the filters to isolate progress, forecast dates or actual-date changes.</p></div><div class="filterbar"><label>Change <select id="weekChangeFilter">${[["all","All changes"],["progress","Progress"],["dates","Forecast dates"],["actuals","Actual dates"],["adverse","Adverse only"],["added","Added activities"],["deleted","Deleted activities"]].map(([v,l]) => `<option value="${v}" ${f===v? "selected": ""}>${l}</option>`).join("")}</select></label><label>WBS <input id="weekWbsFilter" value="${esc(state.weekWbsFilter || "")}" placeholder="Filter WBS"></label></div></div>
+      ${table(["Type", "Activity", "WBS", "Status", "Prev %", "Current %", "Progress Δ", "Prev Start", "Current Start", "Start Δ", "Prev Finish", "Current Finish", "Finish Δ", "Actual Start", "Actual Finish"], changeRows, { resizable: true, resizeKey: "weekOnWeek" })}</section>`;
     }
+    case "progress-integrity": return progressIntegrityMarkup(s);
     case "critical": {
       const crit = s.activities.filter(a => a.critical || a.totalFloat<=0),
       layout = state.ganttLayouts.critical || freshGanttLayout("critical");
-      return`${gantt(s, {
+      return`${namedGanttLayoutToolbar("critical")}${gantt(s, {
         activities: crit, criticalOnly: true, forceRed: true, timescale: state.ganttTimescale, compression: state.ganttCompression, showRelationships: state.ganttRelationships, leftWidth: state.criticalLeftWidth, resizeKey: "criticalLeftWidth", startDate: state.criticalStartDate, endDate: state.criticalFinishDate, fields: layout.fields, fieldWidths: layout.widths, barSettings: layout.bars, layoutKey: "critical", collapsedWbsIds: state.ganttCollapsed.critical
       })}<section class="panel"><h2>Critical / zero-float activities</h2><p class="muted">Drag the vertical dividers in the headings to resize the table columns. The Gantt's WBS/Activity divider can also be dragged wider or narrower.</p>${table(["Activity", "WBS", "Finish", "TF"], crit.map(a => [`${esc(a.id)} · ${esc(a.name)}`, esc(fullWbsPath(s, a)), isoDate(a.currentFinish || a.finish), a.totalFloat.toFixed(1)]), {
         resizable: true, resizeKey: "criticalPath"
       })}</section>`;
     }
+    case "floatpaths": return floatPathsMarkup(s);
     case "logic": {
       const n = networkHealth(s),
       oe = openEnds(s),
       cycles = detectCycles(s);
       return`<div class="metrics">${metric("Health", `${h.score}/100`, h.label, "Overall deterministic health score based on the checks shown below.")}${metric("Logic density", n.logicDensity.toFixed(2), "Relationships/activity", healthDefinition("Logic density"))}${metric("Open starts", oe.starts.length, "", healthDefinition("Missing logic"))}${metric("Open finishes", oe.finishes.length, "", healthDefinition("Missing logic"))}${metric("Cycles", cycles.length, "", healthDefinition("Cycles"))}${metric("Leads / lags", `${n.leads} / ${n.lags}`, "", `${healthDefinition("Leads")} ${healthDefinition("Lags")}`)}</div><div class="grid grid2"><section class="panel"><h2>Health checks</h2><p class="muted">Hover a check name for its definition.</p>${table(["Check", "Value", "Penalty"], h.checks.map(x => [`<span class="help-term" title="${esc(healthDefinition(x.name))}">${esc(x.name)} <span class="help-dot">?</span></span>`, typeof x.value==="number"? x.value.toFixed(3): x.value, x.penalty.toFixed(1)]))}</section><section class="panel"><h2>Open ends</h2>${table(["Type", "Activity"], [...oe.starts.slice(0, 100).map(a => ["Open start", `${esc(a.id)} · ${esc(a.name)}`]), ...oe.finishes.slice(0, 100).map(a => ["Open finish", `${esc(a.id)} · ${esc(a.name)}`])])}</section></div>`;
     }
+    case "logicdiff": return logicChangesMarkup();
     case "dcma": {
-      const net = networkHealth(s),
-      relCount = Math.max(1, s.relationships.length),
-      actCount = Math.max(1, s.activities.length),
-      missingRate = (net.openStarts + net.openFinishes) / actCount * 100,
-      leadRate = net.leads / relCount * 100,
-      lagRate = net.lags / relCount * 100,
-      longCount = s.activities.filter(a => a.originalDuration>44).length,
-      longRate = longCount / actCount * 100,
-      highCount = s.activities.filter(a => a.totalFloat>44).length,
-      highRate = highCount / actCount * 100,
-      negCount = s.activities.filter(a => a.totalFloat<0).length,
-      negRate = negCount / actCount * 100,
-      conCount = s.activities.filter(a => a.constraintType).length,
-      conRate = conCount / actCount * 100;
-      const mk = (name, count, rateNum, guideline, limitNum, pass) => ( {
-        name, count, rateNum, rate: Number.isFinite(rateNum)? `${rateNum.toFixed(1)}%`: (pass? "Pass": "Fail"), guideline, limitNum, pass, definition: healthDefinition(name==="Constraints"? "Hard/soft constraints": name)
-      }),
-      checks = [mk("Missing logic", net.openStarts + net.openFinishes, missingRate, "≤5%", 5, missingRate<=5), mk("Leads", net.leads, leadRate, "0%", .01, net.leads===0), mk("Lags", net.lags, lagRate, "≤5%", 5, lagRate<=5), mk("Long durations", longCount, longRate, "≤5%", 5, longRate<=5), mk("High float", highCount, highRate, "≤5%", 5, highRate<=5), mk("Negative float", negCount, negRate, "≤2%", 2, negRate<=2), mk("Constraints", conCount, conRate, "≤5%", 5, conRate<=5), {
-        name: "Cycles", count: net.cycles, rateNum: net.cycles? 100: 0, rate: net.cycles? "Fail": "Pass", guideline: "0", limitNum: .01, pass: net.cycles===0, definition: healthDefinition("Cycles")
-      }];
-      const rows = checks.map(c => [c.name, c.count, c.rate, c.guideline, c.pass? badge("PASS", "good"): badge("FAIL", "danger")]);
-      return`<div class="metrics">${metric("Schedule health", `${h.score}/100`, h.label)}${metric("Logic density", net.logicDensity.toFixed(2))}${metric("Open starts", net.openStarts)}${metric("Open finishes", net.openFinishes)}${metric("Cycles", net.cycles)}${metric("Duplicate relationships", net.duplicateRelationships)}</div><section class="panel"><h2>DCMA-style quality screen</h2><p class="muted">Internal DCMA-style screening, not an official DCMA certification.</p>${table(["Check", "Count", "Rate / result", "Guideline", "Pass / Fail"], rows)}</section><section class="panel"><h2>Threshold graphics</h2><p class="muted">Each visual plots the actual rate/count against the applicable acceptance threshold. The marker is the threshold; the bar is the measured result. This avoids decorative chart types that can obscure whether the schedule actually passes the check.</p><div class="quality-grid">${checks.map(dcmaVisualCard).join("")}</div></section>`;
+      const assessment = dcma14(s, { profile: currentQaProfile() }), meta = assessment.metadata;
+      const summaryRows = assessment.checks.map(c => [
+        c.number,
+        `<strong>${esc(c.name)}</strong><div class="muted small">${esc(c.criterion || "")}</div>`,
+        c.count,
+        c.denominator || "—",
+        c.rate == null ? (c.value == null ? "—" : Number(c.value).toFixed(3)) : `${Number(c.rate).toFixed(1)}%`,
+        esc(c.threshold || "—"),
+        c.status === "PASS" ? badge("PASS", "good") : c.status === "FAIL" ? badge("FAIL", "danger") : badge("N/A", "warn")
+      ]);
+      const profileThresholds = currentQaProfile().thresholds;
+      const thresholdById = {
+        logic: profileThresholds.logicMissingPctMax, leads: profileThresholds.leadPctMax, lags: profileThresholds.lagPctMax,
+        "relationship-types": profileThresholds.fsPctMin, "hard-constraints": profileThresholds.hardConstraintPctMax,
+        "high-float": profileThresholds.highFloatPctMax, "negative-float": profileThresholds.negativeFloatPctMax,
+        "high-duration": profileThresholds.highDurationPctMax, "invalid-dates": profileThresholds.invalidDateCountMax,
+        resources: profileThresholds.resourceMissingPctMax, "missed-tasks": profileThresholds.missedTaskPctMax,
+        "critical-path-test": 600, cpli: profileThresholds.cpliMin, bei: profileThresholds.beiMin
+      };
+      const thresholdRows = assessment.checks.map(c => ({
+        label: `${c.number}. ${c.name}`,
+        actual: c.id === "critical-path-test" ? Number(c.value || 0) : c.rate != null ? Number(c.rate) : c.value != null ? Number(c.value) : 0,
+        threshold: Number(thresholdById[c.id] ?? 0)
+      }));
+      const details = assessment.checks.map(c => {
+        const detailRows = c.details || [];
+        const keys = [...new Set(detailRows.flatMap(x => Object.keys(x || {})))];
+        const detailTable = detailRows.length ? table(keys.map(k => k.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, m => m.toUpperCase())), detailRows.map(x => keys.map(k => k === "activity" ? activityLink(x?.[k] ?? "") : esc(x?.[k] ?? "—"))), { resizable: true, resizeKey: `dcma-${c.id}` }) : `<div class="empty-state">No offending/detail records for this check.</div>`;
+        return `<details class="dcma-detail-box"><summary><span><strong>${c.number}. ${esc(c.name)}</strong><small>${esc(c.threshold || "")}${c.note ? ` · ${esc(c.note)}` : ""}</small></span>${c.status === "PASS" ? badge("PASS", "good") : c.status === "FAIL" ? badge("FAIL", "danger") : badge("N/A", "warn")}</summary><div class="dcma-detail-body">${detailTable}</div></details>`;
+      }).join("");
+      return`${qaProfileControls()}<div class="metrics">${metric("Overall", assessment.summary.overall, `${assessment.summary.pass} pass · ${assessment.summary.fail} fail · ${assessment.summary.na} N/A`)}${metric("Assessed score", `${assessment.summary.scorePct.toFixed(1)}%`, `${assessment.summary.pass}/${assessment.summary.assessed || 0}`)}${metric("Baseline coverage", `${meta.baselineCoverage.toFixed(1)}%`, `${meta.baselineTasks}/${meta.positiveDurationTasks} positive-duration tasks`)}${metric("Scoped tasks", meta.scopedActivities)}${metric("Data date", meta.dataDate || "—")}</div>
+      <section class="panel"><h2>DCMA 14-Point Schedule Assessment</h2><p class="muted">All fourteen conventional metrics are evaluated. Baseline/resource-dependent metrics return N/A where the imported schedule does not contain enough evidence. The Critical Path Test is a 600-day static network-recalculation proxy; calendars and native P6 constraint recalculation are not simulated.</p>${table(["#", "Check", "Issues / numerator", "Denominator", "Actual", "Threshold", "Result"], summaryRows, { resizable: true, resizeKey: "dcma14" })}</section>
+      <section class="panel"><h2>Metric profile</h2><p class="muted">Use the chart workbench to filter, change chart type, hide series, set a threshold line, resize, inspect points or export data/graphics.</p>${interactiveBarChart(thresholdRows, { labelKey: "label", series: [{ key: "actual", label: "Actual" }, { key: "threshold", label: "Threshold / reference" }], xLabels: thresholdRows.map(x => x.label), rotateLabels: true, title: "DCMA metric profile" })}</section>
+      <section class="forensic-evidence-stack"><div class="forensic-evidence-title"><div><h2>DCMA drill-down</h2><p class="muted">Expand any check to see the activities/relationships behind the result.</p></div><button class="btn" id="dcmaAddIssues" type="button">Add failures to Issue Register</button></div>${details}</section>`;
     }
     case "delay": {
-      const a = scheduleById(state.delayAId),
-      b = scheduleById(state.delayBId),
-      toolbar = pairToolbar("delay", state.delayAId, state.delayBId, {
-        labelA: "Earlier / reference schedule", labelB: "Later / impact schedule"
-      });
-      if (!a || !b)return`<section class="panel"><h2>Delay Analysis</h2><p>This view is intended to identify where forecast dates moved between two specifically selected schedules, then rank the movement by activity/WBS and show deterministic schedule evidence such as duration, float, logic, calendar and constraint changes.</p>${toolbar}${scheduleSelectionMessage("Choose two schedules to begin. They can be unrelated, although delay conclusions are only meaningful when the activity coding is comparable.")}</section>`;
-      if (a.id===b.id)return`<section class="panel"><h2>Delay Analysis</h2>${toolbar}<div class="empty-state">Choose two different schedules.</div></section>`;
-      const comp = compareSchedules(a, b),
-      slips = comp.changed.filter(x => x.finishDays>0).sort((x, y) => y.finishDays - x.finishDays),
-      critSlips = slips.filter(x => b.activities.find(a => a.id===x.id)?.critical || b.activities.find(a => a.id===x.id)?.totalFloat<=0),
-      wbs = wbsDelayRows(comp, b);
-      return`<section class="panel"><h2>Delay Analysis</h2><p class="muted">Recommended use: select a known earlier update and a later update, review project/WBS slippage, then drill into the evidence column. This is schedule movement analysis, not a contractual delay determination.</p>${toolbar}</section><div class="metrics">${metric("Slipped activities", slips.length)}${metric("Critical slipped", critSlips.length)}${metric("Forecast project Δ", `${comp.summary.forecastFinishDays>=0? "+": ""}${comp.summary.forecastFinishDays}d`)}${metric("Entered critical", comp.migration.entered.length)}${metric("Logic added", comp.relationshipAdded.length)}${metric("Logic removed", comp.relationshipDeleted.length)}</div><div class="grid grid2"><section class="panel"><h2>Delay by WBS band</h2>${barChart(wbs.slice(0, 20), {
-        labelKey: "label", series: [ {
-          key: "totalSlip", label: "Total slipped days"
-        }], xLabels: wbs.slice(0, 20).map(x => x.label), rotateLabels: true
-      })}${table(["WBS band", "Slipped activities", "Total movement", "Maximum activity movement"], wbs.map(x => [esc(x.label), x.count, `${x.totalSlip}d`, `${x.maxSlip}d`]))}</section><section class="panel"><h2>Interpretation guide</h2><p>Focus first on project-finish movement and critical-path migration, then WBS concentrations, then individual activities. Large activity movements with no duration change often point toward predecessor, calendar, constraint or progress effects; duration changes are direct evidence of revised planning assumptions.</p><p class="muted">For a formal forensic assessment, reconcile these results against contemporaneous progress, change instructions, access constraints, procurement records and the contract.</p></section></div><section class="panel"><h2>Delay movement register</h2>${table(["Activity", "Finish Δ", "Start Δ", "Duration Δ", "Float Δ", "Likely schedule evidence"], slips.slice(0, 500).map(x => {
-        const ev = whyDidDateMove(a, b, x.id); return[`${esc(x.id)} · ${esc(x.name)}`, `+${x.finishDays}d`, `${x.startDays>=0? "+": ""}${x.startDays}d`, `${x.durationDays>=0? "+": ""}${x.durationDays.toFixed(1)}d`, `${x.floatDays>=0? "+": ""}${x.floatDays.toFixed(1)}d`, esc(ev.evidence.slice(0, 4).map(e => e.cause).join("; "))]
-      }))}</section>`;
+      const a = scheduleById(state.delayAId), b = scheduleById(state.delayBId), toolbar = pairToolbar("delay", state.delayAId, state.delayBId, { labelA: "Earlier / reference schedule", labelB: "Later / impact schedule" });
+      if (!a || !b) return `<section class="panel"><h2>Delay Analysis</h2><p>This view identifies where forecast dates moved between two explicitly selected schedules and ranks movement by activity/WBS with deterministic schedule evidence.</p>${toolbar}${scheduleSelectionMessage("Choose two schedules to begin.")}</section>`;
+      if (a.id===b.id) return `<section class="panel"><h2>Delay Analysis</h2>${toolbar}<div class="empty-state">Choose two different schedules.</div></section>`;
+      const comp=compareSchedules(a,b), slips=comp.changed.filter(x=>x.finishDays>0).sort((x,y)=>y.finishDays-x.finishDays), critSlips=slips.filter(x=>{const q=b.activities.find(k=>k.id===x.id);return q?.critical||q?.totalFloat<=0;}), wbs=wbsDelayRows(comp,b);
+      return `<section class="panel"><h2>Delay Analysis</h2><p class="muted">Schedule movement analysis only; contractual entitlement, causation and responsibility require contemporaneous evidence and contract review.</p>${toolbar}</section><div class="metrics">${metric("Slipped activities",slips.length)}${metric("Critical slipped",critSlips.length)}${metric("Forecast project Δ",`${comp.summary.forecastFinishDays>=0?"+":""}${comp.summary.forecastFinishDays}d`)}${metric("Entered critical",comp.migration.entered.length)}${metric("Logic added",comp.relationshipAdded.length)}${metric("Logic removed",comp.relationshipDeleted.length)}</div><div class="grid grid2"><section class="panel"><h2>Delay by WBS band</h2>${interactiveBarChart(wbs.slice(0,30),{labelKey:"label",series:[{key:"totalSlip",label:"Total slipped days"},{key:"maxSlip",label:"Maximum activity movement"}],rotateLabels:true,title:"WBS delay concentration"})}${table(["WBS band","Slipped activities","Total movement","Maximum activity movement"],wbs.map(x=>[esc(x.label),x.count,`${x.totalSlip}d`,`${x.maxSlip}d`]))}</section><section class="panel"><h2>Interpretation guide</h2><p>Review project-finish movement and critical-path migration first, then WBS concentrations and individual activities. Large movements without duration growth commonly indicate predecessor, calendar, constraint or progress effects.</p></section></div><section class="panel"><h2>Delay movement register</h2>${table(["Activity","Finish Δ","Start Δ","Duration Δ","Float Δ","Likely schedule evidence"],slips.slice(0,1000).map(x=>{const ev=whyDidDateMove(a,b,x.id);return[activityLink(x.id,`${x.id} · ${x.name}`),signedNumber(x.finishDays,"d",true),signedNumber(x.startDays,"d",true),signedNumber(x.durationDays,"d",true),signedNumber(x.floatDays,"d",false),esc(ev.evidence.slice(0,5).map(e=>e.cause).join("; "))]}),{resizable:true,resizeKey:"delayMovement"})}</section>`;
     }
     case "forensic": {
-      const selected = state.forensicScheduleIds.map(scheduleById).filter(Boolean),
-      ordered = [...new Map(selected.map(x => [x.id, x])).values()].sort((a, b) => (parseDate(a.dataDate)?.getTime() || 0) - (parseDate(b.dataDate)?.getTime() || 0));
-      const selectors = scheduleSlots("forensicSlot", state.forensicScheduleIds, 10, {
-        label: "Schedule", blank: "Not selected"
-      });
-      if (ordered.length<2)return`<section class="panel"><h2>Forensic Review</h2><p class="muted">Select between 2 and 10 schedules. Only the schedules you choose are included; they are then reviewed in data-date order. Use this for a revision series, not as an assumption that every uploaded XER belongs to the same project.</p>${selectors}${scheduleSelectionMessage("Select at least two schedules.")}</section>`;
-      const transitions = [];
-      const detail = [];
-      for (let i = 1; i<ordered.length; i++) {
-        const p = ordered[i - 1],
-        c = ordered[i],
-        comp = compareSchedules(p, c),
-        res = resourceChangeSummary(p, c);
-        transitions.push( {
-          label: `${isoDate(p.dataDate) || i} → ${isoDate(c.dataDate) || i + 1}`, from: p, to: c, addedActivities: comp.added.length, deletedActivities: comp.deleted.length, changedActivities: comp.changed.length, logicAdded: comp.relationshipAdded.length, logicRemoved: comp.relationshipDeleted.length, resourceChanges: res.added + res.removed + res.changed, finishMove: comp.summary.forecastFinishDays, criticalEntered: comp.migration.entered.length
-        });
-        for (const x of comp.changed.filter(x => Math.abs(x.finishDays)>=3 || Math.abs(x.durationDays)>=1 || x.calendarChanged || x.constraintChanged).slice(0, 150))detail.push([`${isoDate(p.dataDate)} → ${isoDate(c.dataDate)}`, `${esc(x.id)} · ${esc(x.name)}`, `${x.finishDays>=0? "+": ""}${x.finishDays}d`, `${x.durationDays>=0? "+": ""}${x.durationDays.toFixed(1)}d`, x.calendarChanged? "Yes": "No", x.constraintChanged? "Yes": "No"])
-      }
-      const mixed = [...new Set(ordered.map(x => x.projectName).filter(Boolean))].length>1? `<div class="analysis-warning">You selected schedules with different project names. The tool will still compare them because the selection was explicit; interpret ID-based change results carefully.</div>`: "";
-      return`<section class="panel"><h2>Forensic Review · up to 10 schedules</h2><p class="muted">The selected schedules are sorted by their data date and each adjacent pair is compared for activities, progress/actuals, logic, calendar assignments, resource assignments, critical-path migration and forecast movement.</p>${selectors}${mixed}</section><section class="panel"><h2>Change profile across revisions</h2>${barChart(transitions, {
-        labelKey: "label", series: [ {
-          key: "addedActivities", label: "Activities added"
-        }, {
-          key: "deletedActivities", label: "Activities removed"
-        }, {
-          key: "logicAdded", label: "Logic added"
-        }, {
-          key: "logicRemoved", label: "Logic removed"
-        }, {
-          key: "resourceChanges", label: "Resource changes"
-        }], xLabels: transitions.map(x => x.label), rotateLabels: true
-      })}</section><section class="panel"><h2>Revision-to-revision summary</h2>${table(["Transition", "Finish Δ", "Added activities", "Removed activities", "Changed activities", "Logic + / -", "Resource changes", "Entered critical"], transitions.map(x => [esc(x.label), `${x.finishMove>=0? "+": ""}${x.finishMove}d`, x.addedActivities, x.deletedActivities, x.changedActivities, `${x.logicAdded} / ${x.logicRemoved}`, x.resourceChanges, x.criticalEntered]))}</section><section class="panel"><h2>Material activity changes</h2>${table(["Transition", "Activity", "Finish Δ", "Duration Δ", "Calendar changed", "Constraint changed"], detail.slice(0, 1000))}</section>${forensicEvidencePanels(ordered)}`;
+      const selected=state.forensicScheduleIds.map(scheduleById).filter(Boolean), ordered=[...new Map(selected.map(x=>[x.id,x])).values()].sort((a,b)=>(parseDate(a.dataDate)?.getTime()||0)-(parseDate(b.dataDate)?.getTime()||0));
+      const selectors=scheduleSlots("forensicSlot",state.forensicScheduleIds,10,{label:"Schedule",blank:"Not selected"});
+      if(ordered.length<2)return `<section class="panel"><h2>Forensic Review</h2><p class="muted">Select between 2 and 10 schedules. Only selected schedules are included and are reviewed in data-date order.</p>${selectors}${scheduleSelectionMessage("Select at least two schedules.")}</section>`;
+      const w=windowsAnalysis(ordered), transitions=w.windows.map(x=>({label:x.label,addedActivities:x.activitiesAdded,deletedActivities:x.activitiesRemoved,logicAdded:x.logicAdded,logicRemoved:x.logicRemoved,resourceChanges:x.resourceChanges,finishMove:x.finishMovementDays,criticalEntered:x.criticalEntered}));
+      const mixed=[...new Set(ordered.map(x=>x.projectName).filter(Boolean))].length>1?`<div class="analysis-warning">Selected schedules report different project names. ID-based comparison still runs because the selection was explicit; interpret results carefully.</div>`:"";
+      const detail=w.windows.flatMap(x=>x.adverse.slice(0,250).map(a=>[esc(x.label),activityLink(a.id,`${a.id} · ${a.name}`),signedNumber(a.finishDays,"d",true),signedNumber(a.durationDays,"d",true),a.calendarChanged?"Yes":"No",a.resourceChanged?"Yes":"No",a.constraintChanged?"Yes":"No"]));
+      return `<section class="panel"><div class="panel-head-row"><div><h2>Forensic Review · up to 10 schedules</h2><p class="muted">Adjacent revisions are compared across activities, progress/actuals, logic, calendars, resources, critical-path migration and forecast movement.</p></div><button class="btn primary" id="exportEvidencePack" type="button">Export Evidence Pack ZIP</button></div>${selectors}${mixed}</section><section class="panel"><h2>Change profile across revisions</h2>${interactiveBarChart(transitions,{labelKey:"label",series:[{key:"addedActivities",label:"Activities added"},{key:"deletedActivities",label:"Activities removed"},{key:"logicAdded",label:"Logic added"},{key:"logicRemoved",label:"Logic removed"},{key:"resourceChanges",label:"Resource changes"}],rotateLabels:true,title:"Forensic transition profile"})}</section><section class="panel"><h2>Revision-to-revision summary</h2>${table(["Transition","Finish Δ","Activities + / -","Logic + / -","Resource changes","Entered critical"],transitions.map(x=>[esc(x.label),signedNumber(x.finishMove,"d",true),`${x.addedActivities} / ${x.deletedActivities}`,`${x.logicAdded} / ${x.logicRemoved}`,x.resourceChanges,x.criticalEntered]),{resizable:true,resizeKey:"forensicSummary"})}</section><section class="panel"><h2>Material activity changes</h2>${table(["Transition","Activity","Finish Δ","Duration Δ","Calendar","Resources","Constraint"],detail,{resizable:true,resizeKey:"forensicMaterial"})}</section>${forensicEvidencePanels(ordered)}${forensicRevisionMatrixMarkup(ordered)}`;
     }
+    case "windows": return windowsAnalysisMarkup();
     case "whymove": {
       const prev = previousSchedule(),
       id = state.whyActivityId || s.activities[0]?.id || "",
@@ -1377,6 +1778,7 @@ function assessmentReport(s) {
         }, (_, m) => calendarMonth(cy, m)).join("")}</div></div>`
       }).join("")}</section>`).join("") || `<div class="panel muted">No assigned calendars found.</div>`}`;
     }
+    case "calendardiff": return calendarDifferencesMarkup();
     case "scurve": {
       const resources = s.resources || [];
       if (state.scurveBasis==="resource" && !state.scurveResourceId)state.scurveResourceId = resources[0]?.id || "";
@@ -1438,8 +1840,8 @@ function assessmentReport(s) {
       }
       return`<section class="panel"><div class="gantt-title-row"><div><h2>S-Curve & Histogram</h2><p class="muted">P6-style resource/profile controls. Filter resources and visible series, then focus or expand the date window. Values are bucketed weekly using the time-phased information available in the imported schedule. X-axis dates are Fridays.</p></div><span class="badge">${esc(basisLabel)}</span></div><div class="scurve-control-grid"><label>Basis <select id="scurveBasis"><option value="activities" ${state.scurveBasis==="activities"? "selected": ""}>Activity count</option><option value="units" ${state.scurveBasis==="units"? "selected": ""}>Loaded units / man-hours</option><option value="cost" ${state.scurveBasis==="cost"? "selected": ""}>Cost</option><option value="resource" ${state.scurveBasis==="resource"? "selected": ""}>Individual resource</option></select></label>${state.scurveBasis==="resource"? `<label>Resource <select id="scurveResource">${resources.map(r => `<option value="${esc(r.id)}" ${String(r.id)===String(state.scurveResourceId)? "selected": ""}>${esc(r.name || r.id)}</option>`).join("")}</select></label>`: ""}<label>From <input type="date" id="scurveStartDate" value="${esc(startValue)}"></label><label>To <input type="date" id="scurveFinishDate" value="${esc(finishValue)}"></label><div class="scurve-range-actions"><button class="btn compact" id="scurveContract" type="button">Contract 4w</button><button class="btn compact" id="scurveExpand" type="button">Expand 4w</button><button class="btn compact" id="scurveFullRange" type="button">Full range</button></div><fieldset class="series-filter"><legend>Series</legend><label><input id="scurvePlanned" type="checkbox" ${enabled.planned? "checked": ""}> Planned</label><label><input id="scurveActual" type="checkbox" ${enabled.actual? "checked": ""}> Actual</label><label><input id="scurveForecast" type="checkbox" ${enabled.forecast? "checked": ""}> Forecast</label></fieldset></div>${resourceFilter}</section><section class="panel"><h2>Weekly S-Curve · ${esc(basisLabel)}</h2>${lineSeries.length? lineChart(lineSeries, {
         xLabels, rotateLabels: true
-      }): `<div class="empty-state">Select at least one series.</div>`}</section><section class="panel"><h2>Weekly Histogram · ${esc(basisLabel)}</h2>${barSeries.length? barChart(rows, {
-        labelKey: "week", series: barSeries, xLabels, rotateLabels: true
+      }): `<div class="empty-state">Select at least one series.</div>`}</section><section class="panel"><h2>Weekly Histogram · ${esc(basisLabel)}</h2>${barSeries.length? interactiveBarChart(rows, {
+        labelKey: "week", series: barSeries, xLabels, rotateLabels: true, dateKey: "friday"
       }): `<div class="empty-state">Select at least one series.</div>`}</section><section class="panel"><h2>Weekly copyable data</h2>${table(headers, rows.map(r => [r.week, isoDate(r.friday), ...rowKeys.map(k => Number(r[k] || 0).toFixed(2))]))}</section>`;
     }
     case "narrative": {
@@ -1450,9 +1852,9 @@ function assessmentReport(s) {
     }
     case "gantt": {
       const layout = state.ganttLayouts.wbs || freshGanttLayout("wbs");
-      return gantt(s, {
+      return `${namedGanttLayoutToolbar("wbs")}${gantt(s, {
         timescale: state.ganttTimescale, compression: state.ganttCompression, showRelationships: state.ganttRelationships, leftWidth: state.ganttLeftWidth, resizeKey: "ganttLeftWidth", startDate: state.ganttStartDate, endDate: state.ganttFinishDate, fields: layout.fields, fieldWidths: layout.widths, barSettings: layout.bars, layoutKey: "wbs", collapsedWbsIds: state.ganttCollapsed.wbs
-      })
+      })}`
     }
     case "network": {
       const conv = pathConvergence(s).slice(0, 40),
@@ -1497,6 +1899,7 @@ function assessmentReport(s) {
       });
       return`<p class="muted">Hover the confidence statistics for definitions. Revision-based calculations use the schedules explicitly selected in Dashboard → Revision Lineage; if none are selected, only the active schedule is used.</p><div class="metrics">${metric("Overall confidence", `${overall.score}%`, overall.label, "Derived from schedule health, revision volatility, average positive slippage and target float where applicable.")}${metric("Revision volatility", overall.volatility.toFixed(1), "days std dev", "Standard deviation of finish movement between selected revisions. Higher volatility reduces confidence.")}${metric("Average positive slip", overall.avgSlip.toFixed(1), "days", "Average positive movement in forecast finish between selected revisions; negative/early movement is not counted as slip.")}${metric("Revisions analysed", overall.rows.length, "", "Number of explicitly selected schedules containing a usable target/project finish date.")}${metric("Current critical", s.activities.filter(a => a.critical || a.totalFloat<=0).length, "", "Activities currently critical or at zero/negative total float.")}${metric("Current negative float", s.activities.filter(a => a.totalFloat<0).length, "", "Activities whose total float is below zero, indicating schedule pressure against required dates or constraints.")}</div><section class="panel"><h2>Milestone Forecast Confidence</h2>${table(["Milestone", "Confidence", "Band", "Volatility", "Avg slip", "Current forecast"], rows)}</section>`;
     }
+    case "resourceforensics": return resourceForensicsMarkup();
     case "cost": {
       const budget = s.activities.reduce((n, a) => n + Number(a.budgetCost || 0), 0),
       actual = s.activities.reduce((n, a) => n + Number(a.actualCost || 0), 0),
@@ -1519,20 +1922,7 @@ function assessmentReport(s) {
       cpi = actualCost? ((budgetCost * (ev / 100)) / actualCost): 0;
       return`<div class="metrics">${metric("Budget units", budgetUnits.toFixed(1))}${metric("Actual units", actualUnits.toFixed(1))}${metric("Budget cost", budgetCost.toFixed(0))}${metric("Actual cost", actualCost.toFixed(0))}${metric("SPI", spi? spi.toFixed(2): "—", "Indicative")}${metric("CPI", cpi? cpi.toFixed(2): "—", "Indicative")}</div><section class="panel"><h2>Resource / EVM view</h2><p class="muted">EVM indicators are shown only from source values available in the imported schedule; they are not a substitute for a cost-management system.</p>${table(["Resource", "Budget units", "Actual units", "Remaining units", "Actual / budget"], resourceRows)}</section>`;
     }
-    case "baseline": {
-      const current = scheduleById(state.baselineCurrentId),
-      compare = scheduleById(state.baselineCompareId),
-      toolbar = pairToolbar("baseline", state.baselineCurrentId, state.baselineCompareId, {
-        labelA: "Schedule for lookahead / current", labelB: "Optional comparison schedule"
-      });
-      if (!current)return`<section class="panel"><h2>Baseline & Lookahead</h2><p class="muted">Choose the schedule to analyse. The optional second dropdown can be another imported schedule; nothing is inferred from upload order.</p>${toolbar}${scheduleSelectionMessage("Select the current/status schedule.")}</section>`;
-      let varianceRows = [];
-      if (compare && compare.id!==current.id) {
-        const comp = compareSchedules(compare, current);
-        varianceRows = comp.changed.filter(x => x.finishDays!==0).sort((a, b) => Math.abs(b.finishDays) - Math.abs(a.finishDays)).map(x => [`${esc(x.id)} · ${esc(x.name)}`, isoDate(compare.activities.find(a => a.id===x.id)?.currentFinish || compare.activities.find(a => a.id===x.id)?.finish), isoDate(current.activities.find(a => a.id===x.id)?.currentFinish || current.activities.find(a => a.id===x.id)?.finish), `${x.finishDays>=0? "+": ""}${x.finishDays}d`])
-      } else varianceRows = current.activities.filter(a => a.baselineFinish && a.currentFinish && daysBetween(a.baselineFinish, a.currentFinish)!==0).sort((a, b) => Math.abs(daysBetween(b.baselineFinish, b.currentFinish)) - Math.abs(daysBetween(a.baselineFinish, a.currentFinish))).map(a => [`${esc(a.id)} · ${esc(a.name)}`, isoDate(a.baselineFinish), isoDate(a.currentFinish), `${daysBetween(a.baselineFinish, a.currentFinish)>=0? "+": ""}${daysBetween(a.baselineFinish, a.currentFinish)}d`]);
-      return`<section class="panel"><h2>Baseline & Lookahead</h2>${toolbar}<p class="muted">If a comparison schedule is selected, variance is measured against that schedule. Otherwise the embedded baseline dates in the selected current schedule are used.</p></section><section class="panel"><h2>Finish variance</h2>${table(["Activity", "Reference finish", "Current finish", "Variance"], varianceRows.slice(0, 500))}</section><section class="panel"><h2>Next four weeks · detailed by WBS</h2>${lookaheadDetailMarkup(current)}</section>`;
-    }
+    case "baseline": return baselineManagerMarkup();
     case "datacentre": {
       const dc = dataCentreReadiness(s),
       gates = readinessGates(s);
@@ -1778,6 +2168,30 @@ function bindNetworkZoom() {
 }
 function bindAssessmentControls(s) {
   bindResizableTables($("reportBody"));
+  $("reportBody")?.querySelectorAll("[data-inspect-activity]").forEach(el => el.addEventListener("click", () => {
+    state.inspectorActivityId = el.dataset.inspectActivity; state.assessmentReport = "inspector"; renderAssessment();
+  }));
+  // Interactive charts emit a semantic selection event. Reports can use it to
+  // open the corresponding evidence rather than leaving charts decorative.
+  $("reportBody")?.addEventListener("chartselect", event => {
+    const label = String(event.detail?.label || "");
+    if (!label) return;
+    if (state.assessmentReport === "week") {
+      const l = label.toLowerCase();
+      if (l.includes("progress")) state.weekChangeFilter = "progress";
+      else if (l.includes("actual")) state.weekChangeFilter = "actuals";
+      else if (l.includes("start") || l.includes("finish") || l.includes("date")) state.weekChangeFilter = "dates";
+      else if (l.includes("added")) state.weekChangeFilter = "added";
+      else if (l.includes("deleted") || l.includes("removed")) state.weekChangeFilter = "deleted";
+      renderAssessment();
+      return;
+    }
+    // Forensic/window chart labels are revision-transition labels. Open the
+    // matching evidence block in-place when one exists.
+    const blocks = [...$("reportBody").querySelectorAll("details.forensic-transition-box")];
+    const block = blocks.find(d => String(d.querySelector("summary strong")?.textContent || "").includes(label));
+    if (block) { block.open = true; block.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  });
   if (state.assessmentReport==="activities" && s) {
     mountVirtualActivities($("virtualActivities"), s.activities);
     $("copyToBuilder")?.addEventListener("click", () => {
@@ -1797,13 +2211,78 @@ function bindAssessmentControls(s) {
       state[bKey] = e.target.value; renderAssessment()
     })
   };
+  if (state.assessmentReport==="inspector") $("inspectorActivity")?.addEventListener("change", e => { state.inspectorActivityId = e.target.value; renderAssessment(); });
+  if (state.assessmentReport==="issues") {
+    $("issueFilter")?.addEventListener("change", e => { state.issueFilter = e.target.value; renderAssessment(); });
+    $("issueAdd")?.addEventListener("click", () => { state.issueRows.push({ id: uid("issue"), severity: "Medium", category: "Manual", activity: "", issue: "", owner: "", status: "Open", comment: "", source: s?.sourceName || s?.name || "Manual", createdAt: new Date().toISOString() }); persistIssueRows(); renderAssessment(); });
+    $("issueFromDcma")?.addEventListener("click", () => { const count = addDcmaFailuresToIssues(s); toast(`${count} DCMA issue${count===1?"":"s"} added`); renderAssessment(); });
+    $("issueExport")?.addEventListener("click", () => downloadBlob(new Blob([toCSV(["Severity","Category","Activity / Relationship","Issue","Owner","Status","Comment","Source"], (state.issueRows || []).map(r => [r.severity,r.category,r.activity,r.issue,r.owner,r.status,r.comment,r.source]))], {type:"text/csv"}), "schedule-issue-register.csv"));
+    document.querySelectorAll("[data-issue]").forEach(el => el.addEventListener("change", () => { const [i,key] = el.dataset.issue.split(":"); if (state.issueRows[Number(i)]) { state.issueRows[Number(i)][key] = el.value; persistIssueRows(); } }));
+    document.querySelectorAll("[data-del-issue]").forEach(el => el.addEventListener("click", () => { state.issueRows.splice(Number(el.dataset.delIssue), 1); persistIssueRows(); renderAssessment(); }));
+  }
+  if (state.assessmentReport === "dcma") {
+    $("qaProfileSelect")?.addEventListener("change", e => {
+      state.qaProfileId = e.target.value || DEFAULT_QA_PROFILE_ID;
+      state.qaCustomThresholds = {};
+      localStorage.setItem("pcai.qaProfileId", state.qaProfileId);
+      localStorage.removeItem("pcai.qaCustomThresholds");
+      renderAssessment();
+    });
+    $("qaProfileReset")?.addEventListener("click", () => {
+      state.qaCustomThresholds = {};
+      localStorage.removeItem("pcai.qaCustomThresholds");
+      renderAssessment();
+    });
+    $("qaProfileEdit")?.addEventListener("click", () => { state.view = "settings"; render(); requestAnimationFrame(() => $("qaProfileSettings")?.scrollIntoView({behavior:"smooth"})); });
+  }
+  if (state.assessmentReport==="dcma") $("dcmaAddIssues")?.addEventListener("click", () => { const count = addDcmaFailuresToIssues(s); toast(`${count} DCMA issue${count===1?"":"s"} added`); });
+  if (state.assessmentReport==="progress-integrity") $("progressIntegrityFilter")?.addEventListener("change", e => { state.progressIntegrityFilter = e.target.value; renderAssessment(); });
+  if (state.assessmentReport==="floatpaths") $("floatPathCount")?.addEventListener("change", e => { state.floatPathCount = Number(e.target.value || 5); renderAssessment(); });
   if (state.assessmentReport==="comparison")pair('comparison', 'comparisonAId', 'comparisonBId');
-  if (state.assessmentReport==="week")pair('week', 'weekAId', 'weekBId');
+  if (state.assessmentReport==="week") {
+    pair('week', 'weekAId', 'weekBId');
+    $("weekChangeFilter")?.addEventListener("change", e => { state.weekChangeFilter = e.target.value; renderAssessment(); });
+    $("weekWbsFilter")?.addEventListener("change", e => { state.weekWbsFilter = e.target.value; renderAssessment(); });
+  }
   if (state.assessmentReport==="delay")pair('delay', 'delayAId', 'delayBId');
-  if (state.assessmentReport==="baseline")pair('baseline', 'baselineCurrentId', 'baselineCompareId');
-  if (state.assessmentReport==="forensic")state.forensicScheduleIds.forEach((_, i) => $(`forensicSlot${i}`)?.addEventListener('change', e => {
-    state.forensicScheduleIds[i] = e.target.value; renderAssessment()
+  if (state.assessmentReport==="logicdiff") pair('logicDiff', 'logicAId', 'logicBId');
+  if (state.assessmentReport==="calendardiff") pair('calendarDiff', 'calendarDiffAId', 'calendarDiffBId');
+  if (state.assessmentReport==="resourceforensics") pair('resourceForensic', 'resourceForensicAId', 'resourceForensicBId');
+  if (state.assessmentReport==="windows") state.windowsScheduleIds.forEach((_, i) => $(`windowsSlot${i}`)?.addEventListener('change', e => {
+    state.windowsScheduleIds[i] = e.target.value; renderAssessment();
   }));
+  if (state.assessmentReport==="baseline") {
+    $("baselineCurrent")?.addEventListener("change", e => { state.baselineCurrentId = e.target.value; renderAssessment(); });
+    state.baselineSlots.forEach((_, i) => $(`baselineSlot${i}`)?.addEventListener("change", e => {
+      state.baselineSlots[i] = e.target.value;
+      localStorage.setItem("pcai.baselineSlots", JSON.stringify(state.baselineSlots));
+      renderAssessment();
+    }));
+  }
+  if (state.assessmentReport==="forensic") {
+    state.forensicScheduleIds.forEach((_, i) => $(`forensicSlot${i}`)?.addEventListener('change', e => {
+      state.forensicScheduleIds[i] = e.target.value; renderAssessment();
+    }));
+    $("forensicMatrixSearch")?.addEventListener("input", e => { state.forensicMatrixSearch = e.target.value; });
+    $("forensicMatrixSearch")?.addEventListener("change", () => renderAssessment());
+    $("exportEvidencePack")?.addEventListener("click", async () => {
+      const button = $("exportEvidencePack");
+      const ordered = state.forensicScheduleIds.map(scheduleById).filter(Boolean).sort((a,b) => (parseDate(a.dataDate)?.getTime()||0) - (parseDate(b.dataDate)?.getTime()||0));
+      if (!ordered.length) return toast("Select at least one schedule first");
+      if (button) { button.disabled = true; button.textContent = "Building evidence pack…"; }
+      try {
+        const sourceBlobs = {};
+        for (const schedule of ordered) {
+          const fileId = schedule.sourceFileId || state.files.find(f => f.name === schedule.sourceName)?.id;
+          if (fileId) { try { sourceBlobs[schedule.id] = await getFileBlob(fileId); } catch (_) {} }
+        }
+        const pack = await buildEvidencePack({ schedules: ordered, activeSchedule: ordered.at(-1), issues: state.issueRows, claims: state.claims, sourceBlobs, qaProfile: currentQaProfile() });
+        downloadBlob(pack.blob, `forensic-evidence-pack-${isoDate(new Date()) || "export"}.zip`);
+        toast("Forensic evidence pack exported");
+      } catch (error) { alert(`Evidence pack failed: ${error?.message || error}`); }
+      finally { if (button) { button.disabled = false; button.textContent = "Export Evidence Pack ZIP"; } }
+    });
+  }
   if (state.assessmentReport==="timemachine")state.timeMachineScheduleIds.forEach((_, i) => $(`timeSlot${i}`)?.addEventListener('change', e => {
     state.timeMachineScheduleIds[i] = e.target.value; renderAssessment()
   }));
@@ -1880,6 +2359,40 @@ function bindAssessmentControls(s) {
     $("ganttResetRange")?.addEventListener("click", () => {
       state[startKey] = ""; state[finishKey] = ""; renderAssessment()
     });
+    const layoutKind = state.assessmentReport === "critical" ? "critical" : "wbs";
+    $("loadNamedGanttLayout")?.addEventListener("click", () => {
+      const name = $("namedGanttLayout")?.value || "";
+      const saved = (state.namedGanttLayouts[layoutKind] || []).find(x => x.name === name);
+      if (!saved) return;
+      state.ganttLayouts[layoutKind] = JSON.parse(JSON.stringify(saved.layout));
+      state.activeNamedGanttLayout[layoutKind] = name;
+      saveGanttLayout(layoutKind);
+      renderAssessment();
+    });
+    $("saveNamedGanttLayout")?.addEventListener("click", () => {
+      const proposed = prompt("Layout name", state.activeNamedGanttLayout[layoutKind] || "")?.trim();
+      if (!proposed) return;
+      const rows = [...(state.namedGanttLayouts[layoutKind] || [])];
+      const record = { name: proposed, layout: JSON.parse(JSON.stringify(state.ganttLayouts[layoutKind] || freshGanttLayout(layoutKind))) };
+      const idx = rows.findIndex(x => x.name.toLowerCase() === proposed.toLowerCase());
+      if (idx >= 0) rows[idx] = record; else rows.push(record);
+      rows.sort((a,b) => a.name.localeCompare(b.name));
+      state.namedGanttLayouts[layoutKind] = rows;
+      state.activeNamedGanttLayout[layoutKind] = proposed;
+      saveNamedGanttLayouts(layoutKind, rows);
+      toast(`Saved layout: ${proposed}`);
+      renderAssessment();
+    });
+    $("deleteNamedGanttLayout")?.addEventListener("click", () => {
+      const name = $("namedGanttLayout")?.value || state.activeNamedGanttLayout[layoutKind] || "";
+      if (!name || !confirm(`Delete saved layout “${name}”?`)) return;
+      const rows = (state.namedGanttLayouts[layoutKind] || []).filter(x => x.name !== name);
+      state.namedGanttLayouts[layoutKind] = rows;
+      state.activeNamedGanttLayout[layoutKind] = "";
+      saveNamedGanttLayouts(layoutKind, rows);
+      renderAssessment();
+    });
+    $("namedGanttLayout")?.addEventListener("change", e => { state.activeNamedGanttLayout[layoutKind] = e.target.value; });
     bindGanttInteractions(s);
   }
   if (state.assessmentReport==="network") {
@@ -2001,171 +2514,51 @@ function exportClaimCsv() {
 // -----------------------------------------------------------------------------
 // Risk and claims / forensic workflows
 // -----------------------------------------------------------------------------
-function plannedScheduleFinish(schedule) {
-  const dates = (schedule?.activities || []).map((activity) => parseDate(activity.finish)).filter(Boolean);
-  return dates.length ? isoDate(new Date(Math.max(...dates.map(Number)))) : "";
-}
-
-function captureMonteOptions() {
-  const options = {
-    iterations: Math.max(100, Math.min(100000, Number($("monteIterations")?.value || state.monteOptions.iterations || 5000))),
-    seed: Number($("monteSeed")?.value || state.monteOptions.seed || 42),
-    uncertaintyPercent: Math.max(0, Math.min(200, Number($("monteUncertainty")?.value || state.monteOptions.uncertaintyPercent || 20))),
-    distribution: $("monteDistribution")?.value || state.monteOptions.distribution || "triangular",
-    targetId: String($("monteTargetId")?.value || "").trim(),
-    targetDate: $("monteTargetDate")?.value || "",
-    customPercentile: Math.max(1, Math.min(99, Number($("montePercentile")?.value || state.monteOptions.customPercentile || 75))),
-    histogramBuckets: Math.max(6, Math.min(60, Number($("monteBuckets")?.value || state.monteOptions.histogramBuckets || 20))),
-    includeRisks: Boolean($("monteIncludeRisks")?.checked),
-    remainingOnly: Boolean($("monteRemainingOnly")?.checked),
-  };
-  state.monteOptions = options;
-  localStorage.setItem("pcai.monteOptions", JSON.stringify(options));
-  return options;
-}
-
-function monteControls(schedule) {
-  const options = state.monteOptions;
-  const plannedFinish = plannedScheduleFinish(schedule);
-  return `<details class="monte-options" open>
-    <summary><strong>Monte Carlo options</strong><span>Configure simulation assumptions</span></summary>
-    <div class="form monte-grid">
-      <label>Iterations<input id="monteIterations" type="number" min="100" max="100000" step="100" value="${Number(options.iterations || 5000)}"></label>
-      <label>Distribution<select id="monteDistribution">
-        <option value="triangular" ${options.distribution === "triangular" ? "selected" : ""}>Triangular</option>
-        <option value="pert" ${options.distribution === "pert" ? "selected" : ""}>Beta-PERT</option>
-        <option value="normal" ${options.distribution === "normal" ? "selected" : ""}>Normal (bounded)</option>
-        <option value="uniform" ${options.distribution === "uniform" ? "selected" : ""}>Uniform</option>
-      </select></label>
-      <label>Duration uncertainty ± %<input id="monteUncertainty" type="number" min="0" max="200" step="1" value="${Number(options.uncertaintyPercent ?? 20)}"></label>
-      <label>Random seed<input id="monteSeed" type="number" step="1" value="${Number(options.seed ?? 42)}"></label>
-      <label>Target Activity / Milestone ID<input id="monteTargetId" value="${esc(options.targetId || "")}" placeholder="Blank = project finish"></label>
-      <label>Target completion date<input id="monteTargetDate" type="date" value="${esc(options.targetDate || plannedFinish)}"></label>
-      <label>Custom percentile P<input id="montePercentile" type="number" min="1" max="99" step="1" value="${Number(options.customPercentile || 75)}"></label>
-      <label>Histogram buckets<input id="monteBuckets" type="number" min="6" max="60" step="1" value="${Number(options.histogramBuckets || 20)}"></label>
-      <label class="checkline"><input id="monteIncludeRisks" type="checkbox" ${options.includeRisks ? "checked" : ""}> Include mapped Risk Register impacts</label>
-      <label class="checkline"><input id="monteRemainingOnly" type="checkbox" ${options.remainingOnly ? "checked" : ""}> Simulate remaining work only</label>
-    </div>
-    <p class="muted">Duration distributions are applied to each activity. When Risk Register impacts are enabled, a triggered mapped risk is applied once at its latest mapped activity; unmapped risks are treated as project-level finish impacts to avoid multiplying one risk across several activities.</p>
-    <div class="actions monte-actions"><button class="btn primary" id="runMonteInline" type="button">Run simulation</button></div>
-  </details>`;
-}
-
 function renderRisk() {
-  const schedule = activeSchedule();
-  const risks = schedule
-    ? state.risks.map((risk) => mapRiskToSchedule(risk, schedule))
-    : state.risks.map((risk) => ({ ...risk, activities: [] }));
-  $("workspace").innerHTML = `${viewHead("Risk Analysis", "Risk register, schedule mapping, QSRA, criticality and mitigation", `<input id="riskCsvInput" type="file" accept=".csv,text/csv" hidden><button class="btn" id="riskImportCsv">Import CSV</button><button class="btn" id="riskExportCsv">Export CSV</button><button class="btn primary" id="runMonte" ${schedule ? "" : "disabled"}>Run Monte Carlo</button>`)}
-  <div class="grid grid2"><section class="panel"><h2>Risk Register</h2>${table(["ID", "Risk", "Probability", "Impact days", "Mapped activities", "Mitigation"], risks.map((risk) => [esc(risk.code || risk.id), esc(risk.title), `${Number(risk.probability || 0)}%`, Number(risk.impactDays || 0), risk.activities.map((activity) => esc(activity.id)).join(", "), esc(risk.mitigation || "")]))}
+  const s = activeSchedule();
+  const risks = s? state.risks.map(r => mapRiskToSchedule(r, s)): state.risks.map(r => ( {
+    ...r, activities: []
+  }));
+  $("workspace").innerHTML = `${viewHead("Risk Analysis", "Risk register, schedule mapping, QSRA, criticality and mitigation", `<input id="riskCsvInput" type="file" accept=".csv,text/csv" hidden><button class="btn" id="riskImportCsv">Import CSV</button><button class="btn" id="riskExportCsv">Export CSV</button><button class="btn primary" id="runMonte" ${s? "": "disabled"}>Run Monte Carlo</button>`)}
+  <div class="grid grid2"><section class="panel"><h2>Risk Register</h2>${table(["ID", "Risk", "Probability", "Impact days", "Mapped activities", "Mitigation"], risks.map(r => [esc(r.code || r.id), esc(r.title), `${Number(r.probability || 0)}%`, Number(r.impactDays || 0), r.activities.map(a => esc(a.id)).join(", "), esc(r.mitigation || "")]))}
   <form id="riskForm" class="form"><label>Risk title<input name="title" required></label><label>Probability %<input name="probability" type="number" min="0" max="100" value="30"></label><label>Impact days<input name="impactDays" type="number" value="10"></label><label>Activity IDs (comma separated)<input name="activityIds"></label><label>Mitigation<textarea name="mitigation"></textarea></label><button class="btn primary">Add Risk</button></form></section>
-  <section class="panel risk-quant"><h2>Quantitative Schedule Risk Analysis</h2>${!schedule ? `<div class="muted">Import/select a schedule to run Monte Carlo analysis. The risk register and CSV import/export remain available without a schedule.</div>` : `${monteControls(schedule)}${state.monte ? renderMonte(state.monte) : `<div class="muted monte-empty">Configure the assumptions above and run Monte Carlo to calculate completion confidence, percentiles, the outcome distribution and activity criticality.</div>`}`}</section></div>`;
-  $("riskForm").onsubmit = async (event) => {
-    event.preventDefault();
-    const form = new FormData(event.target);
-    await saveRisk({
-      code: `R-${String(state.risks.length + 1).padStart(3, "0")}`,
-      title: form.get("title"),
-      probability: Number(form.get("probability")),
-      impactDays: Number(form.get("impactDays")),
-      activityIds: String(form.get("activityIds") || "").split(",").map((x) => x.trim()).filter(Boolean),
-      mitigation: form.get("mitigation"),
+  <section class="panel"><h2>Quantitative Schedule Risk Analysis</h2>${!s? `<div class="muted">Import/select a schedule to run Monte Carlo analysis. The risk register and CSV import/export remain available without a schedule.</div>`: state.monte? renderMonte(state.monte): `<div class="muted">Run Monte Carlo to calculate P10/P50/P80/P90 and criticality.</div>`}</section></div>`;
+  $("riskForm").onsubmit = async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    await saveRisk( {
+      code: `R-${String(state.risks.length + 1).padStart(3, "0")}`, title: fd.get("title"), probability: Number(fd.get("probability")), impactDays: Number(fd.get("impactDays")), activityIds: String(fd.get("activityIds") || "").split(",").map(x => x.trim()).filter(Boolean), mitigation: fd.get("mitigation")
     });
     await refreshData();
-    renderRisk();
+    renderRisk()
   };
   $("riskExportCsv").onclick = exportRiskCsv;
   $("riskImportCsv").onclick = () => $("riskCsvInput").click();
-  $("riskCsvInput").onchange = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  $("riskCsvInput").onchange = async e => {
+    const file = e.target.files?.[0];
+    if (!file)return;
     try {
-      const count = await importRiskCsv(file);
-      toast(`Imported ${count} risk row(s)`);
-      renderRisk();
+      const n = await importRiskCsv(file);
+      toast(`Imported ${n} risk row(s)`);
+      renderRisk()
     } catch (error) {
-      alert(`Risk CSV import failed: ${error.message}`);
+      alert(`Risk CSV import failed: ${error.message}`)
     }
-    event.target.value = "";
+    e.target.value = ""
   };
-  if (schedule) {
-    const runSimulation = async () => {
-      const options = captureMonteOptions();
-      await withProgress("Running Monte Carlo", async () => {
-        state.monte = await runMonteWorker(schedule, {
-          iterations: options.iterations,
-          seed: options.seed,
-          uncertainty: options.uncertaintyPercent / 100,
-          distribution: options.distribution,
-          targetId: options.targetId || null,
-          targetDate: options.targetDate,
-          customPercentile: options.customPercentile,
-          histogramBuckets: options.histogramBuckets,
-          includeRisks: options.includeRisks,
-          remainingOnly: options.remainingOnly,
-          risks: state.risks,
-        });
-      });
-      renderRisk();
-    };
-    if ($("runMonte")) $("runMonte").onclick = runSimulation;
-    if ($("runMonteInline")) $("runMonteInline").onclick = runSimulation;
-  }
-}
-
-function monteOutcomeGraphic(result) {
-  const buckets = result.histogram || [];
-  if (!buckets.length) return "";
-  const width = 760;
-  const height = 270;
-  const left = 54;
-  const right = 20;
-  const top = 24;
-  const bottom = 54;
-  const chartWidth = width - left - right;
-  const chartHeight = height - top - bottom;
-  const maxCount = Math.max(1, ...buckets.map((bucket) => bucket.count));
-  const minX = buckets[0].from;
-  const maxX = buckets.at(-1).to;
-  const x = (value) => left + ((value - minX) / (maxX - minX || 1)) * chartWidth;
-  const bars = buckets.map((bucket, index) => {
-    const x0 = left + index * (chartWidth / buckets.length);
-    const barWidth = Math.max(1, chartWidth / buckets.length - 2);
-    const barHeight = bucket.count / maxCount * chartHeight;
-    return `<rect x="${x0.toFixed(1)}" y="${(top + chartHeight - barHeight).toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" class="monte-bar"><title>${bucket.from.toFixed(1)}–${bucket.to.toFixed(1)} days · ${bucket.probability.toFixed(1)}%</title></rect>`;
-  }).join("");
-  const marker = (value, label, className) => {
-    if (!Number.isFinite(Number(value))) return "";
-    const px = x(Number(value));
-    return `<line x1="${px.toFixed(1)}" y1="${top}" x2="${px.toFixed(1)}" y2="${top + chartHeight}" class="${className}"></line><text x="${px.toFixed(1)}" y="${top + 12}" class="monte-marker-label" transform="rotate(-90 ${px.toFixed(1)} ${top + 12})">${esc(label)}</text>`;
+  if ($("runMonte") && s)$("runMonte").onclick = async() => {
+    await withProgress("Running Monte Carlo", async() => {
+      state.monte = await runMonteWorker(s, {
+        iterations: 2000, seed: 42, uncertainty: .2
+      })
+    });
+    renderRisk()
   };
-  const ticks = [minX, result.p50, result.p80, maxX]
-    .filter((value, index, arr) => arr.findIndex((other) => Math.abs(other - value) < 0.01) === index)
-    .map((value) => `<text x="${x(value).toFixed(1)}" y="${height - 18}" class="monte-axis-label" text-anchor="middle">${Number(value).toFixed(1)}d</text>`)
-    .join("");
-  return `<figure class="monte-outcome"><figcaption><strong>Potential completion outcomes</strong><span>Frequency distribution across ${Number(result.iterations).toLocaleString()} simulations</span></figcaption><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Monte Carlo completion outcome histogram"><line x1="${left}" y1="${top + chartHeight}" x2="${width - right}" y2="${top + chartHeight}" class="monte-axis"></line>${bars}${marker(result.p50, "P50", "monte-p50")}${marker(result.p80, "P80", "monte-p80")}${result.plannedDuration ? marker(result.plannedDuration, "Planned", "monte-planned") : ""}${ticks}</svg></figure>`;
 }
-
-function renderMonte(result) {
-  if (result.error) return `<div class="badge danger">${esc(result.error)}</div>`;
-  const customLabel = `P${Number(result.customPercentile || 75)}`;
-  const probabilityMetric = result.targetProbability === null || result.targetProbability === undefined
-    ? ""
-    : metric(`Finish by ${result.targetDate || "target"}`, `${result.targetProbability.toFixed(1)}%`);
-  return `<div class="metrics monte-metrics" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-    ${metric("P10", `${result.p10.toFixed(1)}d`)}
-    ${metric("P50", `${result.p50.toFixed(1)}d`)}
-    ${metric("P80", `${result.p80.toFixed(1)}d`)}
-    ${metric("P90", `${result.p90.toFixed(1)}d`)}
-    ${metric(customLabel, `${result.customValue.toFixed(1)}d`)}
-    ${metric("Std. deviation", `${result.stddev.toFixed(1)}d`)}
-    ${probabilityMetric}
-  </div>
-  ${monteOutcomeGraphic(result)}
-  <div class="monte-run-summary"><span><strong>Distribution:</strong> ${esc(result.distribution)}</span><span><strong>Uncertainty:</strong> ±${(Number(result.uncertainty || 0) * 100).toFixed(0)}%</span><span><strong>Planned finish:</strong> ${esc(result.plannedFinish || "—")}</span><span><strong>Mean outcome:</strong> ${result.mean.toFixed(1)}d</span></div>
-  <details class="monte-criticality" open><summary><strong>Activity criticality</strong><span>Probability of appearing on the simulated controlling path</span></summary>${table(["Activity", "Criticality"], result.criticality.slice(0, 50).map((item) => [esc(item.id), `${item.probability.toFixed(1)}%`]))}</details>`;
+function renderMonte(m) {
+  if (m.error)return`<div class="badge danger">${esc(m.error)}</div>`;
+  return`<div class="metrics" style="grid-template-columns:repeat(4,1fr)">${metric("P10", `${m.p10.toFixed(1)}d`)}${metric("P50", `${m.p50.toFixed(1)}d`)}${metric("P80", `${m.p80.toFixed(1)}d`)}${metric("P90", `${m.p90.toFixed(1)}d`)}</div>${table(["Activity", "Criticality"], m.criticality.slice(0, 30).map(x => [esc(x.id), `${x.probability.toFixed(1)}%`]))}`;
 }
-
 async function runMonteWorker(schedule, options) {
   if (typeof Worker==="undefined")return runMonteCarlo(schedule, options);
   return await new Promise((resolve, reject) => {
@@ -2362,7 +2755,7 @@ function builderStepMarkup(step) {
   refs = (w.referenceFileIds || []).map(id => state.files.find(f => f.id===id)?.name).filter(Boolean),
   drawings = (w.drawingFileIds || []).map(id => state.files.find(f => f.id===id)?.name).filter(Boolean),
   similar = (w.similarScheduleIds || []).map(id => scheduleById(id)).filter(Boolean);
-  return`<h2>12. Review & Generate</h2><div class="builder-review-grid"><section><h3>Schedule definition</h3><dl><dt>Type</dt><dd>${esc(w.scheduleType)}</dd><dt>Detail</dt><dd>${esc(w.detailLevel)}</dd><dt>Disciplines</dt><dd>${esc(w.disciplines.join(", ") || "None")}</dd><dt>Phases</dt><dd>${esc(w.phases.join(", ") || "None")}</dd><dt>Project start</dt><dd>${esc(w.projectStart || "—")}</dd></dl></section><section><h3>Reference set</h3><dl><dt>Specifications</dt><dd>${w.specFileIds.length}</dd><dt>Similar schedules</dt><dd>${similar.length}</dd><dt>Documents</dt><dd>${refs.length}</dd><dt>Drawings/models</dt><dd>${drawings.length}</dd><dt>Calendars</dt><dd>${w.calendars.length}</dd></dl></section></div><div class="ai-readiness ${ai.engine!=="none" && ai.compatible? "ready": "not-ready"}"><strong>AI engine: ${esc(aiLabel())}</strong><span>${ai.engine==="none"? "Select and apply an AI engine on Settings before generation.": ai.compatible? "Ready for schedule generation.": esc(ai.compatibilityMessage)}</span></div><div class="actions"><button class="btn primary" id="builderGenerate" type="button" ${ai.engine==="none" || !ai.compatible? "disabled": ""}>Generate schedule with AI</button><button class="btn" id="builderReviewExport" type="button">Download wizard brief</button></div>${builderGenerationMarkup()}`;
+  return`<h2>12. Review & Generate</h2><div class="builder-review-grid"><section><h3>Schedule definition</h3><dl><dt>Type</dt><dd>${esc(w.scheduleType)}</dd><dt>Detail</dt><dd>${esc(w.detailLevel)}</dd><dt>Disciplines</dt><dd>${esc(w.disciplines.join(", ") || "None")}</dd><dt>Phases</dt><dd>${esc(w.phases.join(", ") || "None")}</dd><dt>Project start</dt><dd>${esc(w.projectStart || "—")}</dd></dl></section><section><h3>Reference set</h3><dl><dt>Specifications</dt><dd>${w.specFileIds.length}</dd><dt>Similar schedules</dt><dd>${similar.length}</dd><dt>Documents</dt><dd>${refs.length}</dd><dt>Drawings/models</dt><dd>${drawings.length}</dd><dt>Calendars</dt><dd>${w.calendars.length}</dd></dl></section></div><div class="ai-readiness ${ai.engine!=="none" && ai.compatible? "ready": "not-ready"}"><strong>AI engine: ${esc(aiLabel())}</strong><span>${ai.engine==="none"? "Select and apply an AI engine on Settings before generation.": ai.compatible? "Ready for schedule generation.": esc(ai.compatibilityMessage)}</span></div><div class="actions"><button class="btn primary" id="builderGenerate" type="button" ${ai.engine==="none" || !ai.compatible? "disabled": ""}>Generate schedule with AI</button><button class="btn" id="builderReviewExport" type="button">Download wizard brief</button></div><div class="builder-generation"><div class="builder-progress"><i id="builderProgressBar" style="width:${Number(state.builderGeneration?.percent || 0)}%"></i></div><strong id="builderProgressLabel">${esc(state.builderGeneration?.message || "Ready")}</strong><pre id="builderGenerationLog">${esc(state.builderGeneration?.log || "")}</pre></div>`;
 }
 function captureBuilderStep() {
   const w = builderWizard(),
@@ -2448,7 +2841,7 @@ function builderBrief(w) {
 function builderPrompt(w) {
   const brief = builderBrief(w),
   levelCount = w.detailLevel==="Level 5"? "high-detail work-package activities": w.detailLevel==="Level 4"? "detailed control activities": "management/control activities";
-  return`Generate a professional ${w.scheduleType} ${w.detailLevel} project schedule using ${levelCount}. Use the supplied repository evidence and similar schedules as references but do not invent contractual facts. Follow the selected phases, disciplines, responsibilities, milestones and calendar assumptions. Return ONLY valid JSON with this exact shape: {"activities":[{"id":"DRAFT-001","name":"Installation activity","wbs":"Phase / Area / Discipline","area":"Area 01","elevation":"Level 01","discipline":"Electrical","service":"LV Power","step":"Install containment","start":"YYYY-MM-DD","duration":5,"predecessors":"DRAFT-000:FS","milestone":false,"calendar":"Calendar name","responsible":"Main Contractor","phase":"Construction"}],"assumptions":["..."]}. Create enough location/service metadata to support structured names in the form Area - Elevation - Discipline - Service - Step. Draft IDs only need to be unique because the deterministic builder pipeline will replace them with responsibility-aware smart activity IDs. Use logical FS/SS/FF/SF predecessor strings, realistic durations, and zero duration for milestones. Do not wrap JSON in markdown.\n\nWIZARD BRIEF:\n${JSON.stringify(brief)}`
+  return`Generate a professional ${w.scheduleType} ${w.detailLevel} project schedule using ${levelCount}. Use the supplied repository evidence and similar schedules as references but do not invent contractual facts. Follow the selected phases, disciplines, responsibilities, milestones and calendar assumptions. Return ONLY valid JSON with this exact shape: {"activities":[{"id":"A1000","name":"Activity name","wbs":"Phase / Discipline / Area","start":"YYYY-MM-DD","duration":5,"predecessors":"A0990:FS","milestone":false,"calendar":"Calendar name","responsible":"Party","discipline":"Electrical","phase":"Construction"}],"assumptions":["..."]}. Use unique activity IDs, logical FS/SS/FF/SF predecessor strings, realistic durations, and zero duration for milestones. Do not wrap JSON in markdown.\n\nWIZARD BRIEF:\n${JSON.stringify(brief)}`
 }
 function parseBuilderAI(text) {
   const raw = String(text || "").trim(),
@@ -2528,135 +2921,61 @@ function deterministicBuilderRows(w) {
   }
   return normaliseBuilderRows(rows, w)
 }
-function builderPipelineState() {
-  const current = state.builderGeneration?.steps;
-  if (Array.isArray(current) && current.length === BUILDER_PIPELINE_STEPS.length) return current;
-  return BUILDER_PIPELINE_STEPS.map((label, index) => ({ index, label, status: "pending", detail: "" }));
-}
-
-function builderGenerationMarkup() {
-  const generation = state.builderGeneration || { percent: 0, message: "Ready", log: "" };
-  const steps = builderPipelineState();
-  return `<div class="builder-generation">
-    <div class="builder-progress"><i id="builderProgressBar" style="width:${Number(generation.percent || 0)}%"></i></div>
-    <div class="builder-progress-head"><strong id="builderProgressLabel">${esc(generation.message || "Ready")}</strong><span>${Number(generation.percent || 0).toFixed(0)}%</span></div>
-    <ol class="builder-pipeline" id="builderPipelineSteps">
-      ${steps.map((step) => `<li id="builderPipelineStep-${step.index}" class="${esc(step.status || "pending")}"><span>${step.index + 1}</span><div><strong>${esc(step.label)}</strong><small>${esc(step.detail || "Pending")}</small></div></li>`).join("")}
-    </ol>
-    <pre id="builderGenerationLog">${esc(generation.log || "")}</pre>
-  </div>`;
-}
-
-function setBuilderProgress(percent, message, append = "", stepUpdate = null) {
-  const steps = builderPipelineState().map((step) => ({ ...step }));
-  if (stepUpdate && Number.isInteger(stepUpdate.index) && steps[stepUpdate.index]) {
-    steps[stepUpdate.index] = {
-      ...steps[stepUpdate.index],
-      status: stepUpdate.status || steps[stepUpdate.index].status,
-      detail: stepUpdate.detail ?? steps[stepUpdate.index].detail,
-    };
-  }
+function setBuilderProgress(percent, message, append = "") {
   state.builderGeneration = {
     percent,
     message,
-    steps,
-    log: `${state.builderGeneration?.log || ""}${append ? `${append}\n` : ""}`,
+    log: `${state.builderGeneration?.log || ''}${append? `${append}\n`: ''}`
   };
-  const bar = $("builderProgressBar");
-  const label = $("builderProgressLabel");
-  const log = $("builderGenerationLog");
-  if (bar) bar.style.width = `${percent}%`;
-  if (label) label.textContent = message;
-  if (log) log.textContent = state.builderGeneration.log;
-  for (const step of steps) {
-    const el = $(`builderPipelineStep-${step.index}`);
-    if (!el) continue;
-    el.className = step.status || "pending";
-    const detail = el.querySelector("small");
-    if (detail) detail.textContent = step.detail || (step.status === "running" ? "Running…" : step.status === "done" ? "Complete" : "Pending");
-  }
+  const bar = $("builderProgressBar"),
+  label = $("builderProgressLabel"),
+  log = $("builderGenerationLog");
+  if (bar)bar.style.width = `${percent}%`;
+  if (label)label.textContent = message;
+  if (log)log.textContent = state.builderGeneration.log
 }
-
-function resetBuilderGeneration(message = "Ready") {
-  state.builderGeneration = {
-    percent: 0,
-    message,
-    log: "",
-    steps: BUILDER_PIPELINE_STEPS.map((label, index) => ({ index, label, status: "pending", detail: "" })),
-  };
-}
-
-async function builderPaintFrame() {
-  if (typeof requestAnimationFrame === "function") {
-    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
-  } else {
-    await Promise.resolve();
-  }
-}
-
 /**
- * Execute the final Schedule Builder step. The AI provider creates a draft;
- * nine deterministic schedule-construction stages then build and validate the
- * WBS, calendars, structured activities, logic and milestone compliance.
+ * Execute the final Schedule Builder step. Only explicitly selected references
+ * are provided to the configured AI provider; invalid AI JSON falls back to a
+ * deterministic scaffold so the editor remains usable.
  */
 async function generateBuilderSchedule() {
-  const w = captureBuilderStep();
-  const ai = selectedAIInfo();
-  if (ai.engine === "none" || !ai.compatible) {
-    alert("Select and apply a compatible AI engine in Settings first.");
-    return;
+  const w = captureBuilderStep(),
+  ai = selectedAIInfo();
+  if (ai.engine==="none" || !ai.compatible) {
+    alert('Select and apply a compatible AI engine in Settings first.');
+    return
   }
   try {
-    resetBuilderGeneration("Preparing AI schedule draft");
-    setBuilderProgress(2, "Preparing AI schedule draft", "Wizard and selected reference set validated.");
+    setBuilderProgress(5, 'Validating wizard', 'Wizard configuration validated.');
     const similar = (w.similarScheduleIds || []).map(scheduleById).filter(Boolean);
+    setBuilderProgress(18, 'Building generation brief', `${similar.length} similar schedule(s) selected.`);
     const prompt = builderPrompt(w);
-    const contextFileIds = [...new Set([...(w.specFileIds || []), ...(w.referenceFileIds || []), ...(w.drawingFileIds || [])])];
-    const out = await askAI({
-      question: prompt,
-      role: "Senior Planning Manager / Schedule Author",
-      current: similar.at(-1) || activeSchedule(),
-      previous: similar.length > 1 ? similar.at(-2) : null,
-      revisions: similar,
-      history: [],
-      contextFileIds,
+    setBuilderProgress(30, `Generating with ${aiLabel()}`, 'AI generation request started.');
+    const contextFileIds = [...new Set([...(w.specFileIds || []), ...(w.referenceFileIds || []), ...(w.drawingFileIds || [])])],
+    out = await askAI( {
+      question: prompt, role: 'Senior Planning Manager / Schedule Author', current: similar.at( - 1) || activeSchedule(), previous: similar.length>1? similar.at( - 2): null, revisions: similar, history: [], contextFileIds
     });
-    setBuilderProgress(6, "AI draft received", "AI schedule draft received; deterministic construction pipeline starting.");
-
+    setBuilderProgress(78, 'Validating generated schedule', 'AI response received.');
     let parsed;
     try {
-      parsed = parseBuilderAI(out.text);
+      parsed = parseBuilderAI(out.text)
     } catch (error) {
+      setBuilderProgress(82, 'AI JSON needed repair', `${error.message} Using deterministic wizard scaffold so the builder remains usable.`);
       parsed = {
         rows: deterministicBuilderRows(w),
-        assumptions: ["AI response was not valid schedule JSON; deterministic wizard scaffold generated."],
-      };
-      setBuilderProgress(6, "Draft repaired", `${error.message} Deterministic wizard scaffold substituted.`);
+        assumptions: ['AI response was not valid schedule JSON; deterministic wizard scaffold generated.']
+      }
     }
-
-    const draftRows = Array.isArray(parsed.rows) && parsed.rows.length ? parsed.rows : deterministicBuilderRows(w);
-    const pipeline = await runBuilderPipeline(draftRows, w, {
-      onStep: async ({ index, label, status, detail }) => {
-        const startPercent = 8 + (index / BUILDER_PIPELINE_STEPS.length) * 90;
-        const finishPercent = 8 + ((index + 1) / BUILDER_PIPELINE_STEPS.length) * 90;
-        if (status === "running") {
-          setBuilderProgress(startPercent, `Step ${index + 1}: ${label}`, "", { index, status: "running", detail: "Running…" });
-        } else {
-          setBuilderProgress(finishPercent, `Step ${index + 1} complete: ${label}`, detail, { index, status: "done", detail });
-        }
-        await builderPaintFrame();
-      },
-    });
-
-    state.builderRows = pipeline.rows;
-    localStorage.setItem("pcai.builder", JSON.stringify(pipeline.rows));
-    const warnings = pipeline.warnings.length ? ` Planner review: ${pipeline.warnings.join(" | ")}` : "";
-    const assumptions = (parsed.assumptions || []).join(" | ");
-    setBuilderProgress(100, "Schedule generation and checks complete", `Generated ${pipeline.rows.length} editable activities.${assumptions ? ` Assumptions: ${assumptions}` : ""}${warnings}`);
-    renderBuilder();
+    const rows = Array.isArray(parsed.rows) && parsed.rows.length && parsed.rows[0]?.finish? parsed.rows: normaliseBuilderRows(parsed.rows, w);
+    state.builderRows = rows;
+    localStorage.setItem('pcai.builder', JSON.stringify(rows));
+    setBuilderProgress(94, 'Applying calendars and controls', `${rows.length} activities normalised into the editable builder.`);
+    setBuilderProgress(100, 'Generation complete', `Generated ${rows.length} editable activities. Assumptions: ${(parsed.assumptions || []).join(' | ') || 'See activity set and wizard brief.'}`);
+    renderBuilder()
   } catch (error) {
-    setBuilderProgress(100, "Generation failed", error.message || String(error));
-    alert(`Schedule generation failed: ${error.message || error}`);
+    setBuilderProgress(100, 'Generation failed', error.message || String(error));
+    alert(`Schedule generation failed: ${error.message || error}`)
   }
 }
 function builderEditorMarkup() {
@@ -2720,10 +3039,23 @@ function renderBuilder() {
 function renderSettings() {
   const c = ollamaConfig(),
   selectedValue = preferredAI(),
-  gemini = cloudConfig("gemini"),
-  grok = cloudConfig("grok"),
-  openai = cloudConfig("openai"),
-  anthropic = cloudConfig("anthropic");
+  cloudIds = cloudProviderIds(),
+  cloudConfigs = Object.fromEntries(cloudIds.map(id => [id, cloudConfig(id)])),
+  qa = currentQaProfile(),
+  qaThresholdLabels = {
+    logicMissingPctMax: "Missing logic max %", leadPctMax: "Leads max %", lagPctMax: "Lags max %", fsPctMin: "FS relationships min %", sfCountMax: "SF relationships max count", hardConstraintPctMax: "Hard constraints max %", highFloatPctMax: "High float max %", negativeFloatPctMax: "Negative float max %", highDurationPctMax: "Long duration max %", invalidDateCountMax: "Invalid dates max count", resourceMissingPctMax: "Missing resources max %", missedTaskPctMax: "Missed tasks max %", cpliMin: "CPLI minimum", beiMin: "BEI minimum", durationLimitDays: "Long-duration limit (days)", highFloatLimitDays: "High-float limit (days)"
+  },
+  cloudProviderCards = cloudIds.map(provider => {
+    const cfg = cloudConfigs[provider], meta = cloudProviderMeta(provider), cap = provider[0].toUpperCase() + provider.slice(1);
+    const showEndpoint = provider === "custom" || provider === "deepseek" || provider === "nvidia";
+    return `<div class="cloud-provider"><div class="cloud-provider-head"><strong>${esc(meta.label)}</strong><span>${esc(cfg.protocol)}</span></div><div class="form">
+      <label>${esc(meta.label)} API key<input id="${provider}ApiKey" type="password" autocomplete="off" placeholder="Paste API key" value="${esc(cfg.apiKey)}"></label>
+      <label>Model<input id="${provider}Model" list="${provider}ModelList" value="${esc(cfg.model)}" placeholder="${esc(meta.model || "model-name")}"><datalist id="${provider}ModelList"></datalist></label>
+      ${showEndpoint ? `<label>API endpoint<input id="${provider}BaseUrl" value="${esc(cfg.baseUrl)}" placeholder="https://.../v1/chat/completions"></label>` : ""}
+      ${provider === "custom" ? `<label>Protocol<select id="customProtocol"><option value="openai-chat" ${cfg.protocol==="openai-chat"?"selected":""}>OpenAI Chat Completions</option><option value="openai-responses" ${cfg.protocol==="openai-responses"?"selected":""}>OpenAI Responses</option><option value="anthropic" ${cfg.protocol==="anthropic"?"selected":""}>Anthropic Messages</option></select></label>` : ""}
+      <div class="actions"><button class="btn primary" id="save${cap}">Save locally</button><button class="btn" id="test${cap}">Test ${esc(meta.label)}</button>${["openai-chat","openai-responses"].includes(cfg.protocol)?`<button class="btn" id="models${cap}" type="button">Refresh models</button>`:""}<button class="btn" id="clear${cap}">Clear key</button></div>
+      <div id="${provider}Diag" class="muted">${cfg.apiKey? "API key is stored locally in this browser.": `No ${esc(meta.label)} API key stored.`}</div></div></div>`;
+  }).join("");
   $("workspace").innerHTML = `${viewHead("Settings", "AI model selection, project-controls profile and local Ollama setup")}
   <div class="grid grid2 settings-grid">
     <section class="panel"><h2>Global AI Model</h2>
@@ -2734,34 +3066,20 @@ function renderSettings() {
       <div id="selectedAiCard" class="ai-config-card" style="margin-top:10px"></div>
       <div id="browserAiDiag" class="muted" style="margin-top:8px">Browser models download only after selection and first test/use.</div>
     </section>
-    <section class="panel cloud-ai-panel"><h2>Cloud AI API keys — Gemini, Grok, OpenAI & Claude</h2>
-      <p class="muted">Gemini & Grok API keys remain supported, with OpenAI and Claude added. Keys are saved only in this browser's local storage on this computer; they are never written into the GitHub repository. Because this is a static GitHub Pages site, browser-stored API keys are convenient but are not equivalent to server-side secrets.</p>
-      <div class="cloud-provider">
-        <div class="cloud-provider-head"><strong>Google Gemini</strong><span>Direct browser API</span></div>
-        <div class="form"><label>Gemini API key<input id="geminiApiKey" type="password" autocomplete="off" placeholder="Paste Gemini API key" value="${esc(gemini.apiKey)}"></label><label>Gemini model<input id="geminiModel" value="${esc(gemini.model)}" placeholder="gemini-3.8-flash"></label><div class="actions"><button class="btn primary" id="saveGemini">Save locally</button><button class="btn" id="testGemini">Test Gemini</button><button class="btn" id="clearGemini">Clear key</button></div><div id="geminiDiag" class="muted">${gemini.apiKey? "API key is stored locally in this browser.": "No Gemini API key stored."}</div></div>
-      </div>
-      <div class="cloud-provider">
-        <div class="cloud-provider-head"><strong>xAI Grok</strong><span>Direct browser API</span></div>
-        <div class="form"><label>Grok / xAI API key<input id="grokApiKey" type="password" autocomplete="off" placeholder="Paste xAI API key" value="${esc(grok.apiKey)}"></label><label>Grok model<input id="grokModel" value="${esc(grok.model)}" placeholder="grok-4.6"></label><div class="actions"><button class="btn primary" id="saveGrok">Save locally</button><button class="btn" id="testGrok">Test Grok</button><button class="btn" id="clearGrok">Clear key</button></div><div id="grokDiag" class="muted">${grok.apiKey? "API key is stored locally in this browser.": "No Grok API key stored."}</div></div>
-      </div>
-      <div class="cloud-provider">
-        <div class="cloud-provider-head"><strong>OpenAI</strong><span>Responses API</span></div>
-        <div class="form"><label>OpenAI API key<input id="openaiApiKey" type="password" autocomplete="off" placeholder="Paste OpenAI API key" value="${esc(openai.apiKey)}"></label><label>OpenAI model<input id="openaiModel" value="${esc(openai.model)}" placeholder="gpt-5.6"></label><div class="actions"><button class="btn primary" id="saveOpenai">Save locally</button><button class="btn" id="testOpenai">Test OpenAI</button><button class="btn" id="clearOpenai">Clear key</button></div><div id="openaiDiag" class="muted">${openai.apiKey? "API key is stored locally in this browser.": "No OpenAI API key stored."}</div></div>
-      </div>
-      <div class="cloud-provider">
-        <div class="cloud-provider-head"><strong>Anthropic Claude</strong><span>Messages API</span></div>
-        <div class="form"><label>Claude / Anthropic API key<input id="anthropicApiKey" type="password" autocomplete="off" placeholder="Paste Anthropic API key" value="${esc(anthropic.apiKey)}"></label><label>Claude model<input id="anthropicModel" value="${esc(anthropic.model)}" placeholder="claude-sonnet-5"></label><div class="actions"><button class="btn primary" id="saveAnthropic">Save locally</button><button class="btn" id="testAnthropic">Test Claude</button><button class="btn" id="clearAnthropic">Clear key</button></div><div id="anthropicDiag" class="muted">${anthropic.apiKey? "API key is stored locally in this browser.": "No Claude API key stored."}</div></div>
-      </div>
-      <p class="muted cloud-key-warning">For a public/production deployment, a small backend or Worker that keeps long-lived keys off the page is safer. This local-storage option is provided because you specifically want the key to remain available on the user's own machine.</p>
+    <section class="panel cloud-ai-panel"><h2>Cloud AI providers</h2>
+      <p class="muted">Choose a preset provider or configure a custom OpenAI-compatible endpoint. DeepSeek and NVIDIA NIM use their current OpenAI-compatible chat endpoints. Keys remain in this browser profile and are never written into the GitHub package.</p>
+      ${cloudProviderCards}
+      <p class="muted cloud-key-warning">For a public/production deployment, route long-lived cloud keys through a backend/Worker proxy. Direct browser keys are intended for the requested personal bring-your-own-key workflow.</p>
     </section>
     <section class="panel"><h2>Ollama</h2><div class="form"><label>Host<input id="ollamaHost" value="${esc(c.baseUrl)}"></label><label>Chat model<select id="ollamaModel"><option value="${esc(c.model)}">${esc(c.model || "Detect installed models")}</option></select></label><label>Embedding model<select id="embedModel"><option value="${esc(c.embeddingModel || "")}">${esc(c.embeddingModel || "Keyword-only")}</option></select></label><label>Keep alive<select id="keepAlive">${["default", "0", "5m", "15m", "30m", "1h", "2h", "4h"].map(x => `<option ${c.keepAlive===x? "selected": ""}>${x}</option>`).join("")}</select></label><label>Reasoning<select id="thinking">${["off", "auto", "on"].map(x => `<option ${c.thinking===x? "selected": ""}>${x}</option>`).join("")}</select><div class="actions"><button class="btn" id="checkOllama">Check Ollama</button><button class="btn" id="detectOllama">Detect & classify</button><button class="btn primary" id="testOllama">Test & Save</button></div><div id="ollamaDiag" class="muted">Expected local API: http://localhost:11434</div><div id="ollamaHelp" class="ollama-help" hidden></div></div></section>
+    <section class="panel" id="qaProfileSettings"><h2>QA / Schedule Quality Profile</h2><p class="muted">Choose a preset and optionally override individual thresholds. The full 14-point screen and DCMA issue generation use this profile.</p><div class="form"><label>QA profile<select id="settingsQaProfile">${Object.values(QA_PROFILES).map(p=>`<option value="${esc(p.id)}" ${p.id===qa.id?"selected":""}>${esc(p.name)}</option>`).join("")}</select></label><div class="qa-threshold-grid">${Object.entries(qaThresholdLabels).map(([key,label])=>`<label>${esc(label)}<input type="number" step="0.01" data-qa-threshold="${esc(key)}" value="${Number(qa.thresholds[key] ?? 0)}"></label>`).join("")}</div><div class="actions"><button class="btn primary" id="applyQaProfile" type="button">Apply QA profile</button><button class="btn" id="resetQaProfile" type="button">Reset preset thresholds</button></div><div id="qaProfileDiag" class="muted">Current: ${esc(qa.name)} · ${esc(qa.description)}</div></div></section>
     <section class="panel"><h2>Project Controls Profile</h2><div class="form"><label>Specialism<select id="profile">${["General Project Controls", "Data Centre", "Life Sciences / Pharma", "Industrial / Process"].map(x => `<option ${state.profile===x? "selected": ""}>${x}</option>`).join("")}</select></label><div class="actions"><button class="btn primary" id="applyProfile">Apply profile</button></div><div id="profileDiag" class="muted">Current profile: ${esc(state.profile)}</div></div></section>
     <section class="panel"><h2>Set up Ollama on Windows</h2><ol class="muted"><li>Download <code>setup-ollama.bat</code> from this site/repository.</li><li>Right-click it and choose <strong>Run as administrator</strong>.</li><li>Enter this GitHub Pages origin when prompted, for example <code>https://your-name.github.io</code>.</li><li>The script installs Ollama with Windows Package Manager when needed, configures <code>OLLAMA_ORIGINS</code>, starts Ollama and pulls a small default model.</li><li>Return here, click <strong>Check Ollama</strong>, then <strong>Detect & classify</strong>, select a chat model, and use <strong>Test & Save</strong>.</li></ol><a class="btn" href="./setup-ollama.bat" download>Download setup-ollama.bat</a><p class="muted" style="margin-top:10px">The website remains static on GitHub Pages. Ollama runs locally on the user's Windows computer; no paid AI service is required.</p></section>
     <section class="panel"><h2>Local Microsoft Project (.mpp) Parser</h2><p class="muted">GitHub Pages cannot execute a native MPP parser itself. This helper runs only on the user's PC, converts MPP to MSPDI XML locally, and returns the XML to this page so it can be normalised into the same editable internal schedule model as XER/XML.</p><ol class="muted"><li>Download <code>setup-mpp-bridge.bat</code> together with the <code>tools</code> folder from this build.</li><li>Double-click the BAT file. It installs Node.js LTS if needed, installs the MPP parser, and starts <code>127.0.0.1:8765</code>.</li><li>Leave that window open while importing or linking <code>.mpp</code> files.</li><li>Use <strong>Test MPP parser</strong> below. Then import the MPP from the left repository pane.</li></ol><div class="form"><label>Local parser URL<input id="mppBridgeUrl" value="${esc(mppBridgeUrl())}"></label><div class="actions"><button class="btn" id="testMppBridge">Test MPP parser</button><a class="btn" href="./setup-mpp-bridge.bat" download>Download MPP setup BAT</a></div><div id="mppBridgeDiag" class="muted">Expected local API: http://127.0.0.1:8765</div></div></section>
   </div>`;
   const refreshSelectedCard = () => {
     const selected = selectedAIInfo();
-    $("selectedAiCard").innerHTML = `<div class="ai-config-title">${esc(aiLabel())}</div><div class="ai-config-meta"><span>${esc(selected.engine==="none"? "Disabled": selected.engine==="ollama"? "Ollama": selected.engine==="gemini"? "Google Gemini API": selected.engine==="grok"? "xAI Grok API": selected.engine==="openai"? "OpenAI Responses API": selected.engine==="anthropic"? "Anthropic Claude API": selected.engine==="cpu"? "CPU / WASM": selected.engine==="gpu-transformers"? "WebGPU / Transformers.js": "WebGPU / WebLLM")}</span><span>${esc(selected.memory || "")}</span></div><div class="${selected.compatible? "ai-ok": "ai-warning"}">${selected.engine==="none"? "No AI calls will be made.": selected.compatible? "Compatible with this browser.": esc(selected.compatibilityMessage)}</div>`;
+    $("selectedAiCard").innerHTML = `<div class="ai-config-title">${esc(aiLabel())}</div><div class="ai-config-meta"><span>${esc(selected.engine==="none"? "Disabled": selected.engine==="ollama"? "Ollama": cloudProviderIds().includes(selected.engine)? `${cloudProviderMeta(selected.engine).label} API`: selected.engine==="cpu"? "CPU / WASM": selected.engine==="gpu-transformers"? "WebGPU / Transformers.js": "WebGPU / WebLLM")}</span><span>${esc(selected.memory || "")}</span></div><div class="${selected.compatible? "ai-ok": "ai-warning"}">${selected.engine==="none"? "No AI calls will be made.": selected.compatible? "Compatible with this browser.": esc(selected.compatibilityMessage)}</div>`;
     $("testSelectedAI").disabled = selected.engine==="none" || selected.engine==="ollama" || !selected.compatible;
   };
   refreshSelectedCard();
@@ -2793,21 +3111,40 @@ function renderSettings() {
     $("profileDiag").textContent = `Applied: ${state.profile}`;
     toast(`Profile applied: ${state.profile}`)
   };
+  $("settingsQaProfile")?.addEventListener("change", e => {
+    state.qaProfileId = e.target.value || DEFAULT_QA_PROFILE_ID;
+    state.qaCustomThresholds = {};
+    localStorage.setItem("pcai.qaProfileId", state.qaProfileId);
+    localStorage.removeItem("pcai.qaCustomThresholds");
+    renderSettings();
+  });
+  $("applyQaProfile")?.addEventListener("click", () => {
+    const overrides = {};
+    document.querySelectorAll("[data-qa-threshold]").forEach(el => {
+      const value = Number(el.value); if (Number.isFinite(value)) overrides[el.dataset.qaThreshold] = value;
+    });
+    state.qaCustomThresholds = overrides;
+    localStorage.setItem("pcai.qaProfileId", state.qaProfileId || DEFAULT_QA_PROFILE_ID);
+    localStorage.setItem("pcai.qaCustomThresholds", JSON.stringify(overrides));
+    $("qaProfileDiag").textContent = `Applied: ${currentQaProfile().name} with ${Object.keys(overrides).length} configured thresholds.`;
+    toast("QA profile thresholds applied");
+  });
+  $("resetQaProfile")?.addEventListener("click", () => {
+    state.qaCustomThresholds = {};
+    localStorage.removeItem("pcai.qaCustomThresholds");
+    renderSettings();
+  });
   const bindCloudProvider = (provider) => {
     const cap = provider[0].toUpperCase() + provider.slice(1),
-    display = {
-      gemini: "Gemini",
-      grok: "Grok",
-      openai: "OpenAI",
-      anthropic: "Claude"
-    }
-    [provider] || cap,
+    display = cloudProviderMeta(provider).label,
     keyEl = $(provider + "ApiKey"),
     modelEl = $(provider + "Model"),
+    baseUrlEl = $(provider + "BaseUrl"),
+    protocolEl = $(provider + "Protocol"),
     diag = $(provider + "Diag");
     $("save" + cap).onclick = () => {
       const cfg = saveCloudConfig(provider, {
-        apiKey: keyEl.value, model: modelEl.value
+        apiKey: keyEl.value, model: modelEl.value, baseUrl: baseUrlEl?.value, protocol: protocolEl?.value
       });
       diag.textContent = `✓ ${display} settings saved locally · ${cfg.model}`;
       renderAIModelDisplay();
@@ -2823,17 +3160,24 @@ function renderSettings() {
     };
     $("test" + cap).onclick = async() => {
       saveCloudConfig(provider, {
-        apiKey: keyEl.value, model: modelEl.value
+        apiKey: keyEl.value, model: modelEl.value, baseUrl: baseUrlEl?.value, protocol: protocolEl?.value
       });
       diag.textContent = `Testing ${display}…`;
       const r = await testCloudAI(provider);
       diag.textContent = r.ok? `✓ ${r.message}`: `✕ ${r.message}`
     };
+    $("models" + cap)?.addEventListener("click", async () => {
+      saveCloudConfig(provider, { apiKey: keyEl.value, model: modelEl.value, baseUrl: baseUrlEl?.value, protocol: protocolEl?.value });
+      diag.textContent = `Refreshing ${display} models…`;
+      try {
+        const models = await listCloudModels(provider);
+        const list = $(provider + "ModelList");
+        if (list) list.innerHTML = models.map(m => `<option value="${esc(m)}"></option>`).join("");
+        diag.textContent = models.length ? `✓ ${models.length} model identifiers loaded. Type or choose a model above.` : `No model list was returned. You can still enter the model identifier manually.`;
+      } catch (error) { diag.textContent = `✕ Model discovery unavailable: ${error?.message || error}. Manual model entry remains available.`; }
+    });
   };
-  bindCloudProvider("gemini");
-  bindCloudProvider("grok");
-  bindCloudProvider("openai");
-  bindCloudProvider("anthropic");
+  cloudIds.forEach(bindCloudProvider);
   const showOllamaHelp = (resultOrError) => {
     const box = $("ollamaHelp"),
     diag = $("ollamaDiag");

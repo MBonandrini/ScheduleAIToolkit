@@ -10,6 +10,7 @@ import {
   clamp,
   addDays
 } from "../core/utils.js";
+import { interactiveBarChart } from "./chart-workbench.js";
 export const metric = (label, value, detail = "", help = "") => `<div class="metric${help? " metric-help": ""}"${help? ` title="${esc(help)}" data-help="${esc(help)}"`: ""}><small>${esc(label)}${help? ` <span class="help-dot" aria-hidden="true">?</span>`: ""}</small><strong>${esc(value)}</strong><small>${esc(detail)}</small></div>`;
 export const badge = (text, kind = "") => `<span class="badge ${kind}">${esc(text)}</span>`;
 export const table = (headers, rows, {
@@ -53,37 +54,10 @@ export function lineChart(series, {
   }, (_, i) => i % step===0? `<text x="${xAt(i)}" y="${height - bottom + 18}" class="chart-axis-label chart-x-label" text-anchor="${rotateLabels? "start": "middle"}" ${rotateLabels? `transform="rotate(90 ${xAt(i)} ${height - bottom + 18})"`: ""}>${esc(String(xLabels[i] ?? i))}</text>`: "").join("");
   return`<div class="chart-shell">${chartLegend(series)}<svg class="svg-chart${rotateLabels? " rotated-axis": ""}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">${grid}${paths}${labels}</svg></div>`;
 }
-export function barChart(rows, {
-  width = 900, height = 280, labelKey = "label", series = [], xLabels = null, rotateLabels = false, valueSuffix = ""
+export function barChart(rows, options = {}) {
+  return interactiveBarChart(rows, options);
 }
-= {
-}) {
-  if (!rows?.length || !series?.length)return`<div class="empty-state">No chart data.</div>`;
-  const vals = rows.flatMap(r => series.map(s => Number(r[s.key] || 0))),
-  max = Math.max(1, ...vals),
-  left = 38,
-  right = 16,
-  top = 20,
-  bottom = rotateLabels? 84: 42,
-  plotH = height - top - bottom,
-  plotW = width - left - right;
-  const groupW = plotW / rows.length,
-  barW = Math.max(1.5, groupW / Math.max(2, series.length + 1));
-  const grid = Array.from( {
-    length: 5
-  }, (_, i) => {
-    const y = top + i / 4 * plotH, val = max - i / 4 * max; return`<line x1="${left}" y1="${y}" x2="${width - right}" y2="${y}" class="chart-grid"/><text x="5" y="${y + 3}" class="chart-axis-label">${Number(val).toFixed(0)}</text>`
-  }).join("");
-  const bars = [];
-  rows.forEach((r, i) => {
-    series.forEach((s, j) => {
-      const v = Number(r[s.key] || 0), h = (v / max) * plotH, x = left + i * groupW + j * barW + barW * .22, y = top + plotH - h; bars.push(`<rect x="${x}" y="${y}" width="${Math.max(1, barW * .68)}" height="${h}" rx="1.5" class="chart-bar chart-series-${j % 6}"><title>${esc((xLabels?.[i]) ?? r[labelKey] ?? "")} · ${esc(s.label || s.name || s.key)}: ${v.toFixed(2)}${esc(valueSuffix)}</title></rect>`);
-    });
-  });
-  const step = Math.max(1, Math.ceil(rows.length / 16)),
-  labels = rows.map((r, i) => i % step===0? `<text x="${left + i * groupW + groupW * .35}" y="${height - bottom + 18}" class="chart-axis-label chart-x-label" text-anchor="${rotateLabels? "start": "middle"}" ${rotateLabels? `transform="rotate(90 ${left + i * groupW + groupW * .35} ${height - bottom + 18})"`: ""}>${esc(String((xLabels?.[i]) ?? r[labelKey] ?? "").slice(0, 18))}</text>`: "").join("");
-  return`<div class="chart-shell">${chartLegend(series)}<svg class="svg-chart${rotateLabels? " rotated-axis": ""}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">${grid}${bars.join("")}${labels}</svg></div>`;
-}
+
 function relationshipText(r) {
   return`${r.predId} ${r.type || "FS"}${Number(r.lag || 0)? ` ${Number(r.lag)>0? "+": ""}${Number(r.lag).toFixed(1)}d`: ""} → ${r.succId}`
 }

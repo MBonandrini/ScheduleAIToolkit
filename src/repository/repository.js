@@ -48,13 +48,19 @@ export async function renameProject(name) {
   return p;
 }
 export async function addFiles(files, {
-  category = "Other", checked = true, source = "upload", relativePath = ""
+  category = "Other", checked = true, source = "upload", relativePath = "", onProgress = null
 }
 = {
 }) {
   const project = await ensureProject(),
-  out = [];
-  for (const file of Array.from(files || [])) {
+  out = [], list = Array.from(files || []), total = Math.max(1, list.length);
+  const report = (index, localPercent, detail, title = "Loading schedules") => {
+    const percent = Math.min(99, ((index + Math.max(0, Math.min(100, localPercent)) / 100) / total) * 100);
+    onProgress?.({ title, detail, percent });
+  };
+  for (let index = 0; index < list.length; index++) {
+    const file = list[index];
+    report(index, 3, `Storing ${file.name} · file ${index + 1} of ${list.length}`);
     const rec = {
       id: uid("file"),
       projectId: project.id,
@@ -73,7 +79,8 @@ export async function addFiles(files, {
     out.push(rec);
     if (/\.(xer|xml|mpp)$/i.test(file.name)) {
       try {
-        const parsed = await parseScheduleOffThread(file);
+        const parsed = await parseScheduleOffThread(file, { onProgress: p => report(index, Number(p.percent ?? 50), p.detail || `Parsing ${file.name}`) });
+        report(index, 90, `Saving parsed schedule · ${file.name}`);
         for (const s of parsed.schedules) {
           s.id = uid("schedule");
           s.projectId = project.id;
@@ -86,7 +93,9 @@ export async function addFiles(files, {
         await db.put("files", rec)
       }
     }
+    report(index, 100, `Loaded ${file.name} · file ${index + 1} of ${list.length}`);
   }
+  onProgress?.({ title: "Loading schedules", detail: `Loaded ${list.length} file${list.length===1?"":"s"}`, percent: 100, done: true });
   return out;
 }
 export async function listFiles() {
@@ -243,7 +252,7 @@ async function indexDirectory(handle, prefix = "", folderKey = null, rows = []) 
   }
   return rows;
 }
-export async function linkFolder() {
+export async function linkFolder({ onProgress = null } = {}) {
   if (!window.showDirectoryPicker)throw new Error("This browser does not support persistent folder linking. Use the folder upload fallback.");
   const handle = await window.showDirectoryPicker( {
     mode: "read"
@@ -257,12 +266,13 @@ export async function linkFolder() {
     })
   } catch (_) {
   }
+  onProgress?.({ title: "Loading schedules", detail: "Scanning linked folder", percent: 3 });
   const rows = await indexDirectory(handle, "", key, []);
-  const saved = [];
-  for (const {
-    file, path
-  }
-  of rows) {
+  const saved = [], total = Math.max(1, rows.length);
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    const { file, path } = rows[rowIndex];
+    const basePct = rowIndex / total * 100;
+    onProgress?.({ title: "Loading schedules", detail: `Indexing ${file.name} · ${rowIndex + 1} of ${rows.length}`, percent: Math.min(95, basePct + 2) });
     const rec = {
       id: uid("file"),
       projectId: project.id,
@@ -281,7 +291,7 @@ export async function linkFolder() {
     saved.push(rec);
     if (/\.(xer|xml|mpp)$/i.test(file.name)) {
       try {
-        const parsed = await parseScheduleOffThread(file);
+        const parsed = await parseScheduleOffThread(file, { onProgress: p => onProgress?.({ title: "Loading schedules", detail: p.detail || `Parsing ${file.name}`, percent: Math.min(96, basePct + Number(p.percent || 50) / total) }) });
         for (const s of parsed.schedules) {
           s.id = uid("schedule");
           s.projectId = project.id;
@@ -295,15 +305,16 @@ export async function linkFolder() {
       }
     }
   }
+  onProgress?.({ title: "Loading schedules", detail: `Linked ${saved.length} files`, percent: 100, done: true });
   return {
     key,
     name: handle.name,
     count: saved.length
   };
 }
-export async function importFolderFallback(files) {
+export async function importFolderFallback(files, { onProgress = null } = {}) {
   return await addFiles(files, {
-    category: "Bulk Information", checked: true, source: "folder-upload"
+    category: "Bulk Information", checked: true, source: "folder-upload", onProgress
   })
 }
 export async function saveRisk(risk) {

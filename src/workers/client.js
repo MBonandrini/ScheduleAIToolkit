@@ -28,18 +28,25 @@ async function callWorker(url, type, payload) {
     });
   });
 }
-export async function parseScheduleOffThread(file) {
+export async function parseScheduleOffThread(file, { onProgress = null } = {}) {
   const ext = (file.name.split(".").pop() || "").toLowerCase();
+  onProgress?.({ detail: `Reading ${file.name}`, percent: 12 });
   if (workerSupported() && ext==="xer") {
     try {
-      return await callWorker(new URL("./schedule-worker.js", import.meta.url), "parse-xer", {
-        text: await file.text(), name: file.name
-      })
+      const text = await file.text();
+      onProgress?.({ detail: `Parsing XER tables · ${file.name}`, percent: 38 });
+      const result = await callWorker(new URL("./schedule-worker.js", import.meta.url), "parse-xer", { text, name: file.name });
+      onProgress?.({ detail: `Normalising activities, WBS, logic and resources · ${file.name}`, percent: 86 });
+      return result;
     } catch (error) {
-      console.warn("Worker XER parse failed; falling back to main thread", error)
+      console.warn("Worker XER parse failed; falling back to main thread", error);
+      onProgress?.({ detail: `Worker fallback · ${file.name}`, percent: 42 });
     }
   }
-  return await parseScheduleFile(file);
+  onProgress?.({ detail: `${ext.toUpperCase()} parser · ${file.name}`, percent: 45 });
+  const result = await parseScheduleFile(file);
+  onProgress?.({ detail: `Normalising schedule · ${file.name}`, percent: 86 });
+  return result;
 }
 export async function compareOffThread(previous, current) {
   if (workerSupported()) {

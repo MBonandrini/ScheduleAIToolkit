@@ -1,5 +1,5 @@
 /*
- * Project Controls AI Suite v2.1.1
+ * Project Controls AI Suite v3.0.0
  *
  * The stylesheet is organised from shared tokens/chrome to feature-specific
  * components and responsive overrides. Keeping the selectors readable is
@@ -2899,7 +2899,7 @@ html.resizing-column,html.resizing-column * {
 }
 
 /* ================================================================
-   v1.5.0 professional P6-style Gantt, profiles and Schedule Builder
+   Professional P6-style Gantt, profiles and Schedule Builder
    ================================================================ */
 .professional-gantt {
   --gantt-bar:#2b78a8;
@@ -3665,9 +3665,9 @@ html.resizing-column,html.resizing-column * {
 }
 
 /* ==========================================================================
-   v1.5.0 professional Gantt layouts, profile controls and schedule wizard
+   Professional Gantt layouts, profile controls and schedule wizard
    ========================================================================== */
-/* v1.5.3 Measurement workspace */
+/* Measurement workspace */
 .measurement-source-panel {
   display:grid;
   gap:14px
@@ -3918,7 +3918,7 @@ html.resizing-column,html.resizing-column * {
 
 }
 
-/* v1.5.4 measurement schedule alignment */
+/* Measurement schedule alignment */
 .measurement-alignment {
   margin-top:14px;
   padding:12px 14px;
@@ -3977,7 +3977,7 @@ html.resizing-column,html.resizing-column * {
 
 }
 
-/* v1.5.5 hierarchical WBS Gantt */
+/* Hierarchical WBS Gantt */
 .gantt-wbs-node {
   display:block;
   min-width:0
@@ -4078,7 +4078,7 @@ html.resizing-column,html.resizing-column * {
   top:11px
 }
 
-/* v1.5.5 Claims delay-event identification */
+/* Claims delay-event identification */
 .identify-delay-events {
   margin-top:12px
 }
@@ -4183,7 +4183,7 @@ html.resizing-column,html.resizing-column * {
 
 }
 
-/* v1.5.5 Settings masonry-style packing: removes large row gaps between unequal cards */
+/* Settings masonry-style packing: removes large row gaps between unequal cards */
 .settings-grid {
   display:block!important;
   columns:440px 2;
@@ -4207,7 +4207,7 @@ html.resizing-column,html.resizing-column * {
 
 }
 
-/* v2.0.0 forensic evidence drill-down */
+/* Forensic evidence drill-down */
 .forensic-evidence-stack {
   display:grid;
   gap:10px;
@@ -4341,240 +4341,27 @@ html.resizing-column,html.resizing-column * {
 }
 
 /* --------------------------------------------------------------------------
-   v2.1.1 — Schedule Builder generation pipeline
+   Manpower Breakout presentation tool
    -------------------------------------------------------------------------- */
-.builder-progress-head {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  font-size:10px;
-}
+.manpower-config{display:grid;gap:14px}.manpower-config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end}.manpower-config-grid label,.manpower-layout-row label{display:grid;gap:6px}.manpower-ai-row{padding:10px 0;border-top:1px solid var(--line,#d5dde5);border-bottom:1px solid var(--line,#d5dde5)}.manpower-layout-head,.manpower-floor-banner{display:flex;justify-content:space-between;align-items:center;gap:12px}.manpower-layout-head h2,.manpower-floor-banner h2{margin:0}.manpower-layout-list{display:grid;gap:8px}.manpower-layout-row{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(260px,1.5fr) auto;gap:10px;align-items:end;padding:10px;border:1px solid var(--line,#d5dde5);border-radius:10px;background:var(--panel-2,rgba(127,127,127,.04))}.manpower-week-selector{overflow:hidden}.manpower-fishbone{position:relative;display:flex;gap:0;align-items:center;overflow-x:auto;padding:34px 24px 40px;min-height:112px}.fishbone-spine{position:absolute;left:18px;right:18px;top:55px;height:4px;border-radius:4px;background:var(--accent,#2b78a8)}.fishbone-week{position:relative;z-index:2;flex:0 0 116px;border:1px solid var(--line,#d5dde5);border-radius:999px;background:var(--panel,#fff);color:inherit;padding:8px 8px;display:grid;gap:1px;text-align:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.1)}.fishbone-week strong{font-size:12px}.fishbone-week small{font-size:10px;opacity:.7}.fishbone-week.active{outline:3px solid color-mix(in srgb,var(--accent,#2b78a8) 35%,transparent);border-color:var(--accent,#2b78a8);transform:translateY(-1px)}.fishbone-bone{position:absolute;left:50%;width:2px;height:30px;background:var(--accent,#2b78a8);transform-origin:bottom}.bone-top{bottom:100%;transform:rotate(38deg)}.bone-bottom{top:100%;transform:rotate(-38deg);transform-origin:top}.manpower-floor-banner{padding:10px 4px;margin-top:18px;border-bottom:2px solid var(--accent,#2b78a8)}.manpower-floor-main{display:grid;grid-template-columns:minmax(440px,1.2fr) minmax(380px,1fr);gap:14px;align-items:start}.manpower-layout-column{display:grid;gap:12px}.manpower-layout-reference{min-height:260px;max-height:520px;overflow:hidden;border:1px solid var(--line,#d5dde5);border-radius:10px;background:var(--panel-2,rgba(127,127,127,.04));display:grid;place-items:center}.manpower-layout-reference img,.manpower-layout-reference object{display:block;width:100%;height:100%;min-height:260px;max-height:520px;object-fit:contain;background:white}.manpower-area-map{border:1px solid var(--line,#d5dde5);border-radius:10px;padding:10px}.manpower-area-map-title{font-weight:700;margin-bottom:8px}.manpower-zone-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:8px}.manpower-zone{border:1px solid var(--line,#d5dde5);border-radius:9px;padding:9px;background:var(--panel,#fff);min-height:100px}.manpower-zone-head{display:flex;justify-content:space-between;gap:8px;align-items:start}.manpower-zone-head span{font-size:10px;opacity:.65}.discipline-strips{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}.discipline-chip{display:inline-flex;align-items:center;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:700;border:1px solid currentColor;background:color-mix(in srgb,currentColor 10%,transparent)}.discipline-0{color:#6f5236}.discipline-1{color:#8f4f86}.discipline-2{color:#21618c}.discipline-3{color:#b7791f}.discipline-4{color:#b83232}.discipline-5{color:#4a6f8c}.discipline-6{color:#6153a5}.discipline-7{color:#3d7b53}.discipline-8{color:#9a5b21}.discipline-9{color:#59636e}.manpower-zone-metric{display:flex;justify-content:space-between;gap:8px;align-items:end}.manpower-zone-metric b{font-size:18px}.manpower-zone-metric span{font-size:10px;opacity:.7;text-align:right}.manpower-week-activities{min-width:0}.manpower-week-activities>h3{margin-top:0}.manpower-activity-groups{display:grid;gap:7px;max-height:760px;overflow:auto}.manpower-wbs{border:1px solid var(--line,#d5dde5);border-radius:8px;overflow:hidden}.manpower-wbs summary{cursor:pointer;padding:8px 10px;display:flex;justify-content:space-between;gap:10px;background:var(--panel-2,rgba(127,127,127,.05))}.manpower-wbs summary span{font-size:11px;opacity:.7}.manpower-wbs .table-wrap{border:0;border-radius:0}.manpower-floor-total{text-align:right;display:grid}.manpower-floor-total strong{font-size:18px}.manpower-floor-total span{font-size:11px;opacity:.7}.manpower-small-charts{margin-top:12px}.manpower-small-charts section{min-width:0}.manpower-compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}.manpower-forensic-floor .manpower-floor-panel{margin-top:10px}.manpower-forensic-floor .manpower-floor-main{grid-template-columns:1fr}.manpower-forensic-floor .manpower-activity-groups{max-height:520px}
+@media(max-width:1200px){.manpower-floor-main,.manpower-compare-grid{grid-template-columns:1fr}.manpower-layout-row{grid-template-columns:1fr}.manpower-floor-main{grid-template-columns:1fr}}
 
-.builder-pipeline {
-  list-style:none;
-  margin:4px 0 0;
-  padding:0;
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:7px;
-}
+/* Interactive chart workbench controls */
+.chart-workbench{display:grid;gap:8px;min-width:0}.chart-toolbar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:end;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--panel2)}.chart-toolbar-group{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.chart-toolbar label{display:grid;gap:3px;font-size:10px;color:var(--muted)}.chart-toolbar select{min-width:100px}.chart-toolbar .chart-check{display:flex;align-items:center;gap:5px;padding-bottom:6px}.chart-toolbar-actions{margin-left:auto}.chart-workbench-title{margin:2px 0}.interactive-chart-legend label{display:flex;gap:5px;align-items:center;cursor:pointer}.interactive-chart-legend input{margin:0}.chart-canvas{width:100%;overflow:auto;border-radius:8px}.chart-canvas svg{display:block;width:100%;min-width:620px;height:auto;overflow:visible}.chart-value-label{fill:var(--text);font-size:8px;font-weight:700}.chart-zero-line{stroke:var(--text);stroke-width:1.1;opacity:.5}.chart-grid.chart-zero{stroke:var(--text);opacity:.3}.chart-area{fill:var(--series,var(--blue));opacity:.13;stroke:none}.chart-bar-group{cursor:pointer}.chart-bar-group:hover .chart-bar,.chart-bar-group:hover .chart-point{filter:brightness(1.08);opacity:1}.chart-workbench:fullscreen{background:var(--bg);padding:18px;overflow:auto}.chart-workbench:fullscreen .chart-canvas svg{max-height:calc(100vh - 190px)}
+@media(max-width:760px){.chart-toolbar{align-items:stretch}.chart-toolbar-group{width:100%}.chart-toolbar-actions{margin-left:0}.chart-canvas svg{min-width:720px}}
 
-.builder-pipeline li {
-  display:grid;
-  grid-template-columns:24px minmax(0,1fr);
-  gap:7px;
-  align-items:start;
-  min-width:0;
-  padding:7px;
-  border:1px solid var(--border);
-  border-radius:7px;
-  background:color-mix(in srgb,var(--panel) 94%,var(--border));
-}
-
-.builder-pipeline li>span {
-  display:grid;
-  place-items:center;
-  width:22px;
-  height:22px;
-  border-radius:50%;
-  background:var(--border);
-  color:var(--muted);
-  font-weight:850;
-  font-size:9px;
-}
-
-.builder-pipeline li div {
-  min-width:0;
-  display:grid;
-  gap:2px;
-}
-
-.builder-pipeline li strong {
-  font-size:9px;
-  line-height:1.25;
-}
-
-.builder-pipeline li small {
-  color:var(--muted);
-  font-size:8px;
-  line-height:1.3;
-  overflow-wrap:anywhere;
-}
-
-.builder-pipeline li.running {
-  border-color:color-mix(in srgb,var(--accent) 68%,var(--border));
-  background:color-mix(in srgb,var(--accent) 8%,var(--panel));
-}
-
-.builder-pipeline li.running>span {
-  background:var(--accent);
-  color:white;
-}
-
-.builder-pipeline li.done {
-  border-color:color-mix(in srgb,var(--good) 55%,var(--border));
-  background:color-mix(in srgb,var(--good) 7%,var(--panel));
-}
-
-.builder-pipeline li.done>span {
-  background:var(--good);
-  color:white;
-}
-
-/* --------------------------------------------------------------------------
-   v2.1.1 — Monte Carlo controls and outcome distribution
-   -------------------------------------------------------------------------- */
-.risk-quant {
-  min-width:0;
-}
-
-.monte-options {
-  border:1px solid var(--border);
-  border-radius:8px;
-  margin:8px 0 12px;
-  overflow:hidden;
-}
-
-.monte-options>summary,.monte-criticality>summary {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  padding:9px 11px;
-  cursor:pointer;
-  background:color-mix(in srgb,var(--panel) 94%,var(--border));
-}
-
-.monte-options>summary span,.monte-criticality>summary span {
-  color:var(--muted);
-  font-size:9px;
-}
-
-.monte-options>.form {
-  padding:11px;
-}
-
-.monte-grid {
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:9px;
-}
-
-.monte-options>p {
-  margin:0;
-  padding:0 11px 11px;
-  font-size:9px;
-  line-height:1.45;
-}
-
-.monte-empty {
-  padding:12px 0;
-}
-
-.monte-metrics {
-  margin-top:10px;
-}
-
-.monte-outcome {
-  margin:12px 0;
-  border:1px solid var(--border);
-  border-radius:8px;
-  padding:10px;
-  background:color-mix(in srgb,var(--panel) 97%,var(--border));
-  min-width:0;
-}
-
-.monte-outcome figcaption {
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:5px;
-}
-
-.monte-outcome figcaption span {
-  color:var(--muted);
-  font-size:9px;
-}
-
-.monte-outcome svg {
-  display:block;
-  width:100%;
-  min-height:230px;
-}
-
-.monte-bar {
-  fill:color-mix(in srgb,var(--accent) 70%,white 8%);
-  opacity:.8;
-}
-
-.monte-bar:hover {
-  opacity:1;
-}
-
-.monte-axis {
-  stroke:var(--border);
-  stroke-width:1.2;
-}
-
-.monte-p50,.monte-p80,.monte-planned {
-  stroke-width:1.5;
-  stroke-dasharray:4 3;
-}
-
-.monte-p50 { stroke:var(--good); }
-.monte-p80 { stroke:var(--warn); }
-.monte-planned { stroke:var(--danger); }
-
-.monte-marker-label,.monte-axis-label {
-  fill:var(--muted);
-  font-size:8px;
-  font-family:inherit;
-}
-
-.monte-run-summary {
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px 14px;
-  border:1px solid var(--border);
-  border-radius:7px;
-  padding:8px 10px;
-  font-size:9px;
-  color:var(--muted);
-}
-
-.monte-run-summary strong {
-  color:var(--text);
-}
-
-.monte-criticality {
-  margin-top:10px;
-  border:1px solid var(--border);
-  border-radius:8px;
-  overflow:hidden;
-}
-
-.monte-criticality>.table-wrap,.monte-criticality>table {
-  margin:0;
-}
-
-@media(max-width:980px) {
-  .builder-pipeline {
-    grid-template-columns:repeat(2,minmax(0,1fr));
-  }
-}
-
-@media(max-width:680px) {
-  .builder-pipeline,.monte-grid {
-    grid-template-columns:1fr;
-  }
-
-  .monte-outcome figcaption {
-    flex-direction:column;
-  }
-}
-
-.monte-actions {
-  padding:0 11px 11px;
-  justify-content:flex-end;
-}
+/* v3 analytical controls --------------------------------------------------- */
+.chart-toolbar input[type="search"],
+.chart-toolbar input[type="date"],
+.chart-toolbar input[type="number"]{min-width:110px;max-width:170px}
+.chart-selection{min-height:18px;padding:2px 4px}
+.chart-threshold-line{stroke:var(--danger,#c33);stroke-width:1.5;stroke-dasharray:5 4;opacity:.85}
+.chart-threshold-label{fill:var(--danger,#c33);font-size:9px;font-weight:700}
+.qa-threshold-grid{display:grid;grid-template-columns:repeat(2,minmax(170px,1fr));gap:10px}
+.qa-threshold-grid label{min-width:0}
+.gantt-layout-manager .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.gantt-layout-manager select{min-width:180px}
+.matrix-cell{display:grid;gap:2px;min-width:185px}.matrix-cell small{color:var(--muted)}
+.deleted-change,.adverse-change{color:var(--danger,#c33);font-weight:700}
+@media(max-width:760px){.qa-threshold-grid{grid-template-columns:1fr}.chart-toolbar input[type="search"],.chart-toolbar input[type="date"],.chart-toolbar input[type="number"]{max-width:none}}
+.chart-average-line{stroke:var(--muted);stroke-width:1.4;stroke-dasharray:2 4;opacity:.9}.chart-average-label{fill:var(--muted);font-size:9px;font-weight:700}

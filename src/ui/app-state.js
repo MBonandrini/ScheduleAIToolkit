@@ -80,6 +80,22 @@ export const state = {
   comparisonBId: "",
   weekAId: "",
   weekBId: "",
+  weekChangeFilter: "all",
+  weekWbsFilter: "",
+  qaProfileId: "dcma-standard",
+  qaCustomThresholds: {},
+  windowsScheduleIds: Array(8).fill(""),
+  logicAId: "",
+  logicBId: "",
+  calendarDiffAId: "",
+  calendarDiffBId: "",
+  resourceForensicAId: "",
+  resourceForensicBId: "",
+  baselineSlots: ["", "", ""],
+  baselineSlotNames: ["BL1", "BL2", "BL3"],
+  floatPathCount: 5,
+  progressIntegrityFilter: "all",
+  forensicMatrixSearch: "",
   delayAId: "",
   delayBId: "",
   forensicScheduleIds: Array(10).fill(""),
@@ -106,19 +122,9 @@ export const state = {
     critical: [],
     wbs: []
   },
+  namedGanttLayouts: { critical: [], wbs: [] },
+  activeNamedGanttLayout: { critical: "", wbs: "" },
   monte: null,
-  monteOptions: {
-    iterations: 5000,
-    seed: 42,
-    uncertaintyPercent: 20,
-    distribution: "triangular",
-    targetId: "",
-    targetDate: "",
-    customPercentile: 75,
-    histogramBuckets: 20,
-    includeRisks: true,
-    remainingOnly: true,
-  },
   chats: {
   },
   quantityRows: [],
@@ -131,7 +137,21 @@ export const state = {
   claimCompareAId: "",
   claimCompareBId: "",
   identifiedDelayEvents: [],
+  inspectorActivityId: "",
+  issueRows: [],
+  issueFilter: "all",
   profile: "Data Centre",
+  manpowerMode: "forward",
+  manpowerScheduleId: "",
+  manpowerPlannedId: "",
+  manpowerActualId: "",
+  manpowerLayouts: [{ id: "layout-1", fileId: "", label: "All / Project" }],
+  manpowerUseAI: true,
+  manpowerHoursPerPerson: 45,
+  manpowerOverrides: {},
+  manpowerFriday: "",
+  manpowerMonth: "",
+  manpowerGenerated: false,
 };
 export function freshGanttLayout(kind) {
   const defaults = DEFAULT_GANTT_LAYOUTS[kind] || DEFAULT_GANTT_LAYOUTS.wbs;
@@ -170,4 +190,14 @@ export function saveGanttLayout(kind) {
   if (layout) {
     localStorage.setItem(`pcai.ganttLayout.${kind}`, JSON.stringify(layout));
   }
+}
+
+export function loadNamedGanttLayouts(kind) {
+  try {
+    const rows = JSON.parse(localStorage.getItem(`pcai.namedGanttLayouts.${kind}`) || "[]");
+    return Array.isArray(rows) ? rows.filter(x => x?.name && x?.layout) : [];
+  } catch { return []; }
+}
+export function saveNamedGanttLayouts(kind, rows) {
+  localStorage.setItem(`pcai.namedGanttLayouts.${kind}`, JSON.stringify(Array.isArray(rows) ? rows : []));
 }

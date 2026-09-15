@@ -15,6 +15,12 @@ export const AI_CATALOG = [ {
 }, {
   value: "anthropic:default", engine: "anthropic", model: "claude-sonnet-5", label: "Claude — Anthropic API key", group: "Cloud API · bring your own key", memory: "Cloud", contextChars: 90000
 }, {
+  value: "deepseek:default", engine: "deepseek", model: "deepseek-flash", label: "DeepSeek — API key", group: "Cloud API · bring your own key", memory: "Cloud", contextChars: 120000
+}, {
+  value: "nvidia:default", engine: "nvidia", model: "nvidia/nemotron-3-super-120b-a12b", label: "NVIDIA NIM — API key", group: "Cloud API · bring your own key", memory: "Cloud", contextChars: 90000
+}, {
+  value: "custom:default", engine: "custom", model: null, label: "Custom OpenAI-compatible endpoint", group: "Cloud API · bring your own key", memory: "Cloud", contextChars: 90000
+}, {
   value: "cpu:qwen2.5-0.5b", engine: "cpu", model: "onnx-community/Qwen2.5-0.5B-Instruct", label: "Browser CPU/WASM — Qwen2.5 0.5B", group: "Browser CPU / WASM", memory: "~0.8–1.5 GB", contextChars: 12000, dtype: "q4"
 }, {
   value: "cpu:llama3.2-1b", engine: "cpu", model: "onnx-community/Llama-3.2-1B-Instruct-ONNX", label: "Browser CPU/WASM — Llama 3.2 1B", group: "Browser CPU / WASM", memory: "~1.2–2.5 GB", contextChars: 14000, dtype: "q4"
